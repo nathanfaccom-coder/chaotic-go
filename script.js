@@ -316,40 +316,55 @@ function criarMarcadorMonstro(latM, lonM, sorteado, ehPassivo = false) {
 function spawnMonstrosNaArea(lat, lon, forcarPassivo = false) {
     if (typeof MONSTROS === 'undefined' || MONSTROS.length === 0) return;
 
+    // Filtra pela tribo do Local
     let listaFiltrada = MONSTROS.filter(m => !triboLocalParaViagem || triboLocalParaViagem === "Qualquer" || m.tribo === triboLocalParaViagem);
     if (listaFiltrada.length === 0) listaFiltrada = MONSTROS; 
 
     let agora = new Date();
-    let sementeBase = localParaViagem + agora.getDate() + agora.getHours();
     
+    // CORREÇÃO: Transforma o nome do local e a hora em um NÚMERO REAL para a matemática não dar zero
+    let textoSemente = localParaViagem + agora.getDate() + agora.getHours();
+    let sementeBase = 0;
+    for (let k = 0; k < textoSemente.length; k++) {
+        sementeBase = Math.imul(31, sementeBase) + textoSemente.charCodeAt(k) | 0;
+    }
+    sementeBase = Math.abs(sementeBase); // Garante que seja positivo
+    
+    // 1. SPAWN FIXO (Estilo "Ninho" - Igual para todos)
     if (forcarPassivo === false) {
         marcadoresMonstros.forEach(m => mapaScanner.removeLayer(m));
         marcadoresMonstros = [];
 
-        for (let i = 0; i < 5; i++) {
-            let sementeUnica = sementeBase + i;
+        // Agora geramos 6 criaturas BEM espalhadas
+        for (let i = 0; i < 6; i++) {
+            let sementeUnica = sementeBase + (i * 150); // Multiplicador para não repetir
+            
+            // Sorteia qual monstro vai aparecer (Agora o Promos aparece!)
             let indexMonstro = Math.floor(sementeRandom(sementeUnica) * listaFiltrada.length);
             const sorteado = listaFiltrada[indexMonstro];
             
-            let offLat = (sementeRandom(sementeUnica + 200) - 0.5) * 0.015;
-            let offLon = (sementeRandom(sementeUnica + 300) - 0.5) * 0.015;
+            // Espalha as coordenadas (raio de aprox. 1.5km a 2km)
+            let offLat = (sementeRandom(sementeUnica + 200) - 0.5) * 0.02;
+            let offLon = (sementeRandom(sementeUnica + 300) - 0.5) * 0.02;
             
             criarMarcadorMonstro(lat + offLat, lon + offLon, sorteado, false);
         }
     }
 
+    // 2. SPAWN PASSIVO (Estilo "Caminhada" - Só para você)
     if (forcarPassivo) {
         let sorteioRaridade = Math.random();
         let listaRaridade = listaFiltrada.filter(m => m.raridade >= sorteioRaridade);
         const sorteadoPassivo = listaRaridade.length > 0 ? listaRaridade[Math.floor(Math.random() * listaRaridade.length)] : listaFiltrada[0];
 
-        let offLat = (Math.random() - 0.5) * 0.0005;
-        let offLon = (Math.random() - 0.5) * 0.0005;
+        // Aparece colado em você (aprox. 30 metros)
+        let offLat = (Math.random() - 0.5) * 0.0003;
+        let offLon = (Math.random() - 0.5) * 0.0003;
         
         criarMarcadorMonstro(lat + offLat, lon + offLon, sorteadoPassivo, true);
         
         if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-        console.log("Uma criatura se aproximou de você!");
+        mostrarMensagemScanner("⚠️ UMA CRIATURA SELVAGEM APARECEU!");
     }
 }
 
@@ -911,4 +926,5 @@ document.getElementById("btn-cima").onclick = () => {
 };
 
 atualizarSelecao();
+
 
