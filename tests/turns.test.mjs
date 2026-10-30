@@ -104,12 +104,16 @@ function makeClient(actor) {
           match.current_player!==actor||match.turn_no!==args.p_expected_turn||
           !player||wallets.has(k))
           return {data:null,error:{message:"Mão inválida"}};
-        wallets.set(k,{lobby_id:room.id,actor_id:actor,deck_slot:1,
+        wallets.set(k,{lobby_id:room.id,actor_id:actor,deck_slot:1,total_cards:20,
           prepared_turn:match.turn_no,last_draw_turn:match.turn_no,spent_points:0});
+        // Deterministic shuffled fixture: slots 3,1,4 are the opening hand,
+        // slot 2 is the next drawn card. The DB uses gen_random_uuid().
+        const permutation=[2,4,1,3,...Array.from({length:16},(_,i)=>i+5)];
         const cards=[...Array(20)].map((_,i)=>({
           lobby_id:room.id,actor_id:actor,card_slot:i+1,
+          draw_position:permutation[i],
           attack_instance_id:String(105+i),
-          card_state:i<3?"hand":"deck",spent_turn:null}));
+          card_state:permutation[i]<=3?"hand":"deck",spent_turn:null}));
         hands.set(k,cards);
         return {data:{cards_in_hand:3,cards_in_deck:17,points:3},error:null};
       }
@@ -122,7 +126,8 @@ function makeClient(actor) {
         let drew=false;
         if(wallet.last_draw_turn<match.turn_no){
           const list=hands.get(k),available=list.filter(x=>x.card_state==="hand");
-          const next=list.find(x=>x.card_state==="deck");
+          const next=list.filter(x=>x.card_state==="deck")
+            .sort((a,b)=>a.draw_position-b.draw_position)[0];
           if(next&&available.length<5){next.card_state="hand";drew=true;}
           wallet.last_draw_turn=match.turn_no;
         }
@@ -333,7 +338,8 @@ function makeClient(actor) {
                           :table==="chaotic_preview_attack_wallets"
                             ?[...wallets.values()].filter(x=>x.lobby_id===this.id&&x.actor_id===actor)
                             :table==="chaotic_preview_attack_hand"
-                              ?[...hands.values()].flat().filter(x=>x.lobby_id===this.id&&x.actor_id===actor)
+                              ?[...hands.values()].flat().filter(x=>x.lobby_id===this.id&&x.actor_id===actor
+                            &&x.card_state!=="deck")
                         :(journals.get(this.id)||[])):[];
           return Promise.resolve({data:[...events].reverse().slice(0,size),error:null});
         },
@@ -802,6 +808,12 @@ test("1x1 server-owned resource hand rejects wrong actor, insufficient points an
  assert.equal(host("lobby-hand-prepare").hidden,true);
  assert.equal(hands.get(id+"/resource-host").filter(x=>x.card_state==="hand").length,3);
  assert.equal(wallets.get(id+"/resource-host").spent_points,0);
+ assert.equal(wallets.get(id+"/resource-host").total_cards,20);
+ const visible=await makeClient("resource-host").from("chaotic_preview_attack_hand")
+   .select("actor_id,card_slot,draw_position,card_state").eq("lobby_id",id)
+   .order("draw_position",{ascending:true}).limit(20);
+ assert.equal(visible.data.length,3,"Never reveal undealt server deck");
+ assert.deepEqual(visible.data.map(x=>x.card_slot).sort((a,b)=>a-b),[1,3,4]);
  assert.equal(host("lobby-hand-spend").hidden,true);
  assert.ok((await makeClient("resource-guest").rpc("chaotic_spend_preview_attack",{
    p_lobby_id:id,p_expected_turn:1})).error);
@@ -821,6 +833,12 @@ test("1x1 server-owned resource hand rejects wrong actor, insufficient points an
  await host("lobby-hand-sync").onclick();
  assert.equal(host("lobby-hand-sync").hidden,true);
  assert.equal(hands.get(id+"/resource-host").filter(x=>x.card_state==="hand").length,4);
+ assert.equal(hands.get(id+"/resource-host").find(x=>x.card_slot===2).card_state,"hand");
+ const visibleNow=await makeClient("resource-host").from("chaotic_preview_attack_hand")
+   .select("actor_id,card_slot,draw_position,card_state").eq("lobby_id",id)
+   .order("draw_position",{ascending:true}).limit(20);
+ assert.equal(visibleNow.data.length,4);
+ assert.equal(visibleNow.data.some(x=>x.card_state==="deck"),false);
  host("lobby-combat-kind").value="attack";
  host("lobby-combat-slot").value="1";
  await host("lobby-combat-submit").onclick();
