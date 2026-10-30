@@ -3,6 +3,7 @@ do $$
 declare
  v jsonb;
  a integer;
+ invalid_rejected boolean:=false;
  name text;
  attr text;
 begin
@@ -23,6 +24,11 @@ begin
  v:=public.chaotic_preview_initiative_compare(
   '{"v":21}'::jsonb,'{"v":50}'::jsonb,'v');
  if v->>'winner_side'<>'defender' then raise exception 'Magma speed fallback wrong';end if;
+ begin
+  perform public.chaotic_preview_initiative_compare('{"v":30}'::jsonb,'{"p":30}'::jsonb,'p');
+ exception when others then invalid_rejected:=true;
+ end;
+ if not invalid_rejected then raise exception 'Missing Power stat accepted';end if;
  if not (select relrowsecurity from pg_class
   where oid='public.chaotic_preview_room_locations'::regclass)
  then raise exception 'Location RLS disabled';end if;
