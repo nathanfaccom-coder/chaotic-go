@@ -1,6 +1,6 @@
 # Chaotic GO — Status de conclusão e pendências (30/10/2026)
 
-Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 58% (incerteza aproximada ±10 pontos percentuais).**
+Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 59% (incerteza aproximada ±10 pontos percentuais).**
 
 ## Critérios ponderados
 
@@ -9,12 +9,12 @@ Este documento acompanha **prontidão para lançar o jogo completo com Supabase*
 | Motor legado, scanner, cartas, imagens, áudios e interfaces preservados | 25% | 90% | 22,5 p.p. |
 | Contas, migração de coleção, Decks e persistência privada Supabase | 15% | 75% | 11,25 p.p. |
 | Salas privadas, sincronização e protocolo de turnos | 10% | 70% | 7 p.p. |
-| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 40% | 10 p.p. |
+| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 44% | 11 p.p. |
 | Economia, amigos, trocas, recompensas e progressão integradas | 15% | 25% | 3,75 p.p. |
 | Testes ponta a ponta, dois dispositivos, mobile, segurança e publicação | 10% | 35% | 3,5 p.p. |
-| **Estimativa total** | **100%** | | **58 p.p.** |
+| **Estimativa total** | **100%** | | **59 p.p.** |
 
-Números estimados para planejamento, não verificação automática de 58% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
+Números estimados para planejamento, não verificação automática de 59% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
 
 ## Entregas já implementadas ou disponíveis
 - Jogo completo e recursos originais publicados no site; backup de branches anteriores.
@@ -103,3 +103,12 @@ Números estimados para planejamento, não verificação automática de 58% das 
 - **Testes:** `supabase/tests/chaotic-preview-conditional-effects.test.sql` verifica mapeamento das três cartas, recusa de zero, dano desconhecido, status especial, acesso anônimo e escrita direta; `tests/turns.test.mjs` simula dois jogadores, rejeição ao adversário, repetição, sincronização e passagem de turno inalterada.
 - **Próximo bloqueio:** preparar estado de vida autoritativo com resolução de efeitos de dano final; só então autorizar a transição `candidate → active` em uma transação que controla turno, mão, pontos e expiração de status.
 - **Estimativa geral 58% (±10 pontos percentuais):** avanço restrito à preparação e verificação dos gatilhos, **não significa que as habilidades já funcionem na partida**.
+
+## Versão 0.1.18 — HP acumulado de teste sob controle do servidor (30/10/2026)
+- **Saldo de HP independente:** tabelas `chaotic_preview_hp_wallets` e `chaotic_preview_hp_events` no Supabase. Iniciar a simulação exige sala 1x1 ativa, dois DNA congelados, um Local já sorteado e nenhuma prévia de dano anterior. O servidor inicializa os dois lados de uma vez e incorpora o bônus de Kiru (+10 HP de teste para a tribo Azul).
+- **Persistência cumulativa:** a função `chaotic_apply_preview_hp_projection` acumula dano `partial_estimate` no saldo *hipotético*, partindo do HP que restou na tentativa anterior. Verifica turno, jogador, identificação de carta, pagamento na mão (`spent_reason='attack'`), Local e criaturas, aplica limite mínimo de 0 e registra cada turno uma única vez.
+- **Não é energia oficial:** as operações não escrevem na energia do álbum, no DNA individual salvo, nas criaturas reais, recompensas, efeitos de status, turnos ou condições de vitória. Os eventos possuem restrições permanentes `official_hp_changed=false` e `final_damage_verified=false`; **não autorizam ativar Armadilha de Vinha, MÃO ELETRÔNICA ou MÃO MÃO**.
+- **Interface de teste:** apresenta HP atual/máximo dos dois lados e histórico cumulativo por turno, sincronizado por consultas periódicas e Realtime, com botões de preparar HP e acumular uma única estimativa paga.
+- **Verificação:** teste SQL `supabase/tests/chaotic-preview-persistent-hp.test.sql` passou para Kiru, perdas consecutivas, sobrevida zero, valores inválidos, RLS e RPCs restritas; Node verifica dois participantes simulados, repetição, ator indevido e HP original preservado. Nenhuma partida real de dois dispositivos foi concluída.
+- **Próxima etapa para dano FINAL verdadeiro:** completar imunidades, efeitos adicionais de equipamentos e criaturas, locais, Burst, alcance, resolução e condições de vitória; substituir o estado hipotético por um motor transacional e autoritativo com validação da emissão e posse das cartas. Apenas após isso permitir que status condicionais afetem ações reais.
+- **Estimativa geral de planejamento: 59% (±10 p.p.)**. O HP de teste não significa que o PvP possa ser lançado como completo.
