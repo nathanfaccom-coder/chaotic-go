@@ -2776,6 +2776,82 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
   assert.equal(hp3x3.get(id+"/"+owner+"/5").hp_remaining,35);
 });
 
+test("3x3 private discard recycles ONLY spent cards on next valid turn and never refunds attack points",async()=>{
+  const owner="recycle3-host",opponent="recycle3-guest";
+  const host=browser(owner),guest=browser(opponent);
+  host("lobby-select-mode").value="3x3";
+  await host("lobby-create-btn").onclick();
+  const code=host("lobby-room-code").textContent;
+  const id=[...rooms.values()].find(x=>x.code===code).id;
+  guest("lobby-input-code").value=code;
+  await guest("lobby-join-btn").onclick();
+  await host("lobby-refresh").onclick();
+  await host("lobby-turn-start").onclick();
+  const card=(id,name)=>({id,name,quantity:1,danoBase:
+    name==="Ácido Gástrico"?10:name==="Fogo Primordial 2.0"?5:0,
+    custo:name==="Ácido Gástrico"?3:name==="Fogo Primordial 2.0"?2:0});
+  const deck=[null,null,null,
+    {id:"recycle-alakazaz",name:"Alakazaz"},
+    {id:"recycle-vidal",name:"Vidal"},{id:"recycle-lion",name:"Lion"}];
+  deck.attacks=[card("recycle-a101","Ácido Gástrico"),
+    card("recycle-a104","Fogo Primordial 2.0"),card("recycle-a102","Mão Negra")];
+  decks3x3.set(owner+"/1",deck);
+  host("lobby-3x3-deck").value="1";
+  await host("lobby-3x3-prepare").onclick();
+  await host("lobby-3x3-hand-prepare").onclick();
+  assert.equal(hand3x3Wallets.get(id+"/"+owner).recycle_cycles,0);
+  assert.equal(host("lobby-3x3-discard").hidden,false);
+  host("lobby-3x3-discard-slot").value="1";
+  assert.ok((await makeClient(opponent).rpc("chaotic_discard_preview_3x3_hand",{
+    p_lobby_id:id,p_expected_turn:1,p_card_slot:1})).error,
+    "The opponent cannot discard our private card");
+  assert.ok((await makeClient(owner).rpc("chaotic_discard_preview_3x3_hand",{
+    p_lobby_id:id,p_expected_turn:1,p_card_slot:18})).error,
+    "A nonexisting card slot cannot be discarded");
+  await host("lobby-3x3-discard").onclick();
+  assert.equal(hand3x3Cards.get(id+"/"+owner+"/1").card_state,"spent");
+  assert.equal(hand3x3Cards.get(id+"/"+owner+"/1").spent_reason,"discard");
+  assert.equal(hand3x3Cards.get(id+"/"+owner+"/1").spent_turn,1);
+  assert.equal(hand3x3Wallets.get(id+"/"+owner).spent_points,0);
+  assert.equal(hand3x3Discards.get(id+"/1/"+owner).training_points_changed,false);
+  assert.equal(hand3x3Discards.get(id+"/1/"+owner).original_card_consumed,false);
+  assert.equal(host("lobby-3x3-discard").hidden,true);
+  assert.ok((await makeClient(owner).rpc("chaotic_discard_preview_3x3_hand",{
+    p_lobby_id:id,p_expected_turn:1,p_card_slot:2})).error,
+    "Only one voluntary discard is allowed per turn");
+  assert.equal([...hand3x3Cards.values()].filter(x=>x.lobby_id===id&&x.actor_id===owner&&x.card_state==="deck").length,0);
+  await host("lobby-turn-pass").onclick();
+  await guest("lobby-turn-refresh").onclick();
+  assert.ok((await makeClient(owner).rpc("chaotic_sync_preview_3x3_hand",{
+    p_lobby_id:id,p_expected_turn:2})).error,"Cannot recycle on the other player's turn");
+  await guest("lobby-turn-pass").onclick();
+  await host("lobby-turn-refresh").onclick();
+  assert.equal(host("lobby-3x3-hand-sync").hidden,false);
+  await host("lobby-3x3-hand-sync").onclick();
+  assert.equal(hand3x3Wallets.get(id+"/"+owner).recycle_cycles,1);
+  const firstDraw=hand3x3DrawEvents.get(id+"/3/"+owner);
+  assert.equal(firstDraw.drew_card,true);
+  assert.equal(firstDraw.recycled_count,1);
+  assert.equal(firstDraw.recycle_cycle,1);
+  assert.equal(firstDraw.drawn_card_slot,1);
+  assert.equal(firstDraw.hand_count_after,3);
+  assert.equal(firstDraw.available_points,4);
+  assert.equal(hand3x3Cards.get(id+"/"+owner+"/1").card_state,"hand");
+  assert.equal(hand3x3Cards.get(id+"/"+owner+"/1").spent_turn,null);
+  assert.equal(hand3x3Cards.get(id+"/"+owner+"/1").spent_reason,null);
+  assert.equal(hand3x3Wallets.get(id+"/"+owner).spent_points,0);
+  assert.equal(host("lobby-3x3-hand-sync").hidden,true);
+  assert.match(host("lobby-3x3-recycle-history").textContent,/reciclar 1 carta/);
+  const repeated=await makeClient(owner).rpc("chaotic_sync_preview_3x3_hand",{
+    p_lobby_id:id,p_expected_turn:3});
+  assert.equal(repeated.data?.drew_card,false,
+    "Repeated synchronization should never draw another card");
+  assert.equal(hand3x3DrawEvents.size>0,true);
+  assert.equal(hand3x3Wallets.get(id+"/"+owner).recycle_cycles,1);
+  assert.equal(hand3x3Cards.get(id+"/"+owner+"/1").card_state,"hand");
+  assert.equal(host("lobby-3x3-hand-history").textContent.includes("Reciclagens: 1"),true);
+});
+
 test("Lion, Vidal and Xamã spend exactly one TRAINING token and update only hypothetical HP",async()=>{
   const cases=[
     {name:"Lion",gain:10,hostHp:20,max:30,target:"self",startTokens:1,expectedHp:30,expectedMax:40},
