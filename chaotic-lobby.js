@@ -122,6 +122,7 @@
       &&myTurn&&clashToCalculate&&attackResolved&&bothLoadouts
       &&!individualDamage.some(x=>x.turn_no===match.turn_no));
     $("lobby-reference-preview").hidden=room.mode==="1x1";
+    $("lobby-individual-preview").hidden=room.mode!=="1x1";
     const label=$("lobby-clash-status");
     label.textContent=already?"Confronto deste turno registrado. Dano ainda não é aplicado."
       :!myTurn?"Aguarde a sua vez para declarar um confronto."
