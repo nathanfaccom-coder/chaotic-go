@@ -43,9 +43,33 @@
         ? "Sua vez de agir. Turno " + match.turn_no + "."
         : "Aguardando a vez do outro jogador. Turno " + match.turn_no + ".");
     $("lobby-turn-count").textContent = match ? String(match.turn_no) : "—";
+    // Prévia do tabuleiro: indica o jogador ativo sem modificar o motor DROME.
+    const hostTile = $("lobby-board-host"), guestTile = $("lobby-board-guest");
+    if (hostTile && guestTile) {
+      hostTile.textContent = room.host_id === userId ? "🟩 Você · Anfitrião" : "⬜ Anfitrião";
+      guestTile.textContent = room.guest_id === userId ? "🟩 Você · Convidado" : "⬜ Convidado";
+      hostTile.style.borderColor = active && match.current_player === room.host_id ? "#86ff9b" : "#315b43";
+      guestTile.style.borderColor = active && match.current_player === room.guest_id ? "#86ff9b" : "#315b43";
+    }
     $("lobby-turn-start").hidden = !!match || room.host_id !== userId || room.status !== "ready";
     $("lobby-turn-pass").hidden = !active || match.current_player !== userId;
     $("lobby-turn-stop").hidden = !active;
+  }
+  async function refreshHistory() {
+    const log = $("lobby-events");
+    if (!log) return;
+    if (!room || !match) { log.textContent = "O histórico aparecerá quando o teste começar."; return; }
+    const {data,error} = await api.from("chaotic_match_events")
+      .select("seq,event_type,turn_no,actor_id,created_at")
+      .eq("lobby_id",room.id).order("seq",{ascending:false}).limit(12);
+    if (error) throw new Error(error.message);
+    const entries = (data || []).slice().reverse();
+    log.textContent = entries.length ? entries.map(entry => {
+      const side = entry.actor_id === room.host_id ? "Anfitrião" : "Convidado";
+      if (entry.event_type === "start") return "⚔️ "+side+" iniciou o teste";
+      if (entry.event_type === "stop") return "⏹️ "+side+" encerrou o teste";
+      return "↪ "+side+" passou o turno "+(entry.turn_no - 1);
+    }).join("\n") : "Nenhum evento registrado.";
   }
   async function refreshMatch() {
     if (!room) { match = null; updateMatchUI(); return; }
@@ -54,6 +78,7 @@
       .eq("lobby_id",room.id).maybeSingle();
     if (error) throw new Error(error.message);
     match = data; updateMatchUI();
+    await refreshHistory();
   }
   function updateRoomUI() {
     if (!$("lobby-create")) return;
@@ -116,6 +141,13 @@
       '<p>Não utiliza cartas nem decide vitórias.</p>',
       '<p id="lobby-turn-state" role="status"></p>',
       '<p>Turno: <b id="lobby-turn-count">—</b></p>',
+      '<div class="lobby-mini-board" role="group" aria-label="Posição dos jogadores">',
+      '<div id="lobby-board-host" class="lobby-board-slot">⬜ Anfitrião</div>',
+      '<span class="lobby-board-versus">VS</span>',
+      '<div id="lobby-board-guest" class="lobby-board-slot">⬜ Convidado</div>',
+      '</div>',
+      '<p class="lobby-history-label">📜 Histórico de turnos</p>',
+      '<p id="lobby-events" class="lobby-events" aria-live="polite">Aguardando início.</p>',
       '<button id="lobby-turn-start" type="button" hidden>Iniciar teste de turnos</button>',
       '<button id="lobby-turn-pass" type="button" hidden>Passar meu turno</button>',
       '<button id="lobby-turn-stop" class="lobby-danger" type="button" hidden>Encerrar teste</button>',
@@ -156,6 +188,7 @@
       if (!room || room.host_id !== userId || room.status !== "ready") return;
       match = await rpc("chaotic_start_match", { p_lobby_id: room.id });
       updateMatchUI();
+      await refreshHistory();
       note("Teste de turnos iniciado. O anfitrião começa.");
     });
     $("lobby-turn-pass").onclick = () => action(async () => {
@@ -163,12 +196,14 @@
       // O servidor rejeita turnos antigos e ações de quem não está jogando.
       match = await rpc("chaotic_pass_turn", { p_lobby_id: room.id, p_expected_turn: match.turn_no });
       updateMatchUI();
+      await refreshHistory();
       note("Turno registrado. O outro jogador já pode agir.");
     });
     $("lobby-turn-stop").onclick = () => action(async () => {
       if (!room || match?.status !== "active") return;
       match = await rpc("chaotic_stop_match", { p_lobby_id: room.id });
       updateMatchUI();
+      await refreshHistory();
       note("Teste encerrado sem alterar cartas nem estatísticas.");
     });
     $("lobby-close").onclick = () => action(async () => {
