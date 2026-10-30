@@ -1,7 +1,7 @@
 // ==========================================
 // ☁️ CONEXÃO CLOUD (FIREBASE) E MÓDULO PRINCIPAL
 // ==========================================
-import { db,ref,set,get,onValue,update,remove,installDbCompat } from "./supabase-game-bridge.js?v=full-2";
+import { db,ref,set,get,onValue,update,remove,installDbCompat } from "./supabase-game-bridge.js?v=release-1";
 installDbCompat();
 const uid = window.ChaoticAuthUser?.id;
 if (!uid) throw new Error("Sessão Supabase ausente");
