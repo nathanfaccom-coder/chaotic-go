@@ -688,11 +688,13 @@ test("1x1 equipment reveal can be done once by owner on own turn, with no HP mut
   assert.equal(host("lobby-equipment-reveal").hidden,true,
     "No reveal before a creature has been prepared");
   host("lobby-combat-kind").value="creature";
+  host("lobby-combat-deck").value="1";
   host("lobby-combat-slot").value="6";
   await host("lobby-combat-submit").onclick();
   await host("lobby-hex-place").onclick();
   await host("lobby-loadout-capture").onclick();
-  assert.equal(host("lobby-equipment-reveal").hidden,false);
+  assert.equal(host("lobby-equipment-reveal").hidden,false,
+    "Must allow reveal of owned equipment after saving the individual creature");
   const intruder=await makeClient("not-member").rpc("chaotic_reveal_preview_equipment",
     {p_lobby_id:id,p_expected_turn:1});
   assert.ok(intruder.error);
