@@ -1,5 +1,5 @@
 // Chaotic GO — atualização segura: não armazenar telas autenticadas em cache.
-const CACHE = 'chaotic-go-release-20261030-40';
+const CACHE = 'chaotic-go-release-20261030-41';
 const FILES = ['./index.html','./style.css','./cartas.js','./logo.png','./manifest.json'];
 self.addEventListener('install', event => {
   self.skipWaiting();
