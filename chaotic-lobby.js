@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -131,6 +131,9 @@
     const attackResolved=attackInstances.some(x=>x.turn_no===match.turn_no
       && x.actor_id===userId && x.attack_instance_id===clashToCalculate?.attack_card);
     const activeBurst=burstWindows.find(x=>x.turn_no===match.turn_no);
+    $("lobby-burst-order-prepare").hidden=!(room.mode==="1x1"&&myTurn
+      &&activeBurst&&["defender_passed","defender_immunity_noted"].includes(activeBurst.status)
+      &&!burstOrderPlans.some(x=>x.turn_no===match.turn_no));
     $("lobby-burst-open").hidden=!(room.mode==="1x1"&&myTurn
       &&clashToCalculate&&attackResolved&&!activeBurst
       &&!individualDamage.some(x=>x.turn_no===match.turn_no));
@@ -308,6 +311,32 @@
         x.defender_energy_initial+" → "+x.preview_energy_remaining+
         " (SIMULAÇÃO: HP real inalterado)."+locationText+detail+cost;
     }).join("\n"):"Nenhuma simulação individual.";
+    updateClashUI();
+  }
+  async function refreshBurstOrderPlans(){
+    const panel=$("lobby-burst-order-preview");
+    if(!panel)return;
+    panel.hidden=!room||!match||room.mode!=="1x1";
+    if(panel.hidden){burstOrderPlans=[];return;}
+    const {data,error}=await api.from("chaotic_preview_burst_order_plans")
+      .select("turn_no,defender_response,defensive_immunity_source,inspection_steps,inspection_step_count,preparation_status,burst_stack_executed,final_damage_verified")
+      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(20);
+    if(error)throw new Error(error.message);
+    burstOrderPlans=data||[];
+    $("lobby-burst-order-history").textContent=burstOrderPlans.length
+      ?burstOrderPlans.slice().reverse().map(x=>
+        "T"+x.turn_no+" · "+(x.defender_response==="pass"
+          ?"Defensor PASSOU (nenhuma carta de resposta adicionada à pilha)."
+          :"Defensor reconheceu imunidade passiva a Ar.")+
+        " Ordem de INSPEÇÃO: "+(x.inspection_steps||[]).map(step=>
+          step.order+"º "+(step.stage==="inspect_passive_air_immunity"
+            ?"conferir "+(step.source==="rex_air"?"Rex":"Amuleto do Vácuo")
+              +" (passivo, não é contra-ataque)"
+            :"conferir a carta atacante")
+        ).join(" → ")+
+        ". Nada executado; dano final NÃO confirmado."
+      ).join("\n")
+      :"Nenhuma sequência de inspeção preparada.";
     updateClashUI();
   }
   async function refreshBurstWindows(){
@@ -777,6 +806,7 @@
     await refreshHpLedger();
     await refreshEffectCandidates();
     await refreshBurstWindows();
+    await refreshBurstOrderPlans();
     await refreshResolutionAudits();
   }
   function updateRoomUI() {
@@ -881,6 +911,9 @@
         .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_burst_windows",filter:"lobby_id=eq."+lobbyId
         },sync)
+        .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_burst_order_plans",filter:"lobby_id=eq."+lobbyId
+        },sync)
         .subscribe(status=>{
           if(status==="CHANNEL_ERROR"||status==="TIMED_OUT")
             console.warn("DROME: canal em tempo real temporariamente indisponível; consultas periódicas seguem ativas.");
@@ -893,7 +926,7 @@
     }, 6000);
   }
   function show() {
-    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = [];
+    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -1021,6 +1054,12 @@
       '<button id="lobby-burst-pass" type="button" hidden>Passar minha resposta ao Burst</button>',
       '<button id="lobby-burst-air-immunity" type="button" hidden>Reconhecer imunidade a Ar (Rex / Amuleto)</button>',
       '<p id="lobby-burst-history" class="lobby-events" aria-live="polite">Nenhuma resposta de Burst registrada.</p>',
+      '<section id="lobby-burst-order-preview" hidden>',
+      '<strong>🔁 Ordem de inspeção — Burst (somente teste)</strong>',
+      '<p>A resposta do defensor é conferida antes do ataque. PASSAR não vira carta de resposta; Rex e Amuleto são passivos, não contra-ataques.</p>',
+      '<button id="lobby-burst-order-prepare" type="button" hidden>Preparar sequência de verificação no servidor</button>',
+      '<p id="lobby-burst-order-history" class="lobby-events" aria-live="polite">Nenhuma sequência preparada.</p>',
+      '</section>',
       '</section>',
       '<section id="lobby-hp-ledger" class="lobby-combat" hidden>',
       '<strong>❤️ ENERGIA ACUMULADA — 1x1 (TESTE)</strong>',
@@ -1272,6 +1311,15 @@
       note("Imunidade a Ar registrada: "+
         (result.defensive_immunity_source==="rex_air"?"Rex":"Amuleto do Vácuo")+
         ". Não altera dano final, HP real ou efeitos oficiais.");
+    });
+    $("lobby-burst-order-prepare").onclick = () => action(async()=>{
+      if(!room||!match||room.mode!=="1x1"||match.current_player!==userId)return;
+      const r=await rpc("chaotic_prepare_preview_burst_order",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refreshBurstOrderPlans();
+      note("Ordem de inspeção preparada em "+r.inspection_step_count+
+        " etapa(s). Nenhuma ação executada ou dano oficial confirmado.");
     });
     $("lobby-resolution-audit-capture").onclick = () => action(async()=>{
       if(!room||!match||room.mode!=="1x1"||match.current_player!==userId)return;
