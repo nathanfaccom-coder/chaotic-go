@@ -2774,6 +2774,31 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
     "Server must block movement after opening a 3x3 contact");
   assert.equal(boardPositions3x3.get(id+"/"+owner+"/5").hex_position,5);
   assert.equal(hp3x3.get(id+"/"+owner+"/5").hp_remaining,35);
+  await host("lobby-turn-pass").onclick();
+  await guest("lobby-turn-refresh").onclick();
+  assert.equal(guest("lobby-3x3-hand-sync").hidden,false);
+  await guest("lobby-3x3-hand-sync").onclick();
+  const guestDraw=hand3x3DrawEvents.get(id+"/4/"+opponent);
+  assert.equal(guestDraw?.recycled_count,1,
+    "A paid training Attack returns to the private draw pile only on a later turn");
+  assert.equal(guestDraw?.drew_card,true);
+  assert.equal(guestDraw?.drawn_card_slot,1);
+  assert.equal(guestDraw?.recycle_cycle,1);
+  assert.equal(hand3x3Cards.get(id+"/"+opponent+"/1").card_state,"hand");
+  assert.equal(hand3x3Wallets.get(id+"/"+opponent).spent_points,2,
+    "Recycling cannot refund the actual previous training payment");
+  assert.equal(attackSpends3x3.get(id+"/2").training_attack_cost,2,
+    "The original payment audit survives recycling");
+  await guest("lobby-turn-pass").onclick();
+  await host("lobby-turn-refresh").onclick();
+  await host("lobby-3x3-hand-sync").onclick();
+  const hostDraw=hand3x3DrawEvents.get(id+"/5/"+owner);
+  assert.equal(hostDraw?.recycled_count,1);
+  assert.equal(hostDraw?.drawn_card_slot,1);
+  assert.equal(hand3x3Wallets.get(id+"/"+owner).spent_points,3);
+  assert.equal(attackSpends3x3.get(id+"/3").points_after,1);
+  assert.equal(hp3x3.get(id+"/"+opponent+"/4").hp_remaining,55,
+    "Recycling must not apply damage or affect the defender's HP");
 });
 
 test("3x3 private discard recycles ONLY spent cards on next valid turn and never refunds attack points",async()=>{
