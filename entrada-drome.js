@@ -187,6 +187,21 @@ function selecionarDeckDrome(deckData, numSlot, irreg, divEl) {
 
 window.confirmarEntradaDrome = function() {
     if (!window.estadoDrome.deckSelecionado) return;
+    // Não iniciar matchmaking Firebase nesta prévia: o backend online
+    // ainda não foi portado. Preservamos a lógica abaixo para reativá-la
+    // quando salas, transações e presença estiverem protegidas no servidor.
+    if (window.CHAOTIC_MULTIPLAYER_ENABLED !== true) {
+        const aviso = document.getElementById("aviso-deck-irregular");
+        const texto = document.getElementById("texto-irregularidade");
+        if (aviso && texto) {
+            aviso.style.display = "block";
+            texto.textContent = "Seu deck está salvo. As batalhas online serão ativadas após a migração segura do multiplayer.";
+        }
+        if (typeof window.mostrarMensagemScanner === "function") {
+            window.mostrarMensagemScanner("DECK PRONTO! BATALHAS ONLINE AINDA EM MIGRAÇÃO.");
+        }
+        return;
+    }
     if (window.estadoDrome.tipoJogo === 'online') {
         window.mostrarMensagemScanner("Conectando aos servidores do Drome...");
         renderizarFilaOnline(); 
