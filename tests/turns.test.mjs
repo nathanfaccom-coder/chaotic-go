@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map(),burstOrderPlans=new Map(),burstPriority=new Map(),burstPriorityPasses=new Map(),burstMugicIntents=new Map(),burstMugicCounterplans=new Map(),mugicTrainingWallets=new Map(),mugicTrainingSettlements=new Map(),burstEquipmentResponses=new Map(),burstEquipmentEffects=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map(),burstOrderPlans=new Map(),burstPriority=new Map(),burstPriorityPasses=new Map(),burstMugicIntents=new Map(),burstMugicCounterplans=new Map(),mugicTrainingWallets=new Map(),mugicTrainingSettlements=new Map(),trainingAbilityEvents=new Map(),burstEquipmentResponses=new Map(),burstEquipmentEffects=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -427,17 +427,58 @@ function makeClient(actor) {
         entry.intent_status="cancelled";
         return {data:{...entry},error:null};
       }
+      if(name==="chaotic_apply_preview_ability_heal"){
+        const m=matches.get(room.id),unit=loadouts.get(room.id+"/"+actor);
+        const target=loadouts.get(room.id+"/"+args.p_target_actor_id);
+        const wallet=mugicTrainingWallets.get(room.id+"/"+actor);
+        const hp=hpWallets.get(room.id+"/"+args.p_target_actor_id);
+        const k=room.id+"/"+args.p_expected_turn+"/"+actor;
+        const ability={Lion:"lion_energy_10",Vidal:"vidal_heal_15","Xamã":"xama_heal_10"}[unit?.creature_name];
+        if(room.mode!=="1x1"||room.status!=="ready"||!m||m.status!=="active"
+           ||m.current_player!==actor||m.turn_no!==args.p_expected_turn
+           ||![m.host_id,m.guest_id].includes(args.p_target_actor_id)
+           ||!ability||!target||!hp||hp.hp_remaining<1
+           ||wallet?.creature_name!==unit.creature_name
+           ||wallet.creature_instance_id!==unit.card_instance_id||wallet.remaining_tokens<1
+           ||hp.creature_instance_id!==target.card_instance_id
+           ||(unit.creature_name==="Lion"&&args.p_target_actor_id!==actor)
+           ||trainingAbilityEvents.has(k)||clashes.has(room.id+"/"+args.p_expected_turn)
+           ||burstWindows.has(room.id+"/"+args.p_expected_turn)
+           ||individualDamage.has(room.id+"/"+args.p_expected_turn)
+           ||(unit.creature_name==="Lion"&&(hp.hp_max>540||hp.hp_remaining>540)))
+          return {data:null,error:{message:"Ability not allowed in this turn/target/HP/token state"}};
+        const nextMax=hp.hp_max+(ability==="lion_energy_10"?10:0);
+        const nextHp=ability==="lion_energy_10"?hp.hp_remaining+10:
+          Math.min(hp.hp_max,hp.hp_remaining+(ability==="vidal_heal_15"?15:10));
+        const result={lobby_id:room.id,turn_no:m.turn_no,actor_id:actor,
+          target_actor_id:args.p_target_actor_id,
+          source_creature_name:unit.creature_name,ability_code:ability,
+          source_creature_instance_id:unit.card_instance_id,
+          target_creature_instance_id:target.card_instance_id,
+          token_cost:1,tokens_before:wallet.remaining_tokens,
+          tokens_after:wallet.remaining_tokens-1,
+          hp_before:hp.hp_remaining,hp_after:nextHp,
+          hp_max_before:hp.hp_max,hp_max_after:nextMax,
+          applied_to_training:true,official_match_modified:false,official_hp_changed:false,
+          official_tokens_consumed:false};
+        wallet.remaining_tokens--;
+        hp.hp_remaining=nextHp;hp.hp_max=nextMax;
+        trainingAbilityEvents.set(k,result);
+        return {data:{...result},error:null};
+      }
       if(name==="chaotic_prepare_preview_mugic_token_wallet"){
         const m=matches.get(room.id),unit=loadouts.get(room.id+"/"+actor);
         if(!m||m.status!=="active"||room.status!=="ready"||room.mode!=="1x1"
            ||m.turn_no!==args.p_expected_turn||![m.host_id,m.guest_id].includes(actor)
-           ||!unit||unit.creature_name!=="Alakazaz")
+           ||!unit||!["Alakazaz","Lion","Vidal","Xamã"].includes(unit.creature_name))
           return {data:null,error:{message:"Missing authentic creature loadout"}};
         const key=room.id+"/"+actor;
         if(!mugicTrainingWallets.has(key)){
+          const caps={Alakazaz:5,Lion:1,Vidal:2,"Xamã":4};
           mugicTrainingWallets.set(key,{
             lobby_id:room.id,actor_id:actor,creature_instance_id:unit.card_instance_id,
-            creature_name:"Alakazaz",starting_tokens:5,remaining_tokens:5,
+            creature_name:unit.creature_name,starting_tokens:caps[unit.creature_name],
+            remaining_tokens:caps[unit.creature_name],
             official_match_modified:false
           });
         }
@@ -856,7 +897,7 @@ function makeClient(actor) {
       throw Error(name);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits","chaotic_preview_burst_windows","chaotic_preview_burst_priority","chaotic_preview_burst_priority_passes","chaotic_preview_burst_mugic_intents","chaotic_preview_burst_mugic_counterplans","chaotic_preview_mugic_token_wallets","chaotic_preview_mugic_token_settlements","chaotic_preview_burst_order_plans","chaotic_preview_burst_equipment_responses","chaotic_preview_burst_equipment_effects"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits","chaotic_preview_burst_windows","chaotic_preview_burst_priority","chaotic_preview_burst_priority_passes","chaotic_preview_burst_mugic_intents","chaotic_preview_burst_mugic_counterplans","chaotic_preview_mugic_token_wallets","chaotic_preview_mugic_token_settlements","chaotic_preview_ability_heal_events","chaotic_preview_burst_order_plans","chaotic_preview_burst_equipment_responses","chaotic_preview_burst_equipment_effects"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
         then(resolve,reject) {
           const room=rooms.get(this.id);
@@ -920,6 +961,8 @@ function makeClient(actor) {
                                               ?[...mugicTrainingWallets.values()].filter(x=>x.lobby_id===this.id&&x.actor_id===actor)
                                               :table==="chaotic_preview_mugic_token_settlements"
                                               ?[...mugicTrainingSettlements.values()].filter(x=>x.lobby_id===this.id)
+                                              :table==="chaotic_preview_ability_heal_events"
+                                              ?[...trainingAbilityEvents.values()].filter(x=>x.lobby_id===this.id)
                                               :table==="chaotic_preview_burst_order_plans"
                                               ?[...burstOrderPlans.values()].filter(x=>x.lobby_id===this.id)
                                               :table==="chaotic_preview_burst_equipment_responses"
