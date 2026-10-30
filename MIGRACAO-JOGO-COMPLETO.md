@@ -29,3 +29,11 @@ Esta branch recupera a base de 89 arquivos do repositório principal de origem, 
 - Novo botão **Sala privada (teste)** no DROME permite criar e entrar usando código aleatório de 12 caracteres. Atualização do status por consulta periódica.
 - Nenhuma luta ou troca acontece nessa sala, e os fluxos legados de matchmaking permanecem bloqueados.
 - Para teste real da união de dois jogadores, são necessárias duas contas distintas. Ainda não certificado em celulares diferentes.
+
+## Protocolo de turnos (fase 2)
+- Banco: `public.chaotic_match_turns` com RLS de leitura para anfitrião e convidado; escrita direta proibida.
+- RPCs: `chaotic_start_match` (somente anfitrião), `chaotic_pass_turn` (somente jogador da vez, com número esperado), `chaotic_stop_match` (participantes).
+- O servidor define a vez e usa bloqueio transacional para impedir jogadas repetidas ou fora da ordem.
+- O botão **Iniciar teste de turnos** aparece com dois jogadores; os comandos **Passar meu turno** e **Encerrar teste** podem ser usados para verificar sincronização.
+- Isto NÃO é o motor oficial de combate: ainda não interpreta cartas, dano, efeitos, vencedores, XP ou recompensas. A batalha multiplayer legada permanece bloqueada.
+- Testes de simulação aprovados no GitHub Actions. Ainda é necessário testar com duas contas reais em dois navegadores/celulares. A pasta `/complete` é uma prévia separada.
