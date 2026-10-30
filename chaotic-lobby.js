@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [], mugicTrainingWallets = [], mugicTrainingSettlements = [], trainingAbilityEvents = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [], mugicTrainingWallets = [], mugicTrainingSettlements = [], trainingAbilityEvents = [], harpTrainingEvents = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -154,6 +154,18 @@
     const myTrainingWallet=mugicTrainingWallets.find(x=>x.actor_id===userId);
     const settled=mugicTrainingSettlements.some(x=>x.turn_no===match.turn_no);
     const ownUnit=loadouts.find(x=>x.actor_id===userId);
+    const ownHarpRevealed=equipmentReveals.some(x=>x.actor_id===userId
+      &&x.equipment_name==="Arpa Mágica"
+      &&x.equipment_instance_id===ownUnit?.equipment_instance_id);
+    const harpAlreadyUsed=harpTrainingEvents.some(x=>x.actor_id===userId);
+    $("lobby-harp-token-activate").hidden=!(room.mode==="1x1"&&myTurn
+      &&match.status==="active"&&room.status==="ready"
+      &&new Date(room.expires_at).getTime()>Date.now()
+      &&ownUnit?.equipment_name==="Arpa Mágica"&&ownHarpRevealed
+      &&myTrainingWallet&&myTrainingWallet.remaining_tokens<20
+      &&!harpAlreadyUsed&&!clashes.some(x=>x.turn_no===match.turn_no)
+      &&!burstWindows.some(x=>x.turn_no===match.turn_no)
+      &&!individualDamage.some(x=>x.turn_no===match.turn_no));
     const abilitySupported=["Lion","Vidal","Xamã"].includes(ownUnit?.creature_name);
     const targetHasHp=hpWallets.some(x=>x.actor_id===userId&&x.hp_remaining>0);
     const abilityUsed=trainingAbilityEvents.some(x=>x.turn_no===match.turn_no&&x.actor_id===userId);
@@ -456,6 +468,25 @@
       ).join("\n")
       :"Nenhuma sequência de inspeção preparada.";
     updateMatchUI();
+    updateClashUI();
+  }
+  async function refreshHarpTrainingEvents(){
+    const panel=$("lobby-harp-token-panel");
+    if(!panel)return;
+    panel.hidden=!room||!match||room.mode!=="1x1";
+    if(panel.hidden){harpTrainingEvents=[];return;}
+    const {data,error}=await api.from("chaotic_preview_harp_token_events")
+      .select("actor_id,turn_no,creature_instance_id,equipment_instance_id,equipment_name,tokens_before,tokens_after,equipment_discarded_training,original_equipment_discarded,official_tokens_changed")
+      .eq("lobby_id",room.id).limit(10);
+    if(error)throw new Error(error.message);
+    harpTrainingEvents=data||[];
+    $("lobby-harp-token-history").textContent=harpTrainingEvents.length
+      ?harpTrainingEvents.map(x=>
+        "T"+x.turn_no+" · Arpa Mágica marcada como descartada só no treino: "+
+        x.tokens_before+"→"+x.tokens_after+" fichas para "+
+        (x.actor_id===userId?"sua criatura":"a criatura adversária")+
+        ". Equipamento ORIGINAL permanece na coleção/Deck.").join("\n")
+      :"Nenhum efeito de Arpa Mágica aplicado no treinamento.";
     updateClashUI();
   }
   async function refreshTrainingAbilities(){
@@ -1058,6 +1089,7 @@
     await refreshBurstMugicCounterplans();
     await refreshMugicTrainingTokens();
     await refreshTrainingAbilities();
+    await refreshHarpTrainingEvents();
     await refreshBurstEquipmentResponses();
     await refreshBurstOrderPlans();
     await refreshBurstEquipmentEffects();
@@ -1187,6 +1219,9 @@
           event:"*",schema:"public",table:"chaotic_preview_ability_heal_events",filter:"lobby_id=eq."+lobbyId
         },sync)
         .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_harp_token_events",filter:"lobby_id=eq."+lobbyId
+        },sync)
+        .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_burst_order_plans",filter:"lobby_id=eq."+lobbyId
         },sync)
         .on("postgres_changes",{
@@ -1207,7 +1242,7 @@
     }, 6000);
   }
   function show() {
-    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = []; burstEquipmentResponses = []; burstEquipmentEffects = []; burstPriority = []; burstPriorityPasses = []; burstMugicIntents = []; burstMugicCounterplans = []; mugicTrainingWallets = []; mugicTrainingSettlements = []; trainingAbilityEvents = [];
+    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = []; burstEquipmentResponses = []; burstEquipmentEffects = []; burstPriority = []; burstPriorityPasses = []; burstMugicIntents = []; burstMugicCounterplans = []; mugicTrainingWallets = []; mugicTrainingSettlements = []; trainingAbilityEvents = []; harpTrainingEvents = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -1372,6 +1407,12 @@
       '<select id="lobby-ability-target"><option value="self">Minha criatura</option><option value="opponent">Criatura adversária (Vidal/Xamã)</option></select>',
       '<button id="lobby-ability-heal-activate" type="button" hidden>Ativar habilidade no HP de treinamento</button>',
       '<p id="lobby-ability-heal-history" class="lobby-events" aria-live="polite">Nenhuma habilidade ativada.</p>',
+      '<section id="lobby-harp-token-panel" class="lobby-combat" hidden>',
+      '<strong>🎼 Arpa Mágica — ficha de treinamento (v0.1.32)</strong>',
+      '<p>Arpa Mágica ORIGINAL: ao descartar o equipamento equipado, ganha 1 ficha. Aqui o descarte é somente simulado e pode ocorrer uma vez por sala 1x1, após revelar a própria Arpa; nunca apaga sua carta nem altera fichas oficiais. Use antes de abrir Clash/Burst.</p>',
+      '<button id="lobby-harp-token-activate" type="button" hidden>Descartar Arpa no treino (+1 ficha)</button>',
+      '<p id="lobby-harp-token-history" class="lobby-events" aria-live="polite">Nenhuma Arpa usada no treinamento.</p>',
+      '</section>',
       '</section>',
       '</section>',
       '</section>',
@@ -1661,6 +1702,17 @@
           "Ainda não foi conjurada, não gasta fichas e bloqueia dano até cancelar.");
       });
     }
+    $("lobby-harp-token-activate").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="1x1"||match.current_player!==userId)return;
+      const state=await rpc("chaotic_discard_preview_harp_for_token",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refreshMugicTrainingTokens();
+      await refreshHarpTrainingEvents();
+      note("Arpa Mágica DESCARTADA APENAS NO TREINO: fichas "+
+        state.tokens_before+"→"+state.tokens_after+
+        ". O equipamento original, o álbum e o Deck não foram modificados.");
+    });
     $("lobby-ability-heal-activate").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="1x1"||match.current_player!==userId)return;
       const opponent=userId===room.host_id?room.guest_id:room.host_id;
