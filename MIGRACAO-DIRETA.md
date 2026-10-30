@@ -143,3 +143,13 @@ Os dados da mão de um jogador não são compartilhados com o adversário. Nenhu
 - Os novos campos de breakdown são `location_id`, `location_elemental_bonus`, `location_damage_delta` e `location_energy_bonus`. O histórico da interface os exibe separadamente aos dois participantes.
 - A simulação continua exigindo carta de ataque individual capturada, conferência de turno e confronto, pagamento experimental na mão e `spent_reason='attack'`. **Nenhum efeito é aplicado ao motor oficial**, incluindo dano persistente, iniciativa oficial, vitória ou recompensas.
 - Verificação: `supabase/tests/chaotic-preview-location-damage.test.sql` executado com rollback; **33 testes Node aprovados** no GitHub Actions, inclusive Kiru e preservação de DNA.
+
+## Efeitos condicionais aguardando dano final (v0.1.17 — 30/10/2026)
+
+A tabela `chaotic_preview_effect_candidates` e a RPC `chaotic_capture_preview_effect_candidate` registram **somente projeções de gatilhos** para cartas de ataque: Armadilha de Vinha (107: anula próxima vez do adversário, sem compra/pontos), MÃO ELETRÔNICA (111: bloqueia ataque nas duas próximas vezes) e MÃO MÃO (112: bloqueia ataque na próxima vez). Todos os três **precisam causar dano final positivo** no código original.
+
+O servidor só permite criar a proposta após um ataque individual capturado, um confronto coerente, custo de teste pago, turno ativo e prévia positiva com `calculation_status='partial_estimate'`. O servidor calcula vítima, escopo, duração e números das próximas vezes. Uma segunda criação e pedidos anônimos/de terceiros são negados. A tabela tem RLS, apenas leitura para integrantes e sem permissão de escrita do cliente.
+
+**Nenhuma dessas propostas é um status ativo**: `confirmation_state='candidate_requires_final_damage'` e `applied_to_match=false` por restrição do banco. A projeção NÃO modifica turno real, bloqueio de ataque, compra, saldo ou HP, pois ainda falta resolver efeitos de imunidades, equipamentos e dano definitivo. Ativar status apenas após integrar um motor autoritativo que valide dano final e expiração, em uma única transação.
+
+Regressão: `supabase/tests/chaotic-preview-conditional-effects.test.sql`, mais testes Node de duas contas simuladas para proibição de repetição e confirmação de que o jogador-alvo **mantém sua vez**. Não equivale a testes reais de dois aparelhos.
