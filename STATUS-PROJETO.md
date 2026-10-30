@@ -1,6 +1,6 @@
 # Chaotic GO — Status de conclusão e pendências (30/10/2026)
 
-Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 59% (incerteza aproximada ±10 pontos percentuais).**
+Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 60% (incerteza aproximada ±10 pontos percentuais).**
 
 ## Critérios ponderados
 
@@ -9,12 +9,12 @@ Este documento acompanha **prontidão para lançar o jogo completo com Supabase*
 | Motor legado, scanner, cartas, imagens, áudios e interfaces preservados | 25% | 90% | 22,5 p.p. |
 | Contas, migração de coleção, Decks e persistência privada Supabase | 15% | 75% | 11,25 p.p. |
 | Salas privadas, sincronização e protocolo de turnos | 10% | 70% | 7 p.p. |
-| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 44% | 11 p.p. |
+| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 48% | 12 p.p. |
 | Economia, amigos, trocas, recompensas e progressão integradas | 15% | 25% | 3,75 p.p. |
 | Testes ponta a ponta, dois dispositivos, mobile, segurança e publicação | 10% | 35% | 3,5 p.p. |
-| **Estimativa total** | **100%** | | **59 p.p.** |
+| **Estimativa total** | **100%** | | **60 p.p.** |
 
-Números estimados para planejamento, não verificação automática de 59% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
+Números estimados para planejamento, não verificação automática de 60% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
 
 ## Entregas já implementadas ou disponíveis
 - Jogo completo e recursos originais publicados no site; backup de branches anteriores.
@@ -120,3 +120,12 @@ Números estimados para planejamento, não verificação automática de 59% das 
 - **Interface:** seção de auditoria mostra o número de pendências, sua descrição e aviso de dano não confirmado. Resultado compartilhado somente com integrantes pelo RLS, Realtime e consultas periódicas.
 - **Testes:** `supabase/tests/chaotic-preview-damage-audit.test.sql` passou na produção, cobrindo ataques, zero dano, dados incompletos e permissões; **34/34 testes de Node aprovados** incluindo dois jogadores simulados e bloqueio de repetição.
 - **Progresso estimado mantido em 59% (±10 p.p.)**: a identificação de lacunas torna o caminho para dano final verificável, mas ainda não equivale a implementar essas regras no combate oficial. Pendem emissão autoritativa das cartas, efeitos, Burst, habilidades, HP e vitória reais e testes completos entre contas reais.
+
+## Versão 0.1.20 — janela de resposta Burst controlada pelo servidor (30/10/2026)
+- **Janela Burst real no protocolo de teste 1x1:** a tabela `chaotic_preview_burst_windows` registra atacante, defensor, turno e instância de ataque. A RPC `chaotic_open_preview_burst` exige turno do atacante, partida válida, confronto e ataque individual confirmados e bloqueia abertura retroativa após cálculo de dano.
+- **Defensor responde mesmo fora de sua vez:** `chaotic_pass_preview_burst` permite exclusivamente ao adversário-alvo registrar `PASSAR` durante a vez ativa do atacante, uma vez por janela. Rejeita chamadas do atacante, estranhos, repetidas ou com turno expirado. A leitura pelo Supabase é limitada aos dois membros e não há escrita direta pelo cliente.
+- **Proteção concreta contra precipitação:** se foi aberta a janela de Burst, `chaotic_calculate_individual_preview` não calcula nem o dano experimental enquanto o defensor não passou. Janela não aberta preserva o fluxo legado de testes anteriores; ainda não exige Burst em todos os confrontos.
+- **Auditoria ampliada:** `chaotic_audit_preview_damage` reporta `burst_window_not_opened`, `burst_defender_response_pending` ou `burst_defender_passed_preview_only` conforme a participação adversária; em todos os casos **mantém `burst_unresolved` e `final_damage_verified=false`**. PASSAR ainda não é execução completa de Burst.
+- **Limites explícitos:** não executa habilidades, interrupções, cartas de reação, inversão da pilha, Spedman, dano oficial, HP, vitórias ou recompensas. A única resposta validada é PASSAR. A imunidade de Rex e Amuleto do Vácuo permanece como estimativa pré-existente, não resultado final após Burst.
+- **Testes:** `supabase/tests/chaotic-preview-burst-response.test.sql` valida RLS, papéis, acesso, barreira de dano pendente, restrições imutáveis e estados da auditoria. Teste Node simula dois jogadores, anti-replay, negação ao atacante e estranho, bloqueio de dano antes do passe, retomada após passar e integridade dos turnos.
+- **Estimativa manual: 60% (±10 p.p.)**. O ponto acrescido reflete um protocolo interativo confirmado em banco e testes, não o lançamento de combate completo; ainda não houve partida ponta a ponta em dois dispositivos reais.
