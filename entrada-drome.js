@@ -116,10 +116,10 @@ function carregarDecksParaEscolha(modo) {
         let encontrouAlgum = false;
         
         [1, 2, 3].forEach(numSlot => {
-            let idFogo = modo + "_" + numSlot; 
+            let idFogo = modo + "_slot_" + numSlot; 
             
             let todosOsDecks = snapshot.exists() ? snapshot.val() : {};
-            let deckData = todosOsDecks[idFogo] ? todosOsDecks[idFogo] : null;
+            let deckData = todosOsDecks[idFogo] || todosOsDecks[modo+"_"+numSlot] || null;
             
             if (deckData) {
                 encontrouAlgum = true;
