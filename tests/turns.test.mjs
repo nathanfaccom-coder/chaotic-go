@@ -1398,7 +1398,7 @@ test("1x1 Kiru location preview adds Blue energy without changing saved DNA or t
   await guest("lobby-turn-refresh").onclick();
   assert.match(guest("lobby-individual-damage-history").textContent,/Cidade de Kiru/);
   assert.match(guest("lobby-hp-summary").textContent,/70\/75/);
-  assert.match(guest("lobby-resolution-audit-history").textContent,/Burst pendente/);
+  assert.match(guest("lobby-resolution-audit-history").textContent,/Burst ainda não resolvido/);
   // A second turn's damage must accumulate from 70, NOT original Kiru 75.
   await host("lobby-turn-pass").onclick();
   await guest("lobby-turn-refresh").onclick();
