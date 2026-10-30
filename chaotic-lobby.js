@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [], mugicTrainingWallets = [], mugicTrainingSettlements = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [], mugicTrainingWallets = [], mugicTrainingSettlements = [], trainingAbilityEvents = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -153,6 +153,18 @@
     $("lobby-burst-mugic-cancel").hidden=!ownPendingMugic;
     const myTrainingWallet=mugicTrainingWallets.find(x=>x.actor_id===userId);
     const settled=mugicTrainingSettlements.some(x=>x.turn_no===match.turn_no);
+    const ownUnit=loadouts.find(x=>x.actor_id===userId);
+    const abilitySupported=["Lion","Vidal","Xamã"].includes(ownUnit?.creature_name);
+    const targetHasHp=hpWallets.some(x=>x.actor_id===userId&&x.hp_remaining>0);
+    const abilityUsed=trainingAbilityEvents.some(x=>x.turn_no===match.turn_no&&x.actor_id===userId);
+    $("lobby-ability-heal-activate").hidden=!(
+      room.mode==="1x1"&&myTurn&&match.status==="active"
+      &&room.status==="ready"&&new Date(room.expires_at).getTime()>Date.now()
+      &&abilitySupported&&targetHasHp&&(myTrainingWallet?.remaining_tokens||0)>=1
+      &&!abilityUsed&&!clashes.some(x=>x.turn_no===match.turn_no)
+      &&!burstWindows.some(x=>x.turn_no===match.turn_no)
+      &&!individualDamage.some(x=>x.turn_no===match.turn_no));
+    $("lobby-ability-target").disabled=ownUnit?.creature_name==="Lion";
     $("lobby-mugic-token-wallet-prepare").hidden=!(room.mode==="1x1"
       &&match.status==="active"&&loadouts.some(x=>x.actor_id===userId)
       &&!myTrainingWallet);
@@ -444,6 +456,29 @@
       ).join("\n")
       :"Nenhuma sequência de inspeção preparada.";
     updateMatchUI();
+    updateClashUI();
+  }
+  async function refreshTrainingAbilities(){
+    const panel=$("lobby-ability-heal-panel");
+    if(!panel)return;
+    panel.hidden=!room||!match||room.mode!=="1x1";
+    if(panel.hidden){trainingAbilityEvents=[];return;}
+    const {data,error}=await api.from("chaotic_preview_ability_heal_events")
+      .select("turn_no,actor_id,target_actor_id,source_creature_name,ability_code,tokens_before,tokens_after,hp_before,hp_after,hp_max_before,hp_max_after,official_match_modified")
+      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(30);
+    if(error)throw new Error(error.message);
+    trainingAbilityEvents=data||[];
+    $("lobby-ability-heal-history").textContent=trainingAbilityEvents.length
+      ?trainingAbilityEvents.slice().reverse().map(x=>
+        "T"+x.turn_no+" · "+x.source_creature_name+" usou "+
+        (x.ability_code==="lion_energy_10"?"Energia +10":
+          x.ability_code==="vidal_heal_15"?"Cura 15":"Cura 10")+
+        " em "+(x.target_actor_id===x.actor_id?"si":"outra criatura")+
+        ": fichas "+x.tokens_before+"→"+x.tokens_after+
+        ", HP de teste "+x.hp_before+"→"+x.hp_after+
+        ", máximo "+x.hp_max_before+"→"+x.hp_max_after+
+        ". Nenhum HP/ficha oficial modificado.").join("\n")
+      :"Nenhuma habilidade de energia aplicada no treinamento.";
     updateClashUI();
   }
   async function refreshMugicTrainingTokens(){
@@ -1022,6 +1057,7 @@
     await refreshBurstMugicIntents();
     await refreshBurstMugicCounterplans();
     await refreshMugicTrainingTokens();
+    await refreshTrainingAbilities();
     await refreshBurstEquipmentResponses();
     await refreshBurstOrderPlans();
     await refreshBurstEquipmentEffects();
@@ -1148,6 +1184,9 @@
           event:"*",schema:"public",table:"chaotic_preview_mugic_token_settlements",filter:"lobby_id=eq."+lobbyId
         },sync)
         .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_ability_heal_events",filter:"lobby_id=eq."+lobbyId
+        },sync)
+        .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_burst_order_plans",filter:"lobby_id=eq."+lobbyId
         },sync)
         .on("postgres_changes",{
@@ -1168,7 +1207,7 @@
     }, 6000);
   }
   function show() {
-    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = []; burstEquipmentResponses = []; burstEquipmentEffects = []; burstPriority = []; burstPriorityPasses = []; burstMugicIntents = []; burstMugicCounterplans = []; mugicTrainingWallets = []; mugicTrainingSettlements = [];
+    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = []; burstEquipmentResponses = []; burstEquipmentEffects = []; burstPriority = []; burstPriorityPasses = []; burstMugicIntents = []; burstMugicCounterplans = []; mugicTrainingWallets = []; mugicTrainingSettlements = []; trainingAbilityEvents = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -1326,6 +1365,14 @@
       '<button id="lobby-mugic-token-settle" type="button" hidden>Simular custos: Criação 1 / Rejeição 2</button>',
       '<p id="lobby-mugic-token-wallet-history" class="lobby-events" aria-live="polite">Sem carteira de treino.</p>',
       '<p id="lobby-mugic-token-settlement-history" class="lobby-events" aria-live="polite">Nenhum desconto de treino registrado.</p>',
+      '<section id="lobby-ability-heal-panel" class="lobby-combat" hidden>',
+      '<strong>🦁 Habilidades de energia — treino 1x1 (0.1.31)</strong>',
+      '<p>Lion: +10 no HP atual e máximo próprio. Vidal: cura até 15. Xamã: cura até 10, sem ultrapassar o máximo. Cada uso gasta 1 ficha somente do treinamento; exige HP de teste preparado e ser a sua vez, antes de abrir um confronto/Burst. No máximo 1 ativação por jogador e turno.</p>',
+      '<label for="lobby-ability-target">Alvo da habilidade:</label>',
+      '<select id="lobby-ability-target"><option value="self">Minha criatura</option><option value="opponent">Criatura adversária (Vidal/Xamã)</option></select>',
+      '<button id="lobby-ability-heal-activate" type="button" hidden>Ativar habilidade no HP de treinamento</button>',
+      '<p id="lobby-ability-heal-history" class="lobby-events" aria-live="polite">Nenhuma habilidade ativada.</p>',
+      '</section>',
       '</section>',
       '</section>',
       '</section>',
@@ -1614,6 +1661,22 @@
           "Ainda não foi conjurada, não gasta fichas e bloqueia dano até cancelar.");
       });
     }
+    $("lobby-ability-heal-activate").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="1x1"||match.current_player!==userId)return;
+      const opponent=userId===room.host_id?room.guest_id:room.host_id;
+      const targetId=$("lobby-ability-target").value==="opponent"?opponent:userId;
+      const result=await rpc("chaotic_apply_preview_ability_heal",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no,p_target_actor_id:targetId
+      });
+      await refreshHpLedger();
+      await refreshMugicTrainingTokens();
+      await refreshTrainingAbilities();
+      note(result.source_creature_name+" ativou habilidade de treino: fichas "+
+        result.tokens_before+"→"+result.tokens_after+", energia "+
+        result.hp_before+"→"+result.hp_after+
+        " (máximo "+result.hp_max_before+"→"+result.hp_max_after+
+        "). Nenhuma alteração no combate oficial.");
+    });
     $("lobby-mugic-token-wallet-prepare").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="1x1")return;
       const state=await rpc("chaotic_prepare_preview_mugic_token_wallet",{
