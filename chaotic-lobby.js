@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -53,6 +53,7 @@
     $("lobby-turn-count").textContent = match ? String(match.turn_no) : "—";
     updateBoardUI();
     updateLoadoutUI();
+    updateAttackInstanceUI();
     updateClashUI();
     const combatPanel = $("lobby-combat");
     if (combatPanel) {
@@ -251,6 +252,37 @@
     loadouts=data||[];
     updateLoadoutUI();
   }
+  function updateAttackInstanceUI(){
+    const panel=$("lobby-attack-instance-panel");
+    if(!panel)return;
+    panel.hidden=!room||!match||room.mode!=="1x1";
+    if(panel.hidden)return;
+    const declared=declarations.find(x=>x.actor_id===userId
+      && x.turn_no===match.turn_no && x.kind==="attack");
+    const already=attackInstances.some(x=>x.actor_id===userId&&x.turn_no===match.turn_no);
+    const hasCreature=loadouts.some(x=>x.actor_id===userId);
+    const ownTurn=match.status==="active"&&room.status==="ready"&&
+      match.current_player===userId&&new Date(room.expires_at).getTime()>Date.now();
+    $("lobby-attack-instance-capture").hidden=!(ownTurn&&declared&&hasCreature&&!already);
+    const log=$("lobby-attack-instance-history");
+    log.textContent=attackInstances.length
+      ?attackInstances.slice().reverse().map(x=>
+        "T"+x.turn_no+" · "+(x.actor_id===room.host_id?"Anfitrião":"Convidado")+
+        ": "+x.attack_name+" (catálogo #"+x.catalog_attack_id+
+        ", instância #"+x.attack_instance_id+") · custo "+x.attack_cost+
+        " · base "+x.base_damage).join("\n")
+      :"Nenhum ataque individual preparado.";
+  }
+  async function refreshAttackInstances(){
+    if(!$("lobby-attack-instance-panel"))return;
+    if(!room||!match){attackInstances=[];updateAttackInstanceUI();return;}
+    const {data,error}=await api.from("chaotic_preview_attack_instances")
+      .select("turn_no,actor_id,attack_instance_id,catalog_attack_id,attack_name,base_damage,attack_cost")
+      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(24);
+    if(error)throw new Error(error.message);
+    attackInstances=data||[];
+    updateAttackInstanceUI();
+  }
   function updateBoardUI() {
     const box=$("lobby-hex-board");
     if(!box) return;
@@ -358,6 +390,7 @@
     await refreshDeclarations();
     await refreshBoard();
     await refreshLoadouts();
+    await refreshAttackInstances();
     await refreshClashes();
     await refreshBaseDamage();
     await refreshModifiers();
@@ -429,6 +462,9 @@
         .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_loadouts",filter:"lobby_id=eq."+lobbyId
         },sync)
+        .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_attack_instances",filter:"lobby_id=eq."+lobbyId
+        },sync)
         .subscribe(status=>{
           if(status==="CHANNEL_ERROR"||status==="TIMED_OUT")
             console.warn("DROME: canal em tempo real temporariamente indisponível; consultas periódicas seguem ativas.");
@@ -441,7 +477,7 @@
     }, 6000);
   }
   function show() {
-    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = [];
+    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -517,6 +553,12 @@
       '<p>Convidado: <span id="lobby-loadout-guest">Ainda sem ficha individual.</span></p>',
       '<button id="lobby-loadout-capture" type="button" hidden>Preparar ficha da minha criatura</button>',
       '<p>Ficha congelada para este teste; nenhuma energia foi reduzida.</p>',
+      '</section>',
+      '<section id="lobby-attack-instance-panel" class="lobby-combat" hidden>',
+      '<strong>🃏 ATAQUE INDIVIDUAL — 1x1 (TESTE)</strong>',
+      '<p>Confere se o ataque declarado está no seu deck e no álbum, relacionando o ID da captura ao catálogo original. Não aplica dano.</p>',
+      '<button id="lobby-attack-instance-capture" type="button" hidden>Validar meu ataque individual</button>',
+      '<p id="lobby-attack-instance-history" class="lobby-events" aria-live="polite">Nenhum ataque individual preparado.</p>',
       '</section>',
       '<section id="lobby-clash-panel" class="lobby-clash-panel" hidden>',
       '<strong>⚔️ ENCONTRO DE CRIATURAS (TESTE)</strong>',
@@ -598,6 +640,16 @@
       });
       await refreshLoadouts();
       note("Ficha individual da criatura confirmada no servidor, com equipamento do deck.");
+    });
+    $("lobby-attack-instance-capture").onclick = () => action(async()=>{
+      if(!room||!match||room.mode!=="1x1"||match.status!=="active"
+        ||match.current_player!==userId)return;
+      const result=await rpc("chaotic_capture_preview_attack",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refreshAttackInstances();
+      note("Ataque "+result.attack_name+" vinculado à carta individual #"+
+        result.attack_instance_id+". Dano real permanece desligado.");
     });
     $("lobby-hex-place").onclick = () => action(async()=>{
       if(!room || !match || match.status!=="active" || match.current_player!==userId)return;
