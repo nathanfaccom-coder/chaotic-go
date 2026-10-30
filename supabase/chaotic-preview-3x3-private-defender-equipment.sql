@@ -67,16 +67,6 @@ to authenticated using(
  defender_id=(select auth.uid()) and
  exists(select 1 from public.chaotic_match_turns m
  where m.lobby_id=chaotic_preview_3x3_private_equipment_checks.lobby_id
-  and (select auth.uid())=m.host_id or false)
-);
--- Replace policy above with explicit parentheses: owner may be either host or guest.
-drop policy chaotic_preview_3x3_equipment_owner_only on public.chaotic_preview_3x3_private_equipment_checks;
-create policy chaotic_preview_3x3_equipment_owner_only
-on public.chaotic_preview_3x3_private_equipment_checks for select
-to authenticated using(
- defender_id=(select auth.uid()) and
- exists(select 1 from public.chaotic_match_turns m
- where m.lobby_id=chaotic_preview_3x3_private_equipment_checks.lobby_id
  and ((select auth.uid())=m.host_id or (select auth.uid())=m.guest_id))
 );
 
