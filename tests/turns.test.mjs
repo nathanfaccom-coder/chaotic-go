@@ -1975,6 +1975,7 @@ test("Burst equipment "+scenario.name+" changes ONLY server training ledger",asy
     const card=attackInstances.get(id+"/3");
     card.catalog_attack_id="110";
     card.attack_name="SONAR";
+    card.base_damage=0; // Canonical SONAR: 0 base +10 Air, ring cancels Air.
   }
   await host("lobby-burst-open").onclick();
   await host("lobby-hand-spend").onclick();
@@ -2019,9 +2020,10 @@ test("Burst equipment "+scenario.name+" changes ONLY server training ledger",asy
   assert.equal(partial.defender_energy_initial,scenario.hp,
     "Partial preview must start from the updated training wallet");
   assert.equal(partial.calculation_status,"partial_estimate");
-  assert.equal(partial.preview_subtotal,5,
-    "Ring negates the SONAR Air bonus, and other equipment retains base damage");
-  assert.equal(partial.preview_energy_remaining,Math.max(0,scenario.hp-5));
+  const expectedPartial=scenario.effect==="precious_ring_hp"?0:5;
+  assert.equal(partial.preview_subtotal,expectedPartial,
+    "Ring negates the canonical 10-Air SONAR attack; other equipment retains base damage");
+  assert.equal(partial.preview_energy_remaining,Math.max(0,scenario.hp-expectedPartial));
   assert.equal(partial.cost_status,"test_spent");
   await guest("lobby-turn-refresh").onclick();
   assert.match(guest("lobby-burst-equipment-effects-history").textContent,
