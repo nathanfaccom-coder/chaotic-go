@@ -1,34 +1,10 @@
 // ==========================================
 // ☁️ CONEXÃO CLOUD (FIREBASE) E MÓDULO PRINCIPAL
 // ==========================================
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { getDatabase, ref, set, get, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
-
-const firebaseConfig = {
-    apiKey: "AIzaSyD9o1B06TShDaO--6-DQsS8abutVXuU_jo",
-    authDomain: "chaotic-go.firebaseapp.com",
-    databaseURL: "https://chaotic-go-default-rtdb.firebaseio.com", 
-    projectId: "chaotic-go",
-    storageBucket: "chaotic-go.firebasestorage.app",
-    messagingSenderId: "394870191188",
-    appId: "1:394870191188:web:5e6040097ec0a4a4d7e9c1"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-window._firebaseDB = db;
-window._dbGet = (path) => get(ref(db, path));
-window._dbSet = (path, val) => set(ref(db, path), val);
-window._dbUpdate = (path, val) => update(ref(db, path), val);
-window._dbRemove = (path) => remove(ref(db, path));
-window._dbOn = (path, cb) => onValue(ref(db, path), cb);
-
-// Verifica Segurança: O jogador está logado?
-const uid = localStorage.getItem("chaoticUID");
-if (!uid) {
-    window.location.href = "login.html"; // Manda de volta pro login se não tiver UID
-}
-
+import { db,ref,set,get,onValue,update,remove,installDbCompat } from "./supabase-game-bridge.js";
+installDbCompat();
+const uid = window.ChaoticAuthUser?.id;
+if (!uid) throw new Error("Sessão Supabase ausente");
 // ==========================================
 // 1. VARIÁVEIS GLOBAIS DA NUVEM
 // ==========================================
@@ -111,7 +87,7 @@ document.body.addEventListener('click', () => {
 // ==========================================
 
 // 2.1 Puxando Perfil
-const perfilRef = ref(db, 'jogadores/' + uid);
+const perfilRef = ref(db, 'jogadores/' + uid + '/profile');
 onValue(perfilRef, (snapshot) => {
     if (snapshot.exists()) {
         window.perfilJogador = snapshot.val();
@@ -289,7 +265,7 @@ window.salvarAlbumNaNuvem = function() {
 };
 
 window.salvarPerfilNaNuvem = function() {
-    set(ref(db, 'jogadores/' + uid), window.perfilJogador)
+    set(ref(db, 'jogadores/' + uid + '/profile'), window.perfilJogador)
         .catch(err => console.error("Erro ao salvar perfil na nuvem:", err));
 };
 
