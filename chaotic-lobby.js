@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -136,6 +136,13 @@
     $("lobby-individual-damage-calculate").hidden=!(room.mode==="1x1"
       &&myTurn&&clashToCalculate&&attackResolved&&bothLoadouts&&confirmedSpend
       &&!individualDamage.some(x=>x.turn_no===match.turn_no));
+    const dmg=individualDamage.find(x=>x.turn_no===match.turn_no
+      &&x.attacker_id===userId);
+    $("lobby-effect-candidate-capture").hidden=!(room.mode==="1x1"&&myTurn
+      &&dmg&&["107","111","112"].includes(dmg.catalog_attack_id)
+      &&dmg.calculation_status==="partial_estimate"&&dmg.preview_subtotal>0
+      &&dmg.cost_status==="test_spent"
+      &&!effectCandidates.some(x=>x.turn_no===match.turn_no));
     $("lobby-reference-preview").hidden=room.mode==="1x1";
     $("lobby-individual-preview").hidden=room.mode!=="1x1";
     const label=$("lobby-clash-status");
@@ -232,7 +239,7 @@
     if(!log)return;
     if(!room||!match){individualDamage=[];log.textContent="Nenhuma simulação individual.";return;}
     const {data,error}=await api.from("chaotic_preview_individual_damage")
-      .select("turn_no,attacker_id,attack_name,attacker_name,defender_name,defender_energy_initial,base_damage,elemental_bonus,attribute_bonus,equipment_bonus,attack_cost,cost_status,immunity_reason,attacker_equipment_revealed,defender_equipment_revealed,location_id,location_elemental_bonus,location_damage_delta,location_energy_bonus,preview_subtotal,preview_energy_remaining,calculation_status")
+      .select("turn_no,attacker_id,catalog_attack_id,attack_name,attacker_name,defender_name,defender_energy_initial,base_damage,elemental_bonus,attribute_bonus,equipment_bonus,attack_cost,cost_status,immunity_reason,attacker_equipment_revealed,defender_equipment_revealed,location_id,location_elemental_bonus,location_damage_delta,location_energy_bonus,preview_subtotal,preview_energy_remaining,calculation_status")
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(12);
     if(error)throw new Error(error.message);
     individualDamage=data||[];
@@ -266,6 +273,31 @@
         x.defender_energy_initial+" → "+x.preview_energy_remaining+
         " (SIMULAÇÃO: HP real inalterado)."+locationText+detail+cost;
     }).join("\n"):"Nenhuma simulação individual.";
+    updateClashUI();
+  }
+  async function refreshEffectCandidates(){
+    const panel=$("lobby-effect-candidates-preview");
+    if(!panel)return;
+    panel.hidden=!room||!match||room.mode!=="1x1";
+    if(panel.hidden){effectCandidates=[];return;}
+    const {data,error}=await api.from("chaotic_preview_effect_candidates")
+      .select("turn_no,attacker_id,victim_id,catalog_attack_id,effect_code,effect_scope,duration_target_turns,first_target_turn,last_target_turn,indicative_damage,applied_to_match")
+      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(12);
+    if(error)throw new Error(error.message);
+    effectCandidates=data||[];
+    $("lobby-effect-candidates-history").textContent=effectCandidates.length
+      ?effectCandidates.slice().reverse().map(x=>
+        "T"+x.turn_no+": "+({107:"Armadilha de Vinha",111:"MÃO ELETRÔNICA",
+          112:"MÃO MÃO"}[x.catalog_attack_id]||"Carta")+
+        " → "+(x.victim_id===room.host_id?"Anfitrião":"Convidado")+
+        " · dano parcial "+x.indicative_damage+
+        " · possível efeito no turno "+x.first_target_turn+
+        (x.duration_target_turns===2?" e "+x.last_target_turn:"")+
+        " · "+(x.effect_scope==="full_turn_no_draw_no_points"
+          ?"anular vez/compra/pontos":"bloquear ataques")+
+        " · NÃO ATIVADO: depende de dano final."
+      ).join("\n")
+      :"Nenhum efeito registrado. Nenhum bloqueio ativo.";
     updateClashUI();
   }
   async function refreshRoomLocations(){
@@ -605,6 +637,7 @@
     await refreshModifiers();
     await refreshDice();
     await refreshIndividualDamage();
+    await refreshEffectCandidates();
   }
   function updateRoomUI() {
     if (!$("lobby-create")) return;
@@ -693,6 +726,9 @@
         .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_room_locations",filter:"lobby_id=eq."+lobbyId
         },sync)
+        .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_effect_candidates",filter:"lobby_id=eq."+lobbyId
+        },sync)
         .subscribe(status=>{
           if(status==="CHANNEL_ERROR"||status==="TIMED_OUT")
             console.warn("DROME: canal em tempo real temporariamente indisponível; consultas periódicas seguem ativas.");
@@ -705,7 +741,7 @@
     }, 6000);
   }
   function show() {
-    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = [];
+    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -831,6 +867,12 @@
       '<p>Simula dano com DNA, equipamento revelado e efeitos dos três Locais originais após validar o gasto SOMENTE no servidor de teste. Bônus de Kiru é somado à energia indicada. HP oficial, economia e recompensas não mudam.</p>',
       '<button id="lobby-individual-damage-calculate" type="button" hidden>Simular dano com DNA no servidor</button>',
       '<p id="lobby-individual-damage-history" class="lobby-events" aria-live="polite">Nenhuma simulação individual.</p>',
+      '</section>',
+      '<section id="lobby-effect-candidates-preview" class="lobby-combat" hidden>',
+      '<strong>🌿⚡ EFEITOS CONDICIONAIS — 1x1 (TESTE)</strong>',
+      '<p>Armadilha de Vinha, MÃO ELETRÔNICA e MÃO MÃO exigem dano FINAL positivo. Somente uma possibilidade é registrada; sem bloquear ataques, turnos ou compras.</p>',
+      '<button id="lobby-effect-candidate-capture" type="button" hidden>Conferir gatilho condicional no servidor</button>',
+      '<p id="lobby-effect-candidates-history" class="lobby-events">Nenhum efeito condicional registrado.</p>',
       '</section>',
       '<div id="lobby-reference-preview">',
       '<button id="lobby-damage-calculate" type="button" hidden>Conferir dano base no servidor</button>',
@@ -1028,6 +1070,16 @@
       note(result.calculation_status==="partial_estimate"
         ?"Simulação de dano com DNA individual registrada no servidor. Nenhuma energia real foi alterada."
         :"Ataque especial identificado. A simulação NÃO informa dano final sem resolver seu efeito.");
+    });
+    $("lobby-effect-candidate-capture").onclick = () => action(async()=>{
+      if(!room||!match||room.mode!=="1x1"||match.status!=="active"
+        ||match.current_player!==userId)return;
+      const result=await rpc("chaotic_capture_preview_effect_candidate",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refreshEffectCandidates();
+      note("Efeito "+result.effect_code+" registrado como possibilidade, NÃO aplicado. "+
+        "O bloqueio exige dano final confirmado.");
     });
     $("lobby-damage-calculate").onclick = () => action(async()=>{
       if(!room||!match||match.status!=="active"||match.current_player!==userId)return;
