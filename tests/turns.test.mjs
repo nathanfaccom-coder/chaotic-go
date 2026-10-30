@@ -1779,3 +1779,80 @@ test("Burst 1x1 validates "+defenseKind+" immunity to Ar without changing offici
   assert.equal(matches.get(id).turn_no,3);
 });
 }
+
+test("Burst 1x1 queues real defender equipment for LIFO inspection without premature reveal or damage",async()=>{
+  const hostId="queued-gear-host",guestId="queued-gear-guest";
+  const host=browser(hostId),guest=browser(guestId);
+  host("lobby-select-mode").value="1x1";
+  await host("lobby-create-btn").onclick();
+  const id=[...rooms.values()].at(-1).id;
+  guest("lobby-input-code").value=host("lobby-room-code").textContent;
+  await guest("lobby-join-btn").onclick();
+  await host("lobby-refresh").onclick();
+  await host("lobby-turn-start").onclick();
+  host("lobby-combat-kind").value="creature";
+  host("lobby-combat-deck").value="1";host("lobby-combat-slot").value="6";
+  await host("lobby-combat-submit").onclick();
+  await host("lobby-hex-place").onclick();
+  await host("lobby-loadout-capture").onclick();
+  await host("lobby-turn-pass").onclick();
+  await guest("lobby-turn-refresh").onclick();
+  guest("lobby-combat-kind").value="creature";
+  guest("lobby-combat-deck").value="1";guest("lobby-combat-slot").value="6";
+  await guest("lobby-combat-submit").onclick();
+  await guest("lobby-hex-place").onclick();
+  await guest("lobby-loadout-capture").onclick();
+  await guest("lobby-turn-pass").onclick();
+  await host("lobby-turn-refresh").onclick();
+  await host("lobby-hand-prepare").onclick();
+  host("lobby-combat-kind").value="attack";
+  host("lobby-combat-deck").value="1";host("lobby-combat-slot").value="1";
+  await host("lobby-combat-submit").onclick();
+  await host("lobby-clash-open").onclick();
+  await host("lobby-attack-instance-capture").onclick();
+  await host("lobby-burst-open").onclick();
+  await host("lobby-hand-spend").onclick();
+  await guest("lobby-turn-refresh").onclick();
+  assert.equal(guest("lobby-burst-queue-equipment").hidden,false);
+  assert.ok((await makeClient(hostId).rpc("chaotic_queue_preview_burst_equipment",{
+    p_lobby_id:id,p_expected_turn:3})).error,"Attacker cannot queue defendant equipment");
+  assert.ok((await makeClient("intruder").rpc("chaotic_queue_preview_burst_equipment",{
+    p_lobby_id:id,p_expected_turn:3})).error,"Intruder cannot queue a response");
+  await guest("lobby-burst-queue-equipment").onclick();
+  const response=burstEquipmentResponses.get(id+"/3");
+  assert.equal(response.equipment_name,"Equipamento original");
+  assert.equal(response.equipment_actually_revealed,false);
+  assert.equal(response.official_match_modified,false);
+  assert.equal(equipmentReveals.has(id+"/"+guestId),false,
+    "Queuing the reveal cannot apply the equipment before resolving Burst");
+  assert.equal(guest("lobby-burst-queue-equipment").hidden,true);
+  assert.equal(guest("lobby-burst-air-immunity").hidden,true);
+  assert.ok((await makeClient(guestId).rpc("chaotic_queue_preview_burst_equipment",{
+    p_lobby_id:id,p_expected_turn:3})).error,"Duplicate response rejected");
+  await host("lobby-turn-refresh").onclick();
+  assert.match(host("lobby-burst-equipment-history").textContent,/NÃO EXECUTADA/);
+  await guest("lobby-burst-pass").onclick();
+  await host("lobby-turn-refresh").onclick();
+  assert.equal(host("lobby-individual-damage-calculate").hidden,true,
+    "Pending equipment resolution keeps even preview damage blocked");
+  assert.ok((await makeClient(hostId).rpc("chaotic_calculate_individual_preview",{
+    p_lobby_id:id,p_expected_turn:3})).error,
+    "Direct preview damage RPC cannot ignore queued equipment");
+  await host("lobby-burst-order-prepare").onclick();
+  const plan=burstOrderPlans.get(id+"/3");
+  assert.equal(plan.inspection_step_count,2);
+  assert.equal(plan.inspection_steps[0].stage,"inspect_queued_equipment_reveal");
+  assert.equal(plan.inspection_steps[0].equipment_name,"Equipamento original");
+  assert.equal(plan.inspection_steps[1].stage,"inspect_attack");
+  assert.equal(plan.inspection_steps.every(step=>step.executed===false),true);
+  assert.match(host("lobby-burst-order-history").textContent,/revelação pendente/);
+  await guest("lobby-turn-refresh").onclick();
+  assert.match(guest("lobby-burst-order-history").textContent,/revelação pendente/);
+  assert.equal(matches.get(id).current_player,hostId);
+  assert.equal(matches.get(id).turn_no,3);
+  assert.equal(loadouts.get(id+"/"+guestId).stats.e,65);
+  assert.equal(equipmentReveals.has(id+"/"+guestId),false);
+  await host("lobby-turn-pass").onclick();
+  assert.equal(matches.get(id).current_player,guestId,
+    "After the defender passes, turn can progress despite unresolved test-only equipment");
+});
