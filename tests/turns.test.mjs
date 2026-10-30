@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -97,6 +97,30 @@ function makeClient(actor) {
           attack_name:"Vento Forte",attack_cost:1,base_damage:5};
         attackInstances.set(key,snapshot);
         return {data:{...snapshot},error:null};
+      }
+      if(name==="chaotic_calculate_individual_preview"){
+        const match=matches.get(room.id),key=room.id+"/"+args.p_expected_turn;
+        const clash=clashes.get(key),attack=attackInstances.get(key);
+        const attacker=loadouts.get(room.id+"/"+actor);
+        const defender=loadouts.get(room.id+"/"+(clash?.defender_id||""));
+        if(room.mode!=="1x1"||!match||match.status!=="active"||
+          match.current_player!==actor||match.turn_no!==args.p_expected_turn||
+          !clash||clash.attacker_id!==actor||!attack||attack.actor_id!==actor||
+          !attacker||!defender||attack.attack_instance_id!==clash.attack_card||
+          attacker.card_instance_id!==clash.attacker_card||
+          defender.card_instance_id!==clash.defender_card||individualDamage.has(key))
+          return {data:null,error:{message:"Prévia individual negada"}};
+        const special=attack.catalog_attack_id==="104";
+        const total=special?null:attack.base_damage;
+        const result={lobby_id:room.id,turn_no:match.turn_no,attacker_id:actor,
+          defender_id:clash.defender_id,attack_name:attack.attack_name,
+          attacker_name:attacker.creature_name,defender_name:defender.creature_name,
+          defender_energy_initial:defender.stats.e,base_damage:attack.base_damage,
+          elemental_bonus:0,attribute_bonus:0,preview_subtotal:total,
+          preview_energy_remaining:total===null?null:Math.max(0,defender.stats.e-total),
+          calculation_status:special?"special_resolution_required":"partial_estimate"};
+        individualDamage.set(key,result);
+        return {data:{...result},error:null};
       }
       if(name==="chaotic_move_preview_creature"){
         const match=matches.get(room.id),tile=board.get(room.id+"/"+actor);
@@ -204,7 +228,7 @@ function makeClient(actor) {
       throw Error(name);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
         then(resolve,reject) {
           const room=rooms.get(this.id);
@@ -232,7 +256,9 @@ function makeClient(actor) {
                     ?[...dice.values()].filter(x=>x.lobby_id===this.id)
                     :table==="chaotic_preview_attack_instances"
                       ?[...attackInstances.values()].filter(x=>x.lobby_id===this.id)
-                      :(journals.get(this.id)||[])):[];
+                      :table==="chaotic_preview_individual_damage"
+                        ?[...individualDamage.values()].filter(x=>x.lobby_id===this.id)
+                        :(journals.get(this.id)||[])):[];
           return Promise.resolve({data:[...events].reverse().slice(0,size),error:null});
         },
         async maybeSingle(){
@@ -418,13 +444,19 @@ test("1x1 encounter requires both placed creatures and an attack on turn",async(
   assert.match(host("lobby-clash-history").textContent,/resolução pendente/);
   const key=room.id+"/3";
   assert.equal(clashes.get(key).attack_card,"105");
-  assert.equal(host("lobby-damage-calculate").hidden,false);
-  await host("lobby-damage-calculate").onclick();
+  assert.equal(host("lobby-damage-calculate").hidden,true,"Catalog-only previews are hidden for 1x1");
+  const oldDamage=await makeClient("duel-host").rpc("chaotic_preview_calculate_base_damage",{
+    p_lobby_id:room.id,p_expected_turn:3});
+  assert.equal(oldDamage.error,null);
+  await host("lobby-turn-refresh").onclick();
   assert.match(host("lobby-damage-history").textContent,/dano BASE 5/);
   assert.match(host("lobby-damage-history").textContent,/energia base 45/);
   assert.equal(baseDamage.get(key).energy_after_base,40);
-  assert.equal(host("lobby-modifiers-calculate").hidden,false);
-  await host("lobby-modifiers-calculate").onclick();
+  assert.equal(host("lobby-modifiers-calculate").hidden,true);
+  const oldMods=await makeClient("duel-host").rpc("chaotic_preview_calculate_modifiers",{
+    p_lobby_id:room.id,p_expected_turn:3});
+  assert.equal(oldMods.error,null);
+  await host("lobby-turn-refresh").onclick();
   assert.match(host("lobby-modifiers-history").textContent,/referência do catálogo/);
   assert.equal(modifiers.get(key).reference_subtotal,5);
   assert.equal(host("lobby-modifiers-calculate").hidden,true);
@@ -469,8 +501,11 @@ test("Fogo Primordial 2.0 requires dice roll and never shows a fake final damage
   assert.equal(mod.data.formula_status,"roll_or_special_required");
   assert.equal(mod.data.reference_subtotal,null);
   await host("lobby-turn-refresh").onclick();
-  assert.equal(host("lobby-dice-roll").hidden,false);
-  await host("lobby-dice-roll").onclick();
+  assert.equal(host("lobby-dice-roll").hidden,true,"Legacy-only controls stay hidden for 1x1");
+  const oldDie=await makeClient("ambig-host").rpc("chaotic_roll_preview_die",{
+    p_lobby_id:room.id,p_expected_turn:1});
+  assert.equal(oldDie.error,null);
+  await host("lobby-turn-refresh").onclick();
   assert.match(host("lobby-dice-history").textContent,/🎲 4 de 6/);
   assert.match(host("lobby-dice-history").textContent,/5 × 4 = 20/);
   assert.equal(dice.get(room.id+"/1").multiplied_base,20);
@@ -564,4 +599,58 @@ test("1x1 attack instance snapshot is bound to declaration, turn and owner",asyn
   assert.ok(outsider.error);
   await guest("lobby-turn-refresh").onclick();
   assert.match(guest("lobby-attack-instance-history").textContent,/Vento Forte/);
+});
+
+
+test("1x1 DNA preview shows individual energy and never changes actual combat",async()=>{
+  const host=browser("dna-preview-host"),guest=browser("dna-preview-guest");
+  host("lobby-select-mode").value="1x1";
+  await host("lobby-create-btn").onclick();
+  guest("lobby-input-code").value=host("lobby-room-code").textContent;
+  await guest("lobby-join-btn").onclick();
+  await host("lobby-refresh").onclick();
+  await host("lobby-turn-start").onclick();
+  const id=[...rooms.values()].find(r=>r.host_id==="dna-preview-host").id;
+  host("lobby-combat-kind").value="creature";
+  host("lobby-combat-deck").value="1";
+  host("lobby-combat-slot").value="6";
+  await host("lobby-combat-submit").onclick();
+  await host("lobby-hex-place").onclick();
+  await host("lobby-loadout-capture").onclick();
+  await host("lobby-turn-pass").onclick();
+  await guest("lobby-turn-refresh").onclick();
+  guest("lobby-combat-kind").value="creature";
+  guest("lobby-combat-deck").value="1";
+  guest("lobby-combat-slot").value="6";
+  await guest("lobby-combat-submit").onclick();
+  await guest("lobby-hex-place").onclick();
+  await guest("lobby-loadout-capture").onclick();
+  await guest("lobby-turn-pass").onclick();
+  await host("lobby-turn-refresh").onclick();
+  host("lobby-combat-kind").value="attack";
+  host("lobby-combat-slot").value="1";
+  await host("lobby-combat-submit").onclick();
+  await host("lobby-clash-open").onclick();
+  assert.equal(host("lobby-individual-damage-calculate").hidden,true,
+    "Must validate captured attack first");
+  await host("lobby-attack-instance-capture").onclick();
+  assert.equal(host("lobby-individual-damage-calculate").hidden,false);
+  assert.equal(host("lobby-damage-calculate").hidden,true,"Legacy preview blocked");
+  await host("lobby-individual-damage-calculate").onclick();
+  assert.match(host("lobby-individual-damage-history").textContent,/Energia individual inicial 65/);
+  assert.match(host("lobby-individual-damage-history").textContent,/65 → 60/);
+  assert.match(host("lobby-individual-damage-history").textContent,/HP real inalterado/);
+  const row=individualDamage.get(id+"/3");
+  assert.equal(row.defender_energy_initial,65);
+  assert.equal(row.preview_energy_remaining,60);
+  assert.equal(host("lobby-individual-damage-calculate").hidden,true);
+  assert.equal(matches.get(id).turn_no,3);
+  assert.equal(clashes.get(id+"/3").result,"awaiting_original_engine");
+  assert.equal(loadouts.get(id+"/dna-preview-guest").stats.e,65);
+  assert.ok((await makeClient("dna-preview-host").rpc("chaotic_calculate_individual_preview",
+    {p_lobby_id:id,p_expected_turn:3})).error,"No repeated simulation");
+  assert.ok((await makeClient("stranger").rpc("chaotic_calculate_individual_preview",
+    {p_lobby_id:id,p_expected_turn:3})).error,"No third-party simulation");
+  await guest("lobby-turn-refresh").onclick();
+  assert.match(guest("lobby-individual-damage-history").textContent,/65 → 60/);
 });
