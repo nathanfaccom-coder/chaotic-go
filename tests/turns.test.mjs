@@ -2078,6 +2078,7 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
   assert.ok((await makeClient(opponent).rpc("chaotic_prepare_preview_3x3_allies",{
     p_lobby_id:id,p_expected_turn:1,p_deck_slot:1})).error,
     "Other player cannot capture cards outside their own turn");
+  host("lobby-3x3-deck").value="1";
   await host("lobby-3x3-prepare").onclick();
   assert.equal(host("lobby-3x3-prepare").hidden,true,host("lobby-notice").textContent);
   assert.equal(allies3x3.get(id+"/"+owner+"/4").creature_name,"Alakazaz");
@@ -2117,6 +2118,7 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
   await host("lobby-turn-pass").onclick();
   await guest("lobby-turn-refresh").onclick();
   assert.equal(guest("lobby-3x3-prepare").hidden,false);
+  guest("lobby-3x3-deck").value="1";
   await guest("lobby-3x3-prepare").onclick();
   assert.equal(allies3x3.get(id+"/"+opponent+"/4").creature_name,"Frador");
   assert.equal(allies3x3.get(id+"/"+owner+"/4").remaining_tokens,4,
