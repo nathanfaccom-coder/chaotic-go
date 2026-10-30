@@ -1,6 +1,6 @@
 # Chaotic GO — Status de conclusão e pendências (30/10/2026)
 
-Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 61% (incerteza aproximada ±10 pontos percentuais).**
+Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 62% (incerteza aproximada ±10 pontos percentuais).**
 
 ## Critérios ponderados
 
@@ -9,12 +9,12 @@ Este documento acompanha **prontidão para lançar o jogo completo com Supabase*
 | Motor legado, scanner, cartas, imagens, áudios e interfaces preservados | 25% | 90% | 22,5 p.p. |
 | Contas, migração de coleção, Decks e persistência privada Supabase | 15% | 75% | 11,25 p.p. |
 | Salas privadas, sincronização e protocolo de turnos | 10% | 70% | 7 p.p. |
-| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 52% | 13 p.p. |
+| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 56% | 14 p.p. |
 | Economia, amigos, trocas, recompensas e progressão integradas | 15% | 25% | 3,75 p.p. |
 | Testes ponta a ponta, dois dispositivos, mobile, segurança e publicação | 10% | 35% | 3,5 p.p. |
-| **Estimativa total** | **100%** | | **61 p.p.** |
+| **Estimativa total** | **100%** | | **62 p.p.** |
 
-Números estimados para planejamento, não verificação automática de 61% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
+Números estimados para planejamento, não verificação automática de 62% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
 
 ## Entregas já implementadas ou disponíveis
 - Jogo completo e recursos originais publicados no site; backup de branches anteriores.
@@ -147,3 +147,15 @@ Números estimados para planejamento, não verificação automática de 61% das 
 - **Interface:** botão "Preparar sequência de verificação no servidor" e histórico legível sincronizados com ambos os integrantes. A ordem aparece explicitamente como INSPEÇÃO, nunca como pilha de cartas já executadas.
 - **Testes:** `supabase/tests/chaotic-preview-burst-order-plans.test.sql` passou com rollback; **37/37 testes Node** aprovados para atacante/defensor simulados, bloqueio antes da resposta, restrições de permissão, anti-replay e sincronização da ordem para os dois participantes.
 - **Estimativa geral mantida em 61% (±10 pontos percentuais).** Ainda falta implementar respostas de cartas verdadeiras e resolver a pilha em ordem inversa; apenas um plano de conferência não representa essa mecânica concluída. Permanece pendente o teste entre duas contas reais em dispositivos separados e a confirmação da publicação no site.
+
+## Versão 0.1.23 — resposta de revelação de equipamento na corrente Burst (30/10/2026)
+
+- **Regra original preservada:** `batalha.js` proíbe ataques comuns como resposta dentro da corrente Burst. A revelação de equipamentos, em contrapartida, é uma ação legal de Burst. A migração não introduziu cartas de ataque de reação nem mudou o álbum.
+- **Resposta de equipamento server-side:** tabela `chaotic_preview_burst_equipment_responses` e RPC `chaotic_queue_preview_burst_equipment`. Só o defensor pode declarar a revelação do próprio equipamento congelado no DNA durante a janela `awaiting_defender` da vez do atacante. O servidor valida sala, identidade, confronto, instância de criatura e equipamento e que não esteja revelado. Rejeita estranho, atacante, repetição e preparação fora de ordem. O defensor ainda usa **PASSAR** para encerrar a janela.
+- **Sequência de inspeção em ordem inversa (LIFO):** `chaotic_prepare_preview_burst_order` inclui a declaração de revelação ANTES do ataque, pois ela entrou na corrente depois do golpe. PASSAR não ocupa posição na pilha, e Rex/Amuleto continuam sendo efeitos passivos, não contra-ataques.
+- **Ainda não executa equipamento:** a declaração tem `resolution_status='queued_unexecuted'`, `equipment_actually_revealed=false` e `official_match_modified=false` impostos pelo banco. Não chama a RPC de revelação normal nem aplica Anel Precioso, Bastão da Sabedoria, Bomba de Fogo ou outros efeitos antes da execução verdadeira do Burst.
+- **Proteção reforçada:** com equipamento pendente na corrente, `chaotic_calculate_individual_preview` impede até mesmo dano parcial, inclusive por chamada direta ao servidor. O HP hipotético ou oficial não pode ser descontado a partir desse ataque sem resolução. A passagem de turno continua possível depois do PASSAR do defensor no protocolo experimental.
+- **Interface:** novo botão para declarar revelação, histórico do defensor compartilhado em tempo real, inspeção do equipamento antes da carta de ataque e avisos explícitos de que efeitos não foram executados.
+- **Verificação:** teste SQL `supabase/tests/chaotic-preview-burst-equipment-queue.test.sql` passou (identidade, permissão, no-execution e bloqueio do dano). **38/38 testes Node** passaram, inclusive dois jogadores simulados, bloqueio de ataque normal como resposta por ausência de RPC, proteção anti-duplicação, conferência LIFO e DNA original intacto.
+- **Ainda pendente:** execução real de efeitos de equipamento, múltiplas respostas, pilha executada, HP oficial, mortes, vitórias, recompensas, emissão segura de cartas e teste em dois dispositivos com contas reais.
+- **Estimativa geral: 62% (±10 p.p.)**. O ganho de um ponto é conservador pela primeira ação de Burst declarada e validada no servidor; a execução ainda está incompleta.
