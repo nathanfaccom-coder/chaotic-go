@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, busy = false, match = null;
+  let room = null, poll = null, busy = false, match = null, declarations = [];
   const $ = id => document.getElementById(id);
   function halt() { if (poll !== null) { clearInterval(poll); poll = null; } }
   function note(message, error = false) {
@@ -43,6 +43,17 @@
         ? "Sua vez de agir. Turno " + match.turn_no + "."
         : "Aguardando a vez do outro jogador. Turno " + match.turn_no + ".");
     $("lobby-turn-count").textContent = match ? String(match.turn_no) : "—";
+    const combatPanel = $("lobby-combat");
+    if (combatPanel) {
+      combatPanel.hidden = !match;
+      const mine = declarations.some(d=>d.actor_id === userId && d.turn_no === match?.turn_no);
+      const canAct = active && match.current_player === userId && !mine;
+      $("lobby-combat-submit").hidden = !canAct;
+      $("lobby-combat-hint").textContent = !active ? "Teste encerrado ou sala indisponível."
+        : mine ? "Ação registrada. Passe o turno para continuar."
+        : match.current_player !== userId ? "Aguarde seu adversário."
+        : "Escolha uma carta do seu deck salvo para registrar uma declaração de teste.";
+    }
     // Prévia do tabuleiro: indica o jogador ativo sem modificar o motor DROME.
     const hostTile = $("lobby-board-host"), guestTile = $("lobby-board-guest");
     if (hostTile && guestTile) {
@@ -54,6 +65,33 @@
     $("lobby-turn-start").hidden = !!match || room.host_id !== userId || room.status !== "ready";
     $("lobby-turn-pass").hidden = !active || match.current_player !== userId;
     $("lobby-turn-stop").hidden = !active;
+  }
+  async function refreshDeclarations() {
+    const log = $("lobby-combat-history");
+    if (!log) return;
+    if (!room || !match) {
+      declarations=[];
+      log.textContent="As escolhas de cartas aparecerão aqui.";
+      return;
+    }
+    const {data,error} = await api.from("chaotic_combat_declarations")
+      .select("turn_no,actor_id,kind,deck_slot,card_slot,card_id")
+      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(24);
+    if(error) throw new Error(error.message);
+    declarations = data || [];
+    const rows=declarations.slice().reverse();
+    log.textContent=rows.length ? rows.map(x=>{
+      const side = x.actor_id===room.host_id ? "Anfitrião" : "Convidado";
+      return "T"+x.turn_no+" · "+side+(x.kind==="creature"?" escolheu criatura ":" declarou ataque ")
+        +"#"+x.card_id+" (deck "+x.deck_slot+", posição "+x.card_slot+")";
+    }).join("\n"):"Nenhuma escolha de carta registrada.";
+    $("lobby-combat-host").textContent="Anfitrião: "+(
+      declarations.find(x=>x.actor_id===room.host_id && x.kind==="creature")?.card_id || "sem criatura"
+    );
+    $("lobby-combat-guest").textContent="Convidado: "+(
+      declarations.find(x=>x.actor_id===room.guest_id && x.kind==="creature")?.card_id || "sem criatura"
+    );
+    updateMatchUI();
   }
   async function refreshHistory() {
     const log = $("lobby-events");
@@ -79,6 +117,7 @@
     if (error) throw new Error(error.message);
     match = data; updateMatchUI();
     await refreshHistory();
+    await refreshDeclarations();
   }
   function updateRoomUI() {
     if (!$("lobby-create")) return;
@@ -114,7 +153,7 @@
     }, 6000);
   }
   function show() {
-    halt(); room = null; match = null;
+    halt(); room = null; match = null; declarations = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -146,6 +185,24 @@
       '<span class="lobby-board-versus">VS</span>',
       '<div id="lobby-board-guest" class="lobby-board-slot">⬜ Convidado</div>',
       '</div>',
+      '<section id="lobby-combat" class="lobby-combat" hidden>',
+      '<strong>🃏 DECLARAÇÃO DE CARTAS (TESTE)</strong>',
+      '<p>Sem dano, efeitos, vitória ou recompensas.</p>',
+      '<div class="lobby-card-sides"><span id="lobby-combat-host">Anfitrião: sem criatura</span>',
+      '<span id="lobby-combat-guest">Convidado: sem criatura</span></div>',
+      '<label for="lobby-combat-kind">Ação</label>',
+      '<select id="lobby-combat-kind"><option value="creature">Escolher criatura</option>',
+      '<option value="attack">Declarar ataque</option></select>',
+      '<label for="lobby-combat-deck">Slot do deck salvo</label>',
+      '<select id="lobby-combat-deck"><option value="1">Deck 1</option>',
+      '<option value="2">Deck 2</option><option value="3">Deck 3</option></select>',
+      '<label for="lobby-combat-slot">Posição da carta nesse deck</label>',
+      '<input type="number" id="lobby-combat-slot" min="1" max="20" step="1" value="1">',
+      '<p id="lobby-combat-hint" role="status"></p>',
+      '<button type="button" id="lobby-combat-submit" hidden>Registrar escolha</button>',
+      '<p class="lobby-history-label">Histórico das escolhas</p>',
+      '<p id="lobby-combat-history" class="lobby-events" aria-live="polite">Nenhuma.</p>',
+      '</section>',
       '<p class="lobby-history-label">📜 Histórico de turnos</p>',
       '<p id="lobby-events" class="lobby-events" aria-live="polite">Aguardando início.</p>',
       '<button id="lobby-turn-start" type="button" hidden>Iniciar teste de turnos</button>',
@@ -184,6 +241,23 @@
     });
     $("lobby-refresh").onclick = () => action(refreshRoom);
     $("lobby-turn-refresh").onclick = () => action(refreshRoom);
+    $("lobby-combat-submit").onclick = () => action(async()=>{
+      if(!room || !match || match.status!=="active" || match.current_player!==userId) return;
+      const kind=$("lobby-combat-kind").value;
+      const deck=Number($("lobby-combat-deck").value);
+      const slot=Number($("lobby-combat-slot").value);
+      if(!["creature","attack"].includes(kind) || ![1,2,3].includes(deck)
+        || !Number.isInteger(slot) || slot<1 || slot>20) {
+        throw new Error("Escolha uma ação e posições válidas.");
+      }
+      const chosen=await rpc("chaotic_declare_combat_action",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no,p_kind:kind,
+        p_deck_slot:deck,p_card_slot:slot
+      });
+      await refreshDeclarations();
+      note("Servidor registrou "+(chosen.kind==="creature"?"criatura ":"ataque ")+"#"+chosen.card_id
+        +". Agora você pode passar o turno.");
+    });
     $("lobby-turn-start").onclick = () => action(async () => {
       if (!room || room.host_id !== userId || room.status !== "ready") return;
       match = await rpc("chaotic_start_match", { p_lobby_id: room.id });
