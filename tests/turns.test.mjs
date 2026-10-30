@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map(),burstOrderPlans=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map(),burstOrderPlans=new Map(),burstEquipmentResponses=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -287,9 +287,33 @@ function makeClient(actor) {
         win.defensive_immunity_source=isRex?"rex_air":"vacuum_amulet_air";
         return {data:{...win},error:null};
       }
+      if(name==="chaotic_queue_preview_burst_equipment"){
+        const m=matches.get(room.id),key=room.id+"/"+args.p_expected_turn;
+        const win=burstWindows.get(key),clash=clashes.get(key);
+        const unit=loadouts.get(room.id+"/"+actor);
+        if(room.mode!=="1x1"||room.status!=="ready"||!m||m.status!=="active"
+          ||m.turn_no!==args.p_expected_turn||win?.status!=="awaiting_defender"
+          ||win.defender_id!==actor||win.attacker_id!==m.current_player
+          ||clash?.defender_id!==actor||clash?.defender_card!==unit?.card_instance_id
+          ||!unit?.equipment_instance_id||!unit?.equipment_name
+          ||equipmentReveals.has(room.id+"/"+actor)
+          ||burstEquipmentResponses.has(key)||burstOrderPlans.has(key))
+          return {data:null,error:{message:"Revelação de equipamento indisponível"}};
+        const queued={lobby_id:room.id,turn_no:m.turn_no,defender_id:actor,
+          creature_instance_id:unit.card_instance_id,
+          equipment_instance_id:unit.equipment_instance_id,
+          equipment_name:unit.equipment_name,
+          response_kind:"declare_equipment_reveal",
+          resolution_status:"queued_unexecuted",
+          equipment_actually_revealed:false,
+          official_match_modified:false};
+        burstEquipmentResponses.set(key,queued);
+        return {data:{...queued},error:null};
+      }
       if(name==="chaotic_prepare_preview_burst_order"){
         const m=matches.get(room.id),key=room.id+"/"+args.p_expected_turn;
-        const win=burstWindows.get(key),clash=clashes.get(key),attack=attackInstances.get(key);
+        const win=burstWindows.get(key),clash=clashes.get(key),attack=attackInstances.get(key),
+          queued=burstEquipmentResponses.get(key);
         if(room.mode!=="1x1"||room.status!=="ready"||!m||m.status!=="active"
           ||m.turn_no!==args.p_expected_turn||m.current_player!==actor
           ||win?.attacker_id!==actor
@@ -297,11 +321,18 @@ function makeClient(actor) {
           ||clash?.attacker_id!==actor||clash?.defender_id!==win.defender_id
           ||clash?.attack_card!==win.attack_instance_id
           ||attack?.actor_id!==actor||attack?.attack_instance_id!==win.attack_instance_id
-          ||burstOrderPlans.has(key))
+          ||burstOrderPlans.has(key)
+          ||(queued&&win.status==="defender_immunity_noted"))
           return {data:null,error:{message:"Sequência Burst não autorizada"}};
         const steps=win.status==="defender_immunity_noted"
           ?[{order:1,stage:"inspect_passive_air_immunity",actor:"defender",
               source:win.defensive_immunity_source,executed:false},
+            {order:2,stage:"inspect_attack",actor:"attacker",
+              source:"declared_attack",executed:false}]
+          :queued
+          ?[{order:1,stage:"inspect_queued_equipment_reveal",actor:"defender",
+              source:"equipment_instance",equipment_name:queued.equipment_name,
+              executed:false},
             {order:2,stage:"inspect_attack",actor:"attacker",
               source:"declared_attack",executed:false}]
           :[{order:1,stage:"inspect_attack",actor:"attacker",
@@ -460,6 +491,7 @@ function makeClient(actor) {
         if(room.mode!=="1x1"||!match||match.status!=="active"||
           match.current_player!==actor||match.turn_no!==args.p_expected_turn||
           burstWindows.get(key)?.status==="awaiting_defender"||
+          burstEquipmentResponses.has(key)||
           !clash||clash.attacker_id!==actor||!attack||attack.actor_id!==actor||
           !attacker||!defender||attack.attack_instance_id!==clash.attack_card||
           attacker.card_instance_id!==clash.attacker_card||
@@ -608,7 +640,7 @@ function makeClient(actor) {
       throw Error(name);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits","chaotic_preview_burst_windows","chaotic_preview_burst_order_plans"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits","chaotic_preview_burst_windows","chaotic_preview_burst_order_plans","chaotic_preview_burst_equipment_responses"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
         then(resolve,reject) {
           const room=rooms.get(this.id);
@@ -661,6 +693,8 @@ function makeClient(actor) {
                                             ?[...burstWindows.values()].filter(x=>x.lobby_id===this.id)
                                             :table==="chaotic_preview_burst_order_plans"
                                               ?[...burstOrderPlans.values()].filter(x=>x.lobby_id===this.id)
+                                              :table==="chaotic_preview_burst_equipment_responses"
+                                                ?[...burstEquipmentResponses.values()].filter(x=>x.lobby_id===this.id)
                         :(journals.get(this.id)||[])):[];
           return Promise.resolve({data:[...events].reverse().slice(0,size),error:null});
         },
