@@ -119,7 +119,8 @@
     const bothLoadouts=loadouts.some(x=>x.actor_id===room.host_id)
       && loadouts.some(x=>x.actor_id===room.guest_id);
     const confirmedSpend=handCards.some(x=>x.card_state==="spent"
-      &&x.spent_turn===match.turn_no &&x.attack_instance_id===clashToCalculate?.attack_card);
+      &&x.spent_reason==="attack" &&x.spent_turn===match.turn_no
+      &&x.attack_instance_id===clashToCalculate?.attack_card);
     $("lobby-individual-damage-calculate").hidden=!(room.mode==="1x1"
       &&myTurn&&clashToCalculate&&attackResolved&&bothLoadouts&&confirmedSpend
       &&!individualDamage.some(x=>x.turn_no===match.turn_no));
@@ -341,7 +342,8 @@
     const inHand=handCards.some(x=>x.card_slot===snapshot?.card_slot
       &&x.attack_instance_id===snapshot?.attack_instance_id&&x.card_state==="hand");
     const spent=handCards.some(x=>x.card_slot===snapshot?.card_slot
-      &&x.attack_instance_id===snapshot?.attack_instance_id&&x.spent_turn===match.turn_no);
+      &&x.attack_instance_id===snapshot?.attack_instance_id
+      &&x.spent_reason==="attack"&&x.spent_turn===match.turn_no);
     $("lobby-hand-spend").hidden=!(myTurn&&wallet?.last_draw_turn===match.turn_no
       &&snapshot&&clash&&inHand&&!spent);
     const remaining=handCards.filter(x=>x.card_state==="hand")
