@@ -2751,6 +2751,42 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
   assert.ok((await makeClient(opponent).rpc("chaotic_open_preview_3x3_contact",{
     p_lobby_id:id,p_expected_turn:2,p_attacker_slot:4,p_defender_slot:5})).error,
     "A second contact cannot be recorded in the same player turn");
+  assert.ok((await makeClient(opponent).rpc("chaotic_pass_turn",{
+    p_lobby_id:id,p_expected_turn:2})).error,
+    "Paid 3x3 attack MUST NOT advance without defensive pass, even before opening window");
+  assert.ok((await makeClient(owner).rpc("chaotic_open_preview_3x3_defense_window",{
+    p_lobby_id:id,p_expected_turn:2})).error,
+    "The defender cannot open the attacker's priority window");
+  assert.ok((await makeClient(owner).rpc("chaotic_pass_preview_3x3_defense",{
+    p_lobby_id:id,p_expected_turn:2})).error,
+    "The defender cannot pass a window that has not been opened");
+  assert.equal(guest("lobby-3x3-defense-open").hidden,false);
+  await guest("lobby-3x3-defense-open").onclick();
+  const firstWindow=defenseWindows3x3.get(id+"/2");
+  assert.equal(firstWindow?.attacker_id,opponent);
+  assert.equal(firstWindow?.defender_id,owner);
+  assert.equal(firstWindow?.status,"awaiting_defender");
+  assert.equal(firstWindow?.defensive_effect_executed,false);
+  assert.equal(firstWindow?.official_match_modified,false);
+  assert.equal(guest("lobby-3x3-defense-open").hidden,true);
+  assert.ok((await makeClient(opponent).rpc("chaotic_open_preview_3x3_defense_window",{
+    p_lobby_id:id,p_expected_turn:2})).error,
+    "Cannot re-open defender priority to farm a second reaction");
+  assert.ok((await makeClient(opponent).rpc("chaotic_pass_preview_3x3_defense",{
+    p_lobby_id:id,p_expected_turn:2})).error,
+    "The attacker cannot masquerade as the defender");
+  assert.ok((await makeClient(opponent).rpc("chaotic_pass_turn",{
+    p_lobby_id:id,p_expected_turn:2})).error,
+    "Even after opening the window, the turn is blocked pending the defender");
+  await host("lobby-turn-refresh").onclick();
+  assert.equal(host("lobby-3x3-defense-pass").hidden,false);
+  await host("lobby-3x3-defense-pass").onclick();
+  assert.equal(defenseWindows3x3.get(id+"/2").status,"defender_passed_preview");
+  assert.equal(host("lobby-3x3-defense-pass").hidden,true);
+  assert.ok((await makeClient(owner).rpc("chaotic_pass_preview_3x3_defense",{
+    p_lobby_id:id,p_expected_turn:2})).error,"The defender pass is single-use");
+  await guest("lobby-turn-refresh").onclick();
+  assert.match(guest("lobby-3x3-defense-history").textContent,/Defensor PASSOU/);
   await guest("lobby-turn-pass").onclick();
   await host("lobby-turn-refresh").onclick();
   assert.equal(host("lobby-3x3-hand-sync").hidden,false);
@@ -2815,6 +2851,17 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
     "Server must block movement after opening a 3x3 contact");
   assert.equal(boardPositions3x3.get(id+"/"+owner+"/5").hex_position,5);
   assert.equal(hp3x3.get(id+"/"+owner+"/5").hp_remaining,35);
+  assert.ok((await makeClient(owner).rpc("chaotic_pass_turn",{
+    p_lobby_id:id,p_expected_turn:3})).error,
+    "A host-paid 3x3 Attack cannot bypass defender acknowledgement");
+  await host("lobby-3x3-defense-open").onclick();
+  assert.equal(defenseWindows3x3.get(id+"/3").attacker_id,owner);
+  await guest("lobby-turn-refresh").onclick();
+  assert.equal(guest("lobby-3x3-defense-pass").hidden,false);
+  await guest("lobby-3x3-defense-pass").onclick();
+  assert.equal(defenseWindows3x3.get(id+"/3").status,"defender_passed_preview");
+  assert.equal(defenseWindows3x3.get(id+"/3").training_hp_changed,false);
+  await host("lobby-turn-refresh").onclick();
   await host("lobby-turn-pass").onclick();
   await guest("lobby-turn-refresh").onclick();
   assert.equal(guest("lobby-3x3-hand-sync").hidden,false);
