@@ -1269,6 +1269,15 @@ test("1x1 Kiru location preview adds Blue energy without changing saved DNA or t
   await host("lobby-clash-open").onclick();
   await host("lobby-location-capture").onclick();
   assert.equal(locations.get(id).catalog_location_id,501);
+  assert.equal(host("lobby-hp-prepare").hidden,false);
+  assert.ok((await makeClient("location-kiru-guest").rpc("chaotic_prepare_preview_hp",{
+    p_lobby_id:id,p_expected_turn:3})).error,"Opponent cannot start HP outside own turn");
+  await host("lobby-hp-prepare").onclick();
+  assert.equal(hpWallets.get(id+"/location-kiru-guest").hp_max,75);
+  assert.equal(hpWallets.get(id+"/location-kiru-host").hp_max,75);
+  assert.equal(host("lobby-hp-prepare").hidden,true);
+  assert.ok((await makeClient("location-kiru-host").rpc("chaotic_prepare_preview_hp",{
+    p_lobby_id:id,p_expected_turn:3})).error,"Cannot restart HP to heal");
   await host("lobby-attack-instance-capture").onclick();
   await host("lobby-hand-spend").onclick();
   await host("lobby-individual-damage-calculate").onclick();
@@ -1282,8 +1291,46 @@ test("1x1 Kiru location preview adds Blue energy without changing saved DNA or t
   assert.match(host("lobby-individual-damage-history").textContent,/75 → 70/);
   assert.equal(loadouts.get(id+"/location-kiru-guest").stats.e,65);
   assert.equal(matches.get(id).current_player,"location-kiru-host");
+  assert.equal(host("lobby-hp-apply").hidden,false);
+  assert.ok((await makeClient("location-kiru-guest").rpc("chaotic_apply_preview_hp_projection",{
+    p_lobby_id:id,p_expected_turn:3})).error,"Opponent cannot apply someone else's damage");
+  await host("lobby-hp-apply").onclick();
+  assert.equal(hpWallets.get(id+"/location-kiru-guest").hp_remaining,70);
+  assert.equal(hpEvents.get(id+"/3").hp_before,75);
+  assert.equal(hpEvents.get(id+"/3").hp_after,70);
+  assert.equal(hpEvents.get(id+"/3").official_hp_changed,false);
+  assert.equal(host("lobby-hp-apply").hidden,true);
+  assert.match(host("lobby-hp-summary").textContent,/70\/75/);
+  assert.ok((await makeClient("location-kiru-host").rpc("chaotic_apply_preview_hp_projection",{
+    p_lobby_id:id,p_expected_turn:3})).error,"HP same turn cannot be decremented twice");
   await guest("lobby-turn-refresh").onclick();
   assert.match(guest("lobby-individual-damage-history").textContent,/Cidade de Kiru/);
+  assert.match(guest("lobby-hp-summary").textContent,/70\/75/);
+  // A second turn's damage must accumulate from 70, NOT original Kiru 75.
+  await host("lobby-turn-pass").onclick();
+  await guest("lobby-turn-refresh").onclick();
+  await guest("lobby-turn-pass").onclick();
+  await host("lobby-turn-refresh").onclick();
+  await host("lobby-hand-sync").onclick();
+  host("lobby-combat-kind").value="attack";
+  host("lobby-combat-deck").value="1";
+  host("lobby-combat-slot").value="3";
+  await host("lobby-combat-submit").onclick();
+  await host("lobby-clash-open").onclick();
+  await host("lobby-attack-instance-capture").onclick();
+  await host("lobby-hand-spend").onclick();
+  await host("lobby-individual-damage-calculate").onclick();
+  await host("lobby-hp-apply").onclick();
+  assert.equal(hpEvents.get(id+"/5").hp_before,70);
+  assert.equal(hpEvents.get(id+"/5").hp_after,65);
+  assert.equal(hpWallets.get(id+"/location-kiru-guest").hp_remaining,65);
+  assert.equal(hpWallets.get(id+"/location-kiru-guest").projected_hits,2);
+  assert.equal(loadouts.get(id+"/location-kiru-guest").stats.e,65,
+    "Frozen actual DNA must not be altered by cumulative projections");
+  assert.equal(matches.get(id).turn_no,5);
+  assert.equal(matches.get(id).current_player,"location-kiru-host");
+  assert.match(host("lobby-hp-events").textContent,/T3/);
+  assert.match(host("lobby-hp-events").textContent,/T5/);
 });
 
 test("1x1 conditional Vinha effect is predicted for next opponent turn but NEVER applied",async()=>{
