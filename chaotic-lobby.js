@@ -298,7 +298,7 @@
     if(!$("lobby-loadout-panel"))return;
     if(!room||!match){loadouts=[];updateLoadoutUI();return;}
     const {data,error}=await api.from("chaotic_preview_loadouts")
-      .select("actor_id,card_instance_id,creature_name,tribe,position,stats,equipment_name")
+      .select("actor_id,card_instance_id,creature_name,tribe,position,stats,equipment_instance_id,equipment_name")
       .eq("lobby_id",room.id);
     if(error)throw new Error(error.message);
     loadouts=data||[];
