@@ -1672,3 +1672,20 @@ html, body {
 .lobby-test .lobby-outline { background: #101010; border-color: #b2b2b2; }
 #lobby-current { background: #102619; border: 1px solid #387c4e; padding: 12px; border-radius: 8px; }
 #lobby-room-code { font-size: 18px; letter-spacing: 2px; color: #d0ffdd; }
+
+
+/* DROME: fase de sincronização, sem combate ou recompensas. */
+#lobby-turns {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    padding: 12px;
+    margin-top: 10px;
+    border-radius: 9px;
+    border: 1px solid #40967c;
+    background: #071d22;
+}
+#lobby-turns > strong { color: #94f7dd; font-size: 12px; }
+#lobby-turns p { font-size: 11px; line-height: 1.5; color: #e4f6f1; }
+#lobby-turn-count { font-size: 17px; color: #b8f5b8; }
+#lobby-turns [hidden] { display: none !important; }
