@@ -1,6 +1,6 @@
 # Chaotic GO — Status de conclusão e pendências (30/10/2026)
 
-Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 53% (incerteza aproximada ±10 pontos percentuais).**
+Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 54% (incerteza aproximada ±10 pontos percentuais).**
 
 ## Critérios ponderados
 
@@ -9,12 +9,12 @@ Este documento acompanha **prontidão para lançar o jogo completo com Supabase*
 | Motor legado, scanner, cartas, imagens, áudios e interfaces preservados | 25% | 90% | 22,5 p.p. |
 | Contas, migração de coleção, Decks e persistência privada Supabase | 15% | 75% | 11,25 p.p. |
 | Salas privadas, sincronização e protocolo de turnos | 10% | 70% | 7 p.p. |
-| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 20% | 5 p.p. |
+| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 24% | 6 p.p. |
 | Economia, amigos, trocas, recompensas e progressão integradas | 15% | 25% | 3,75 p.p. |
 | Testes ponta a ponta, dois dispositivos, mobile, segurança e publicação | 10% | 35% | 3,5 p.p. |
-| **Estimativa total** | **100%** | | **53 p.p.** |
+| **Estimativa total** | **100%** | | **54 p.p.** |
 
-Números estimados para planejamento, não verificação automática de 53% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
+Números estimados para planejamento, não verificação automática de 54% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
 
 ## Entregas já implementadas ou disponíveis
 - Jogo completo e recursos originais publicados no site; backup de branches anteriores.
@@ -49,5 +49,8 @@ Números estimados para planejamento, não verificação automática de 53% das 
 - **Versão 0.1.10:** equipamento do deck pode ser **revelado uma única vez** em teste 1x1 pelo dono da carta na própria vez; o registro fica no Supabase com RLS, sem executar o Burst nem alterar atributos/energia reais. Prévia considera Bracelete de Cristal e Bracelete de Água se revelados, imunidades de Ar de Rex/Amuleto do Vácuo, e neutralização elemental por Anel Precioso. Os efeitos de energia do Anel Precioso (-15), Bomba de Fogo (+5) e equipamentos ainda não resolvidos bloqueiam a apresentação de dano total fictício.
 - **Custo da carta:** exibido com referência validada do catálogo, mas o saldo de pontos de ataque e a carta na mão **ainda não são verificados**. Nenhum custo é debitado; não libera legalidade da jogada.
 - **Verificações 0.1.10:** testes SQL transacionais cobrem equipamentos, imunidades, visibilidade da revelação, ataques especiais e permissões; testes Node do DROME cobrem uma revelação por jogador, sincronização e ausência de redução de HP.
-- **Próximo bloqueio crítico:** emissão/posse autoritativa das cartas (álbum ainda editável no cliente), integridade do Deck e da mão, saldo/ganho/desconto de pontos de ataque por turno, resolução efetiva de equipamentos, imunidades restantes, locais, Burst, rolagens, efeitos e vitória antes de liberar dano real.
-- A estimativa ponderada permanece em **53%** até existir um marco funcional maior, como uma partida 1x1 completa e testada.
+- **Versão 0.1.11:** mão e carteira de pontos de ataque **separadas do combate oficial** e mantidas no Supabase, com acesso do jogador apenas aos próprios dados. A mão começa com os **três primeiros ataques válidos** do deck de 20 (ordem fixa de teste; **não é sorteio oficial**), pode receber uma carta em novo turno e limita a 5 cartas. Saldo experimental: 3 pontos iniciais e +1 em novas vezes após o preparo.
+- **Pagamento experimental:** `chaotic_spend_preview_attack` valida ataque capturado, posição/ID da carta na mão, confronto registrado, turno, jogador e saldo, descontando o custo **somente nessa carteira de teste**; trava gastos repetidos. O cálculo experimental de dano agora exige comprovante desse gasto. Contas oficiais, HP, vitórias e cartas originais permanecem intactos.
+- **Verificação 0.1.11:** SQL e testes Node cobrem aquisição/consumo de recursos, bloqueio de terceiro jogador, saldo insuficiente, replay e RLS. Ainda falta sincronizar iniciativa, efeitos que bloqueiam compra, embaralhamento e descartes do motor original.
+- **Próximo bloqueio crítico:** emissão/posse autoritativa das cartas (álbum editável no cliente), mão aleatória e pontos oficiais com iniciativa/bloqueios de efeitos, custo real, resolução de equipamentos, locais, Burst, rolagens, efeitos e vitória antes de liberar dano real.
+- A estimativa ponderada sobe de **53% para 54%**, por adicionar recursos verificáveis no servidor sem dano oficial. O número ainda é manual e continuará incerto até existir um 1x1 completo testado.
