@@ -1703,6 +1703,21 @@ test("1x1 conditional Vinha effect is predicted for next opponent turn but NEVER
   assert.equal(loadouts.get(id+"/effect-guest").stats.e,65);
 });
 
+
+async function completePriority(host,guest){
+  assert.equal(host("lobby-burst-priority-open").hidden,false);
+  await host("lobby-burst-priority-open").onclick();
+  assert.equal(host("lobby-burst-priority-pass").hidden,false);
+  await host("lobby-burst-priority-pass").onclick();
+  assert.equal(host("lobby-burst-priority-pass").hidden,true,"Attacker cannot repeat PASS");
+  await guest("lobby-turn-refresh").onclick();
+  assert.equal(guest("lobby-burst-priority-pass").hidden,false);
+  await guest("lobby-burst-priority-pass").onclick();
+  assert.match(guest("lobby-burst-priority-history").textContent,/Dois passes confirmados/);
+  await host("lobby-turn-refresh").onclick();
+  assert.equal(host("lobby-burst-order-prepare").hidden,false);
+}
+
 test("1x1 Burst defender may pass during attacker's turn but cannot resolve damage",async()=>{
   const host=browser("burst-host"),guest=browser("burst-guest");
   host("lobby-select-mode").value="1x1";
@@ -1806,20 +1821,6 @@ test("1x1 Burst defender may pass during attacker's turn but cannot resolve dama
 });
 
 for (const defenseKind of ["rex","amulet"]) {
-
-async function completePriority(host,guest){
-  assert.equal(host("lobby-burst-priority-open").hidden,false);
-  await host("lobby-burst-priority-open").onclick();
-  assert.equal(host("lobby-burst-priority-pass").hidden,false);
-  await host("lobby-burst-priority-pass").onclick();
-  assert.equal(host("lobby-burst-priority-pass").hidden,true,"Attacker cannot repeat PASS");
-  await guest("lobby-turn-refresh").onclick();
-  assert.equal(guest("lobby-burst-priority-pass").hidden,false);
-  await guest("lobby-burst-priority-pass").onclick();
-  assert.match(guest("lobby-burst-priority-history").textContent,/Dois passes confirmados/);
-  await host("lobby-turn-refresh").onclick();
-  assert.equal(host("lobby-burst-order-prepare").hidden,false);
-}
 
 test("Burst 1x1 validates "+defenseKind+" immunity to Ar without changing official damage",async()=>{
   const hostId="air-"+defenseKind+"-host",guestId="air-"+defenseKind+"-guest";
