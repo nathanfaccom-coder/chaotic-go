@@ -2452,6 +2452,34 @@ test("Arpa Mágica grants +1 TRAINING token once after equipment reveal; origina
   assert.equal(mugicTrainingWallets.get(id+"/"+actor).bonus_tokens,1);
 });
 
+test("3x3 defers defender pass until paid, while ordinary no-attack turns still advance",async()=>{
+  const owner="guard3-host",opponent="guard3-guest";
+  const host=browser(owner),guest=browser(opponent);
+  host("lobby-select-mode").value="3x3";
+  await host("lobby-create-btn").onclick();
+  const code=host("lobby-room-code").textContent;
+  guest("lobby-input-code").value=code;
+  await guest("lobby-join-btn").onclick();
+  await host("lobby-refresh").onclick();
+  await host("lobby-turn-start").onclick();
+  const id=[...rooms.values()].find(x=>x.code===code).id;
+  assert.ok((await makeClient(opponent).rpc("chaotic_pass_preview_3x3_defense",{
+    p_lobby_id:id,p_expected_turn:1})).error,
+    "A defender cannot pass before a paid training attack");
+  assert.ok((await makeClient(owner).rpc("chaotic_open_preview_3x3_defense_window",{
+    p_lobby_id:id,p_expected_turn:1})).error,
+    "Attacker cannot open a reaction without an actual training payment");
+  assert.equal(defenseWindows3x3.has(id+"/1"),false);
+  await host("lobby-turn-pass").onclick();
+  assert.equal(matches.get(id).turn_no,2,
+    "Ordinary 3x3 turns without a paid Attack must still advance");
+  await guest("lobby-turn-refresh").onclick();
+  assert.equal(guest("lobby-3x3-defense-pass").hidden,true);
+  assert.ok((await makeClient(opponent).rpc("chaotic_pass_preview_3x3_defense",{
+    p_lobby_id:id,p_expected_turn:1})).error,
+    "A stale turn cannot create a defensive pass");
+});
+
 test("3x3 Alakazaz transfers a token only to the same player's ally, once per turn",async()=>{
   const owner="ally3-host",opponent="ally3-guest";
   const host=browser(owner),guest=browser(opponent);
