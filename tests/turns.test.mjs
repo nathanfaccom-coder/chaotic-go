@@ -1898,6 +1898,80 @@ async function completePriority(host,guest,exerciseMugic=false){
   assert.equal(host("lobby-burst-order-prepare").hidden,false);
 }
 
+test("Lion, Vidal and Xamã spend exactly one TRAINING token and update only hypothetical HP",async()=>{
+  const cases=[
+    {name:"Lion",gain:10,hostHp:20,max:30,target:"self",startTokens:1,expectedHp:30,expectedMax:40},
+    {name:"Vidal",gain:15,hostHp:20,max:30,target:"opponent",startTokens:2,expectedHp:30,expectedMax:30},
+    {name:"Xamã",gain:10,hostHp:20,max:30,target:"opponent",startTokens:4,expectedHp:30,expectedMax:30}
+  ];
+  for(const c of cases){
+    const actor="ability-"+c.name+"-host",defender="ability-"+c.name+"-guest";
+    const host=browser(actor),guest=browser(defender);
+    host("lobby-select-mode").value="1x1";
+    await host("lobby-create-btn").onclick();
+    const code=host("lobby-room-code").textContent;
+    const id=[...rooms.values()].find(x=>x.code===code).id;
+    guest("lobby-input-code").value=code;
+    await guest("lobby-join-btn").onclick();
+    await host("lobby-refresh").onclick();
+    await host("lobby-turn-start").onclick();
+    const instance="instance-"+c.name;
+    loadouts.set(id+"/"+actor,{
+      lobby_id:id,actor_id:actor,position:6,card_instance_id:instance,
+      creature_name:c.name,tribe:"Azul",stats:{e:30}
+    });
+    loadouts.set(id+"/"+defender,{
+      lobby_id:id,actor_id:defender,position:6,card_instance_id:"target-"+c.name,
+      creature_name:"Alakazaz",tribe:"Azul",stats:{e:30}
+    });
+    for(const [who,instanceId] of [[actor,instance],[defender,"target-"+c.name]]){
+      hpWallets.set(id+"/"+who,{
+        lobby_id:id,actor_id:who,creature_instance_id:instanceId,
+        hp_max:30,hp_remaining:who===actor?(c.target==="self"?20:25):20,
+        location_id:501,init_turn:1,projected_hits:0
+      });
+    }
+    mugicTrainingWallets.set(id+"/"+actor,{
+      lobby_id:id,actor_id:actor,creature_instance_id:instance,
+      creature_name:c.name,starting_tokens:c.startTokens,remaining_tokens:c.startTokens,
+      official_match_modified:false
+    });
+    await host("lobby-turn-refresh").onclick();
+    assert.equal(host("lobby-ability-heal-activate").hidden,false,
+      c.name+" can use its own validated ability before a clash");
+    host("lobby-ability-target").value=c.target;
+    const who=c.target==="self"?actor:defender;
+    const other=c.target==="self"?defender:actor;
+    const previous=hpWallets.get(id+"/"+other).hp_remaining;
+    if(c.name==="Lion"){
+      assert.ok((await makeClient(actor).rpc("chaotic_apply_preview_ability_heal",{
+        p_lobby_id:id,p_expected_turn:1,p_target_actor_id:defender
+      })).error,"Lion cannot buff the opponent");
+    }
+    assert.ok((await makeClient(defender).rpc("chaotic_apply_preview_ability_heal",{
+      p_lobby_id:id,p_expected_turn:1,p_target_actor_id:who
+    })).error,"Opponent cannot spend other player's tokens");
+    await host("lobby-ability-heal-activate").onclick();
+    const event=trainingAbilityEvents.get(id+"/1/"+actor);
+    assert.equal(event?.source_creature_name,c.name);
+    assert.equal(event.token_cost,1);
+    assert.equal(event.tokens_before,c.startTokens);
+    assert.equal(event.tokens_after,c.startTokens-1);
+    assert.equal(event.hp_after,c.expectedHp);
+    assert.equal(event.hp_max_after,c.expectedMax);
+    assert.equal(event.official_hp_changed,false);
+    assert.equal(event.official_tokens_consumed,false);
+    assert.equal(mugicTrainingWallets.get(id+"/"+actor).remaining_tokens,c.startTokens-1);
+    assert.equal(hpWallets.get(id+"/"+who).hp_remaining,c.expectedHp);
+    assert.equal(hpWallets.get(id+"/"+other).hp_remaining,previous);
+    assert.match(host("lobby-ability-heal-history").textContent,/HP de teste/);
+    assert.ok((await makeClient(actor).rpc("chaotic_apply_preview_ability_heal",{
+      p_lobby_id:id,p_expected_turn:1,p_target_actor_id:who
+    })).error,"Replay cannot debit twice in the same turn");
+    assert.equal(mugicTrainingWallets.get(id+"/"+actor).remaining_tokens,c.startTokens-1);
+  }
+});
+
 test("Burst 1x1 inspects Creation countered by Rejection in LIFO without consumption",async()=>{
   const host=browser("mugic-lifo-host"),guest=browser("mugic-lifo-guest");
   host("lobby-select-mode").value="1x1";
