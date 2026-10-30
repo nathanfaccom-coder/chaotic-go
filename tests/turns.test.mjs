@@ -2241,6 +2241,8 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
     {id:"enemy-frador-1",name:"Frador",energy:55},
     {id:"enemy-lion-2",name:"Lion",energy:40},
     {id:"enemy-vidal-3",name:"Vidal",energy:32}];
+  deckA.attacks=[{id:"attack-host-101",name:"Ácido Gástrico",quantity:1,danoBase:10,custo:3}];
+  deckB.attacks=[{id:"attack-guest-104",name:"Fogo Primordial 2.0",quantity:1,danoBase:5,custo:2}];
   decks3x3.set(owner+"/1",deckA);
   decks3x3.set(opponent+"/1",deckB);
   assert.equal(host("lobby-3x3-prepare").hidden,false);
@@ -2405,6 +2407,38 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
   assert.equal(firstContact.damage_applied,false);
   assert.equal(firstContact.attack_card_validated,false);
   assert.equal(firstContact.official_match_modified,false);
+  assert.equal(guest("lobby-3x3-attack-project").hidden,false);
+  assert.ok((await makeClient(owner).rpc("chaotic_prepare_preview_3x3_base_attack",{
+    p_lobby_id:id,p_expected_turn:2,p_attack_card_slot:1})).error,
+    "Host cannot validate an Attack on the guest's turn");
+  assert.ok((await makeClient(opponent).rpc("chaotic_prepare_preview_3x3_base_attack",{
+    p_lobby_id:id,p_expected_turn:2,p_attack_card_slot:2})).error,
+    "An empty Attack slot cannot be projected");
+  const originalCost=deckB.attacks[0].custo;
+  deckB.attacks[0].custo=45;
+  assert.ok((await makeClient(opponent).rpc("chaotic_prepare_preview_3x3_base_attack",{
+    p_lobby_id:id,p_expected_turn:2,p_attack_card_slot:1})).error,
+    "Attack card numbers cannot override the authoritative catalog");
+  deckB.attacks[0].custo=originalCost;
+  guest("lobby-3x3-attack-slot").value="1";
+  await guest("lobby-3x3-attack-project").onclick();
+  const guestAttack=attackProjections3x3.get(id+"/2");
+  assert.equal(guestAttack?.catalog_attack_id,"104");
+  assert.equal(guestAttack.base_damage,5);
+  assert.equal(guestAttack.defender_hp_before,35);
+  assert.equal(guestAttack.defender_hp_projected,30);
+  assert.equal(guestAttack.projected_hp_loss,5);
+  assert.equal(guestAttack.attack_cost_paid,false);
+  assert.equal(guestAttack.attack_in_hand_verified,false);
+  assert.equal(guestAttack.training_hp_changed,false);
+  assert.equal(guestAttack.official_hp_changed,false);
+  assert.equal(hp3x3.get(id+"/"+owner+"/5").hp_remaining,35,
+    "Only damage projection is saved; no training HP is changed");
+  assert.match(guest("lobby-3x3-attack-history").textContent,/SOMENTE SE dano-base/);
+  assert.equal(guest("lobby-3x3-attack-project").hidden,true);
+  assert.ok((await makeClient(opponent).rpc("chaotic_prepare_preview_3x3_base_attack",{
+    p_lobby_id:id,p_expected_turn:2,p_attack_card_slot:1})).error,
+    "Replay cannot create a second 3x3 Attack projection");
   assert.match(guest("lobby-3x3-contact-history").textContent,/Contato registrado/);
   assert.ok((await makeClient(opponent).rpc("chaotic_open_preview_3x3_contact",{
     p_lobby_id:id,p_expected_turn:2,p_attacker_slot:4,p_defender_slot:5})).error,
@@ -2420,6 +2454,17 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
   assert.equal(secondContact?.attacker_id,owner);
   assert.equal(secondContact?.attacker_hp_at_contact,35);
   assert.equal(secondContact?.defender_hp_at_contact,55);
+  assert.equal(host("lobby-3x3-attack-project").hidden,false);
+  host("lobby-3x3-attack-slot").value="1";
+  await host("lobby-3x3-attack-project").onclick();
+  const hostAttack=attackProjections3x3.get(id+"/3");
+  assert.equal(hostAttack?.catalog_attack_id,"101");
+  assert.equal(hostAttack?.attack_cost,3);
+  assert.equal(hostAttack?.defender_hp_before,55);
+  assert.equal(hostAttack?.defender_hp_projected,45);
+  assert.equal(hostAttack?.projected_hp_loss,10);
+  assert.equal(hostAttack?.calculation_scope,"base_only_unresolved");
+  assert.equal(hp3x3.get(id+"/"+opponent+"/4").hp_remaining,55);
   assert.equal(host("lobby-3x3-move").hidden,true,
     "Contact freezes further movement on its own turn");
   assert.ok((await makeClient(owner).rpc("chaotic_move_preview_3x3_unit",{
