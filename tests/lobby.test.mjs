@@ -51,7 +51,7 @@ function makeClient(userId) {
       throw Error("Unexpected RPC "+method);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage"].includes(table));
       return {select(){return this;},eq(_field,id){this.id=id;return this;},
         order(){return this;},
         limit(){return Promise.resolve({data:[],error:null});},
@@ -145,7 +145,7 @@ test("private room subscribes to four channels and cleans up after closing",asyn
   const own=realtimeChannels.findLast(c=>c.userId==="live-host");
   assert.ok(own?.active);
   assert.deepEqual(own.listeners.map(x=>x.filter.table),
-    ["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes"]);
+    ["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage"]);
   const code=host.elem("lobby-room-code").textContent;
   guest.browser.window.abrirSalaPrivadaDrome();
   guest.elem("lobby-input-code").value=code;

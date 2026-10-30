@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -53,7 +53,7 @@ function makeClient(actor) {
           return {data:null,error:{message:"Ação inválida ou fora da vez"}};
         const record={actor_id:actor,turn_no:match.turn_no,kind:args.p_kind,
           deck_slot:args.p_deck_slot,card_slot:args.p_card_slot,
-          card_id:args.p_kind==="creature"?"1":"30"};
+          card_id:args.p_kind==="creature"?"1":"105"};
         values.push(record);declarations.set(room.id,values);
         return {data:record,error:null};
       }
@@ -112,6 +112,23 @@ function makeClient(actor) {
         clashes.set(key,item);
         return {data:{...item},error:null};
       }
+      if(name==="chaotic_preview_calculate_base_damage"){
+        const match=matches.get(room.id),clash=clashes.get(room.id+"/"+args.p_expected_turn);
+        const key=room.id+"/"+args.p_expected_turn;
+        if(!match||match.current_player!==actor||match.turn_no!==args.p_expected_turn||
+          !clash||clash.attacker_id!==actor||baseDamage.has(key))
+          return {data:null,error:{message:"Cálculo de dano rejeitado"}};
+        const attackId=clash.attack_card;
+        const status=attackId==="104"?"ambiguous_attack_id":
+          attackId==="105"?"base_only":"unknown_attack_id";
+        const obj={lobby_id:room.id,turn_no:match.turn_no,attacker_id:actor,
+          attack_card_id:attackId,attack_name:status==="base_only"?"Vento Forte":null,
+          base_damage:status==="base_only"?5:null,defender_name:status==="base_only"?"Johnes":null,
+          defender_energy_base:status==="base_only"?45:null,
+          energy_after_base:status==="base_only"?40:null,calculation_status:status};
+        baseDamage.set(key,obj);
+        return {data:{...obj},error:null};
+      }
       if(name==="chaotic_stop_match"){
         const state=matches.get(room.id);
         if(!state||!["host","guest"].some(a=>a===actor)||state.status!=="active")
@@ -131,7 +148,7 @@ function makeClient(actor) {
       throw Error(name);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
         then(resolve,reject) {
           const room=rooms.get(this.id);
@@ -148,7 +165,9 @@ function makeClient(actor) {
             ?(declarations.get(this.id)||[])
             :table==="chaotic_preview_clashes"
               ?[...clashes.values()].filter(x=>x.lobby_id===this.id)
-              :(journals.get(this.id)||[])):[];
+              :table==="chaotic_preview_damage"
+                ?[...baseDamage.values()].filter(x=>x.lobby_id===this.id)
+                :(journals.get(this.id)||[])):[];
           return Promise.resolve({data:[...events].reverse().slice(0,size),error:null});
         },
         async maybeSingle(){
@@ -333,7 +352,16 @@ test("1x1 encounter requires both placed creatures and an attack on turn",async(
   await host("lobby-clash-open").onclick();
   assert.match(host("lobby-clash-history").textContent,/resolução pendente/);
   const key=room.id+"/3";
-  assert.equal(clashes.get(key).attack_card,"30");
+  assert.equal(clashes.get(key).attack_card,"105");
+  assert.equal(host("lobby-damage-calculate").hidden,false);
+  await host("lobby-damage-calculate").onclick();
+  assert.match(host("lobby-damage-history").textContent,/dano BASE 5/);
+  assert.match(host("lobby-damage-history").textContent,/energia base 45/);
+  assert.equal(baseDamage.get(key).energy_after_base,40);
+  assert.equal(host("lobby-damage-calculate").hidden,true);
+  const duplicatePreview=await makeClient("duel-host").rpc("chaotic_preview_calculate_base_damage",
+    {p_lobby_id:room.id,p_expected_turn:3});
+  assert.ok(duplicatePreview.error,"Base damage cannot be replayed");
   assert.equal(clashes.get(key).result,"awaiting_original_engine");
   const again=await makeClient("duel-host").rpc("chaotic_open_preview_clash",
     {p_lobby_id:room.id,p_expected_turn:3});
@@ -341,4 +369,29 @@ test("1x1 encounter requires both placed creatures and an attack on turn",async(
   const intruder=await makeClient("intruder").rpc("chaotic_open_preview_clash",
     {p_lobby_id:room.id,p_expected_turn:3});
   assert.ok(intruder.error,"Terceiro usuário deve ser rejeitado");
+});
+
+test("duplicate original attack ID 104 is marked ambiguous, not a damage value",async()=>{
+  const host=browser("ambig-host"),guest=browser("ambig-guest");
+  host("lobby-select-mode").value="1x1";
+  await host("lobby-create-btn").onclick();
+  const code=host("lobby-room-code").textContent;
+  guest("lobby-input-code").value=code;
+  await guest("lobby-join-btn").onclick();
+  await host("lobby-refresh").onclick();
+  await host("lobby-turn-start").onclick();
+  const room=[...rooms.values()].find(x=>x.code===code);
+  const m=matches.get(room.id);
+  const key=room.id+"/1";
+  clashes.set(key,{lobby_id:room.id,turn_no:1,attacker_id:"ambig-host",
+    defender_id:"ambig-guest",attack_card:"104",attacker_card:"1",defender_card:"1"});
+  const out=await makeClient("ambig-host").rpc("chaotic_preview_calculate_base_damage",{
+    p_lobby_id:room.id,p_expected_turn:1});
+  assert.equal(out.error,null);
+  assert.equal(out.data.calculation_status,"ambiguous_attack_id");
+  assert.equal(out.data.base_damage,null);
+  await host("lobby-turn-refresh").onclick();
+  assert.match(host("lobby-damage-history").textContent,/duplicado no catálogo original/);
+  assert.equal(host("lobby-damage-calculate").hidden,true);
+  assert.equal(m.turn_no,1,"No combat state changed");
 });

@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -102,6 +102,9 @@
       match.current_player===userId&&new Date(room.expires_at).getTime()>Date.now();
     const adjacent=!!mine&&!!other&&contactBetweenSides(room.mode,mine.position,other.position);
     $("lobby-clash-open").hidden=!(myTurn&&attack&&adjacent&&!already);
+    const clashToCalculate=clashes.find(x=>x.turn_no===match.turn_no && x.attacker_id===userId);
+    $("lobby-damage-calculate").hidden=!(myTurn&&clashToCalculate &&
+      !baseDamage.some(x=>x.turn_no===match.turn_no));
     const label=$("lobby-clash-status");
     label.textContent=already?"Confronto deste turno registrado. Dano ainda não é aplicado."
       :!myTurn?"Aguarde a sua vez para declarar um confronto."
@@ -121,6 +124,29 @@
       ?record.nome+" · Energia base "+(record.statsMax?.energia??"—")+" · "+(record.tribo||"")
       :unit?"Carta #"+unit.card_id+" · c"+unit.position:"Sem criatura posicionada";
   }
+  async function refreshBaseDamage(){
+    const log=$("lobby-damage-history");
+    if(!log)return;
+    if(!room||!match){baseDamage=[];log.textContent="Sem cálculos.";return;}
+    const {data,error}=await api.from("chaotic_preview_damage")
+      .select("turn_no,attacker_id,attack_card_id,attack_name,base_damage,defender_name,defender_energy_base,energy_after_base,calculation_status")
+      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(12);
+    if(error)throw new Error(error.message);
+    baseDamage=data||[];
+    log.textContent=baseDamage.length?baseDamage.slice().reverse().map(x=>{
+      const who=x.attacker_id===room.host_id?"Anfitrião":"Convidado";
+      if(x.calculation_status==="ambiguous_attack_id")
+        return "Turno "+x.turn_no+" · "+who+": ID "+x.attack_card_id+
+          " duplicado no catálogo original. Cálculo bloqueado para preservar as duas cartas.";
+      if(x.calculation_status!=="base_only")
+        return "Turno "+x.turn_no+" · "+who+": referência não identificada ("+x.calculation_status+").";
+      return "Turno "+x.turn_no+" · "+who+" · "+x.attack_name+
+        ": dano BASE "+x.base_damage+" · "+x.defender_name+
+        " (energia base "+x.defender_energy_base+
+        " → "+x.energy_after_base+" APENAS se não houver modificadores).";
+    }).join("\n"):"Nenhum dano base calculado.";
+    updateClashUI();
+  }
   async function refreshClashes(){
     const log=$("lobby-clash-history");
     if(!log)return;
@@ -132,9 +158,11 @@
     clashes=data||[];
     log.textContent=clashes.length?clashes.slice().reverse().map(e=>{
       const side=e.attacker_id===room.host_id?"Anfitrião":"Convidado";
-      const attack=(window.ChaoticOriginalCards?.attacks||[])
-        .find(c=>String(c.id)===String(e.attack_card));
-      return "Turno "+e.turn_no+" · "+side+": "+(attack?.nome||"Ataque #"+e.attack_card)
+      const attackMatches=(window.ChaoticOriginalCards?.attacks||[])
+        .filter(c=>String(c.id)===String(e.attack_card));
+      const attackLabel=attackMatches.length===1?attackMatches[0].nome:
+        attackMatches.length>1?"Ataque #"+e.attack_card+" (ID duplicado)":"Ataque #"+e.attack_card;
+      return "Turno "+e.turn_no+" · "+side+": "+attackLabel
         +" (c"+e.attacker_position+" contra c"+e.defender_position+") · resolução pendente";
     }).join("\n"):"Nenhum confronto registrado.";
     updateClashUI();
@@ -245,6 +273,7 @@
     await refreshDeclarations();
     await refreshBoard();
     await refreshClashes();
+    await refreshBaseDamage();
   }
   function updateRoomUI() {
     if (!$("lobby-create")) return;
@@ -300,6 +329,9 @@
         .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_clashes",filter:"lobby_id=eq."+lobbyId
         },sync)
+        .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_damage",filter:"lobby_id=eq."+lobbyId
+        },sync)
         .subscribe(status=>{
           if(status==="CHANNEL_ERROR"||status==="TIMED_OUT")
             console.warn("DROME: canal em tempo real temporariamente indisponível; consultas periódicas seguem ativas.");
@@ -312,7 +344,7 @@
     }, 6000);
   }
   function show() {
-    halt(); room = null; match = null; declarations = []; board = []; clashes = [];
+    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -393,6 +425,9 @@
       '</div>',
       '<p id="lobby-clash-status" role="status"></p>',
       '<button id="lobby-clash-open" type="button" hidden>Registrar confronto</button>',
+      '<button id="lobby-damage-calculate" type="button" hidden>Conferir dano base no servidor</button>',
+      '<p class="lobby-history-label">Prévia do dano (sem aplicar pontos de vida)</p>',
+      '<p id="lobby-damage-history" class="lobby-events" aria-live="polite">Nenhum cálculo.</p>',
       '<p class="lobby-history-label">Confrontos registrados</p>',
       '<p id="lobby-clash-history" class="lobby-events" aria-live="polite">Nenhum confronto registrado.</p>',
       '</section>',
@@ -461,6 +496,16 @@
       });
       await refreshBoard();
       note("Movimento aceito pelo servidor. A criatura mudou de posição.");
+    });
+    $("lobby-damage-calculate").onclick = () => action(async()=>{
+      if(!room||!match||match.status!=="active"||match.current_player!==userId)return;
+      const result=await rpc("chaotic_preview_calculate_base_damage",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refreshBaseDamage();
+      note(result.calculation_status==="base_only"
+        ?"Dano BASE conferido pelo servidor. Efeitos e dano final ainda NÃO aplicados."
+        :"Cálculo suspenso: referência de carta ambígua ou desconhecida. Nenhuma carta foi alterada.");
     });
     $("lobby-clash-open").onclick = () => action(async()=>{
       if(!room||!match||match.status!=="active"||match.current_player!==userId)return;

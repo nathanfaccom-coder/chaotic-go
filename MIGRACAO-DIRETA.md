@@ -46,3 +46,11 @@ O service worker de lançamento não armazena telas autenticadas nem JavaScript 
 - O confronto fica com `result='awaiting_original_engine'`: **não aplica dano, efeitos especiais, custos, vitória, cartas transferidas ou XP**. O motor oficial completo continua no projeto e precisa ser portado com validação no servidor antes da liberação de PvP.
 - O catálogo é público; as informações apresentadas nesta etapa de testes não substituem a regra de criaturas ocultas do combate oficial.
 - Testes no GitHub validam 1x1 com criaturas de duas contas simuladas, bloqueio de confronto repetido, jogador não autorizado e matriz de adjacência; teste real entre dois celulares ainda pendente.
+
+## Prévia autoritativa de dano base (nova etapa)
+- O Supabase recebe uma referência de **16 definições de ataque e 16 criaturas**, extraídas de `cartas.js`, sem reescrever o catálogo original.
+- A tabela `chaotic_preview_damage`, com RLS, registra somente uma estimativa de `danoBase` e energia inicial. A API `chaotic_preview_calculate_base_damage` aceita apenas o atacante autenticado no turno de confronto já validado. Não altera HP, estado de batalha, XP, moedas nem cartas.
+- O catálogo atual possui um conflito de identificador: **Fogo Primordial 2.0** e **Golpe de Bravura** têm o mesmo ID **104**. O servidor retorna `ambiguous_attack_id` e não calcula um valor arbitrário.
+- Exemplo de referência: `Vento Forte` (ID 105) possui 5 de dano base, mas seu efeito especial e possíveis modificadores **não são aplicados**. A energia exibida é a energia **base** da criatura, não a energia real em jogo.
+- Confrontos continuam no status `awaiting_original_engine`; danos elementais, atributos, equipamentos, bloqueios, cartas especiais, resolução definitiva, efeitos e mortes exigem portabilidade completa do motor.
+- Testes automatizados cobrem uma carta com ID único, ID ambíguo, acesso de terceiro, repetição e nenhum estado de HP modificado. Consulta real ao Supabase validou 32 definições, acesso privado e proibição de operações sem partida/turno.
