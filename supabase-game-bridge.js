@@ -7,6 +7,35 @@ if (!user || !user.id) throw new Error("Sessão autenticada obrigatória.");
 const ownerId = user.id;
 const watchers = new Map();
 const queues = new Map();
+const revisions = new Map();
+let realtimeChannel = null;
+function reloadDeckCollection() {
+  if (!watchers.has("decks")) return;
+  get(ref(db,"jogadores/"+ownerId+"/decks"))
+    .then(s => notify("decks",s.val())).catch(report);
+}
+function handleCloudChange(payload) {
+  const row = payload?.new?.node_path ? payload.new : payload?.old;
+  if (!row || row.user_id !== ownerId || !row.node_path) return;
+  const key = row.node_path;
+  // Eventos DELETE carregam apenas a chave primária com REPLICA IDENTITY DEFAULT.
+  const value = payload.eventType === "DELETE" ? null : payload.new?.data ?? null;
+  if (watchers.has(key)) notify(key,value);
+  if (key.startsWith("decks/")) reloadDeckCollection();
+}
+function ensureRealtime() {
+  if (realtimeChannel || typeof client.channel !== "function") return;
+  realtimeChannel = client.channel("chaotic-player-nodes-"+ownerId)
+    .on("postgres_changes",{
+      event:"*",schema:"public",table:"chaotic_game_nodes",
+      filter:"user_id=eq."+ownerId
+    },handleCloudChange)
+    .subscribe(status=>{
+      if (status==="CHANNEL_ERROR" || status==="TIMED_OUT") {
+        console.warn("Chaotic GO: Realtime indisponível; os dados continuam acessíveis por consulta.");
+      }
+    });
+}
 
 function keyOf(input) {
   const path = typeof input === "string" ? input : input?.path;
@@ -24,6 +53,7 @@ export const db = {};
 export function ref(_database, path) { return { path }; }
 const snapshot = value => ({ exists: () => value !== null && value !== undefined, val: () => value ?? null });
 function notify(node, value) {
+  revisions.set(node,(revisions.get(node)||0)+1);
   for (const cb of watchers.get(node) || []) {
     try { cb(snapshot(value)); } catch (error) { console.error(error); }
   }
@@ -95,8 +125,22 @@ export function onValue(reference, callback) {
   let listeners = watchers.get(node);
   if (!listeners) { listeners=new Set(); watchers.set(node,listeners); }
   listeners.add(callback);
-  get(reference).then(s => { if(listeners.has(callback)) callback(s); }).catch(report);
-  return () => { listeners.delete(callback);if(!listeners.size)watchers.delete(node); };
+  ensureRealtime();
+  // Evita que uma consulta inicial lenta sobrescreva uma atualização mais recente.
+  const atStart=revisions.get(node)||0;
+  get(reference).then(s => {
+    if(listeners.has(callback) && (revisions.get(node)||0)===atStart) callback(s);
+  }).catch(report);
+  return () => {
+    listeners.delete(callback);
+    if(!listeners.size) watchers.delete(node);
+    if(!watchers.size && realtimeChannel) {
+      const channel=realtimeChannel;
+      realtimeChannel=null;
+      if(typeof client.removeChannel==="function")client.removeChannel(channel);
+      else if(typeof channel.unsubscribe==="function")channel.unsubscribe();
+    }
+  };
 }
 export function installDbCompat() {
   window._dbGet = path => get(ref(db,path));

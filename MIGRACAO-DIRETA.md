@@ -23,3 +23,10 @@ O service worker de lançamento não armazena telas autenticadas nem JavaScript 
 
 ## Testes
 `node --test tests/*.test.mjs` com GitHub Actions e `node --check` nos módulos; testes em dois dispositivos reais ainda pendentes.
+
+## Sincronização entre dispositivos (atualização 30/10/2026)
+- A coleção privada `chaotic_game_nodes` foi habilitada no `supabase_realtime` e possui política RLS por proprietário.
+- O adaptador `supabase-game-bridge.js` agora escuta INSERT/UPDATE/DELETE e notifica álbum, perfil e Decks, incluindo agrupamento da oficina.
+- Salas DROME, turnos e eventos também recebem notificações em tempo real; a consulta a cada seis segundos permanece de reserva.
+- As batalhas oficiais, trocas e recompensas **não** estão habilitadas: a sincronização transporta estado, mas não valida todas as regras antigas.
+- Os testes automatizados simularam atualizações de duas sessões, filtragem por conta, mudanças de decks e liberação da conexão ao sair.

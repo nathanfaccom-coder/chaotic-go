@@ -4,9 +4,17 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, busy = false, match = null, declarations = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [];
   const $ = id => document.getElementById(id);
-  function halt() { if (poll !== null) { clearInterval(poll); poll = null; } }
+  function halt() {
+    if (poll !== null) { clearInterval(poll); poll = null; }
+    if (liveChannel) {
+      const channel=liveChannel;
+      liveChannel=null;
+      if(typeof api.removeChannel === "function") api.removeChannel(channel);
+      else if(typeof channel.unsubscribe === "function")channel.unsubscribe();
+    }
+  }
   function note(message, error = false) {
     const label = $("lobby-notice");
     if (label) {
@@ -147,6 +155,32 @@
   }
   function watch() {
     halt();
+    if (room && typeof api.channel === "function") {
+      const lobbyId = room.id;
+      const sync = () => {
+        if (room?.id !== lobbyId) return;
+        refreshRoom().catch(error=>note("Erro ao sincronizar sala: "+error.message,true));
+      };
+      // A mesma sala acompanha presença, turno, histórico e cartas declaradas.
+      liveChannel=api.channel("chaotic-drome-"+lobbyId+"-"+userId)
+        .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_lobbies",filter:"id=eq."+lobbyId
+        },sync)
+        .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_match_turns",filter:"lobby_id=eq."+lobbyId
+        },sync)
+        .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_match_events",filter:"lobby_id=eq."+lobbyId
+        },sync)
+        .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_combat_declarations",filter:"lobby_id=eq."+lobbyId
+        },sync)
+        .subscribe(status=>{
+          if(status==="CHANNEL_ERROR"||status==="TIMED_OUT")
+            console.warn("DROME: canal em tempo real temporariamente indisponível; consultas periódicas seguem ativas.");
+        });
+    }
+    // Plano B para celular sem conexão Realtime ou serviço suspenso em segundo plano.
     poll = setInterval(() => {
       if (!$("lobby-current") || $("tela-entrada-drome")?.style.display !== "flex") { halt(); return; }
       refreshRoom().catch(error => note(error.message, true));
