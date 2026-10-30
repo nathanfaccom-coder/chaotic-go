@@ -388,6 +388,7 @@ function makeClient(actor) {
           :[{order:1,stage:"inspect_attack",actor:"attacker",
               source:"declared_attack",executed:false}];
         const entry={lobby_id:room.id,turn_no:m.turn_no,
+          attacker_id:actor,defender_id:win.defender_id,
           defender_response:win.defender_response,
           defensive_immunity_source:win.defensive_immunity_source||null,
           inspection_steps:steps,inspection_step_count:steps.length,
@@ -1882,7 +1883,7 @@ test("Burst 1x1 queues real defender equipment for LIFO inspection without prema
   assert.ok((await makeClient(guestId).rpc("chaotic_queue_preview_burst_equipment",{
     p_lobby_id:id,p_expected_turn:3})).error,"Duplicate response rejected");
   await host("lobby-turn-refresh").onclick();
-  assert.match(host("lobby-burst-equipment-history").textContent,/NÃO EXECUTADA/);
+  assert.match(host("lobby-burst-equipment-history").textContent,/NÃO executada/);
   await guest("lobby-burst-pass").onclick();
   await host("lobby-turn-refresh").onclick();
   assert.equal(host("lobby-individual-damage-calculate").hidden,true,
