@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -237,6 +237,49 @@ function makeClient(actor) {
           attribute_source:loc?"preview_location_deck":"no_location_speed_default"};
         initiatives.set(key,item);
         return {data:{...item},error:null};
+      }
+      if(name==="chaotic_audit_preview_damage"){
+        const m=matches.get(room.id),k=room.id+"/"+args.p_expected_turn;
+        const d=individualDamage.get(k),atk=attackInstances.get(k),cl=clashes.get(k);
+        const a=loadouts.get(room.id+"/"+actor);
+        const v=loadouts.get(room.id+"/"+(d?.defender_id||""));
+        const paid=hands.get(room.id+"/"+actor)?.find(x=>
+          x.attack_instance_id===d?.attack_instance_id);
+        if(room.mode!=="1x1"||!m||m.status!=="active"
+          ||m.turn_no!==args.p_expected_turn||m.current_player!==actor
+          ||d?.attacker_id!==actor||d?.cost_status!=="test_spent"
+          ||atk?.attack_instance_id!==d?.attack_instance_id
+          ||atk?.catalog_attack_id!==d?.catalog_attack_id
+          ||cl?.attacker_id!==actor||cl?.defender_id!==d?.defender_id
+          ||a?.card_instance_id!==d?.attacker_instance_id
+          ||v?.card_instance_id!==d?.defender_instance_id
+          ||paid?.card_state!=="spent"||paid?.spent_reason!=="attack"
+          ||paid?.spent_turn!==m.turn_no||resolutionAudits.has(k))
+          return {data:null,error:{message:"Auditoria não autorizada"}};
+        const blockers=["burst_unresolved","creature_abilities_unresolved",
+          "official_turn_and_hp_unintegrated","card_ownership_not_authoritative"];
+        if(d.calculation_status!=="partial_estimate"||d.preview_subtotal===null)
+          blockers.push("damage_formula_incomplete");
+        const attackSpecial={
+          "104":"die_roll_or_special_resolution",
+          "107":"vine_turn_skip_requires_final_damage",
+          "111":"electronic_attack_lock_requires_final_damage",
+          "112":"hand_attack_lock_requires_final_damage",
+          "106":"poison_over_future_turns_unresolved",
+          "105":"hidden_creature_reveal_unresolved"
+        };
+        blockers.push(attackSpecial[atk.catalog_attack_id]||
+          "hand_draw_heal_or_other_action_unresolved");
+        if(!d.location_id)blockers.push("location_not_selected");
+        if(a.equipment_name||v.equipment_name)
+          blockers.push("equipment_full_effects_unresolved");
+        const out={lobby_id:room.id,turn_no:m.turn_no,actor_id:actor,
+          victim_id:d.defender_id,catalog_attack_id:atk.catalog_attack_id,
+          blocker_codes:blockers,blocker_count:blockers.length,
+          review_status:"incomplete",damage_status:d.calculation_status,
+          final_damage_verified:false,applied_to_official_match:false};
+        resolutionAudits.set(k,out);
+        return {data:{...out},error:null};
       }
       if(name==="chaotic_prepare_preview_hp"){
         const match=matches.get(room.id),loc=locations.get(room.id);
@@ -473,7 +516,7 @@ function makeClient(actor) {
       throw Error(name);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
         then(resolve,reject) {
           const room=rooms.get(this.id);
@@ -520,6 +563,8 @@ function makeClient(actor) {
                                       ?[...hpWallets.values()].filter(x=>x.lobby_id===this.id)
                                       :table==="chaotic_preview_hp_events"
                                         ?[...hpEvents.values()].filter(x=>x.lobby_id===this.id)
+                                        :table==="chaotic_preview_resolution_audits"
+                                          ?[...resolutionAudits.values()].filter(x=>x.lobby_id===this.id)
                         :(journals.get(this.id)||[])):[];
           return Promise.resolve({data:[...events].reverse().slice(0,size),error:null});
         },
@@ -1292,6 +1337,18 @@ test("1x1 Kiru location preview adds Blue energy without changing saved DNA or t
   assert.match(host("lobby-individual-damage-history").textContent,/75 → 70/);
   assert.equal(loadouts.get(id+"/location-kiru-guest").stats.e,65);
   assert.equal(matches.get(id).current_player,"location-kiru-host");
+  assert.equal(host("lobby-resolution-audit-capture").hidden,false);
+  assert.ok((await makeClient("location-kiru-guest").rpc("chaotic_audit_preview_damage",{
+    p_lobby_id:id,p_expected_turn:3})).error,"Opponent cannot audit outside turn");
+  await host("lobby-resolution-audit-capture").onclick();
+  const audited=resolutionAudits.get(id+"/3");
+  assert.equal(audited.review_status,"incomplete");
+  assert.equal(audited.final_damage_verified,false);
+  assert.ok(audited.blocker_codes.includes("burst_unresolved"));
+  assert.match(host("lobby-resolution-audit-history").textContent,/DANO FINAL NÃO CONFIRMADO/);
+  assert.equal(host("lobby-resolution-audit-capture").hidden,true);
+  assert.ok((await makeClient("location-kiru-host").rpc("chaotic_audit_preview_damage",{
+    p_lobby_id:id,p_expected_turn:3})).error,"Audit cannot be repeated");
   assert.equal(host("lobby-hp-apply").hidden,false);
   assert.ok((await makeClient("location-kiru-guest").rpc("chaotic_apply_preview_hp_projection",{
     p_lobby_id:id,p_expected_turn:3})).error,"Opponent cannot apply someone else's damage");
@@ -1307,6 +1364,7 @@ test("1x1 Kiru location preview adds Blue energy without changing saved DNA or t
   await guest("lobby-turn-refresh").onclick();
   assert.match(guest("lobby-individual-damage-history").textContent,/Cidade de Kiru/);
   assert.match(guest("lobby-hp-summary").textContent,/70\/75/);
+  assert.match(guest("lobby-resolution-audit-history").textContent,/Burst pendente/);
   // A second turn's damage must accumulate from 70, NOT original Kiru 75.
   await host("lobby-turn-pass").onclick();
   await guest("lobby-turn-refresh").onclick();
@@ -1374,6 +1432,11 @@ test("1x1 conditional Vinha effect is predicted for next opponent turn but NEVER
   await host("lobby-hand-spend").onclick();
   assert.equal(host("lobby-effect-candidate-capture").hidden,true);
   await host("lobby-individual-damage-calculate").onclick();
+  assert.equal(host("lobby-resolution-audit-capture").hidden,false);
+  await host("lobby-resolution-audit-capture").onclick();
+  assert.ok(resolutionAudits.get(id+"/3").blocker_codes.includes(
+    "vine_turn_skip_requires_final_damage"));
+  assert.equal(resolutionAudits.get(id+"/3").final_damage_verified,false);
   assert.equal(host("lobby-effect-candidate-capture").hidden,false);
   assert.ok((await makeClient("effect-guest").rpc("chaotic_capture_preview_effect_candidate",{
     p_lobby_id:id,p_expected_turn:3})).error);
