@@ -301,3 +301,9 @@ const CENARIOS = {
     "O Túnel da Tempestade": "cartas/locais/tempestade-bg.jpg",
     "A Barragem de Magma": "cartas/locais/A barragem-bg.png" // Pode trocar por um BG específico depois se quiser
 };
+
+// Ponte de leitura para o DROME Supabase: reutiliza artes e atributos
+// do catálogo original; não modifica cartas, raridades nem regras.
+if (typeof window !== "undefined") {
+    window.ChaoticOriginalCards = {creatures: MONSTROS, attacks: ATAQUES};
+}
