@@ -1511,3 +1511,121 @@ html, body {
     transform: translateY(5px);
     box-shadow: 0 0 0 #1b5e20 !important;
 }
+
+/* Chaotic GO: controles de conta dentro do Perfil + responsividade mobile. */
+.modal-conteudo {
+    width: min(360px, calc(100vw - 32px));
+    max-height: calc(100dvh - 32px);
+    box-sizing: border-box;
+    overflow-y: auto;
+    padding: 22px 18px;
+    gap: 12px;
+}
+.modal-conteudo .botao-padrao,
+.modal-conteudo .botao-voltar {
+    display: block;
+    width: 100%;
+    flex: 0 0 auto;
+    min-height: 48px;
+    margin: 0;
+    padding: 12px 10px;
+    font-size: clamp(15px, 4vw, 18px);
+    line-height: 1.3;
+    box-sizing: border-box;
+}
+.modal-conteudo input {
+    width: 100%;
+    min-width: 0;
+}
+.fundo-scanner {
+    width: 100%;
+    min-height: 100dvh;
+    height: auto;
+    box-sizing: border-box;
+    overflow-x: hidden;
+    padding: 12px 8px;
+}
+.carcaca-scanner {
+    flex: 0 1 400px;
+    min-width: 0;
+    margin-left: auto;
+    margin-right: auto;
+}
+.conta-perfil {
+    width: 85%;
+    max-width: 340px;
+    box-sizing: border-box;
+    background: #0a170d;
+    border: 1px solid #286b35;
+    border-radius: 10px;
+    padding: 12px;
+    margin: 16px auto 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 9px;
+}
+.conta-perfil h4 {
+    font-size: 11px;
+    color: #91e59c;
+    margin: 0;
+    letter-spacing: .6px;
+}
+#cloud-status {
+    margin: 0 0 2px;
+    color: #d4edd4;
+    font-size: 11px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+.botao-conta {
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 42px;
+    background: #1d5326;
+    color: white;
+    border: 1px solid #4caf50;
+    border-radius: 7px;
+    padding: 10px 8px;
+    font-size: 11px;
+    font-weight: bold;
+    cursor: pointer;
+}
+.botao-conta[hidden], .cloud-alert[hidden], #btn-alert-logout[hidden] {
+    display: none;
+}
+.botao-conta-sair {
+    background: #5d1717;
+    border-color: #ed5555;
+}
+.botao-conta:disabled {opacity: .5;cursor: wait;}
+.cloud-alert {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    z-index: 300;
+    background: rgba(6, 24, 7, .96);
+    color: #fff;
+    border: 1px solid #4caf50;
+    border-radius: 8px;
+    padding: 8px;
+    font-size: 11px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+.cloud-alert.erro { border-color: #ee6666; background: rgba(49, 8, 8, .97); }
+#btn-alert-logout {
+    margin: 8px auto 0;
+    border: 1px solid #f77;
+    background: #711;
+    color: #fff;
+    border-radius: 6px;
+    padding: 7px;
+}
+@media (max-width: 480px) {
+    .fundo-scanner { align-items: flex-start; }
+    .carcaca-scanner { padding: 18px 10px 12px; }
+    .tela-digital { height: min(60dvh, 510px); min-height: 340px; }
+    .conta-perfil { width: 90%; }
+}
