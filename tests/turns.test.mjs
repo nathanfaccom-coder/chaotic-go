@@ -2182,6 +2182,48 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
   assert.equal(hp3x3.get(id+"/"+owner+"/5").official_hp_changed,false);
   assert.equal(hp3x3.get(id+"/"+owner+"/5").location_bonuses_applied,false);
   assert.match(host("lobby-3x3-hp-history").textContent,/HP de treino 35\/35/);
+  assert.equal(host("lobby-3x3-board-prepare").hidden,false);
+  assert.ok((await makeClient(opponent).rpc("chaotic_prepare_preview_3x3_board",{
+    p_lobby_id:id,p_expected_turn:1})).error,"Opponent cannot place units outside their turn");
+  assert.ok((await makeClient(owner).rpc("chaotic_move_preview_3x3_unit",{
+    p_lobby_id:id,p_expected_turn:1,p_formation_slot:4,p_target_hex:1})).error,
+    "Cannot move a creature before its own 3x3 training board exists");
+  await host("lobby-3x3-board-prepare").onclick();
+  assert.equal(host("lobby-3x3-board-prepare").hidden,true);
+  assert.equal(boardPositions3x3.get(id+"/"+owner+"/4").hex_position,4);
+  assert.equal(boardPositions3x3.get(id+"/"+owner+"/5").hex_position,5);
+  assert.equal(boardPositions3x3.get(id+"/"+owner+"/6").hex_position,6);
+  assert.ok((await makeClient(owner).rpc("chaotic_prepare_preview_3x3_board",{
+    p_lobby_id:id,p_expected_turn:1})).error,"Board replay must never reset movement");
+  assert.ok((await makeClient(owner).rpc("chaotic_move_preview_3x3_unit",{
+    p_lobby_id:id,p_expected_turn:1,p_formation_slot:4,p_target_hex:3})).error,
+    "c4 cannot jump to non-adjacent hex 3");
+  assert.ok((await makeClient(owner).rpc("chaotic_move_preview_3x3_unit",{
+    p_lobby_id:id,p_expected_turn:1,p_formation_slot:4,p_target_hex:5})).error,
+    "c4 cannot occupy ally c5's hex");
+  assert.ok((await makeClient(opponent).rpc("chaotic_move_preview_3x3_unit",{
+    p_lobby_id:id,p_expected_turn:1,p_formation_slot:4,p_target_hex:1})).error,
+    "Opponent cannot move host's creature");
+  host("lobby-3x3-move-unit").value="4";
+  host("lobby-3x3-move-destination").value="1";
+  assert.equal(host("lobby-3x3-move").hidden,false);
+  await host("lobby-3x3-move").onclick();
+  const ownerMove=moveEvents3x3.get(id+"/1/"+owner);
+  assert.equal(ownerMove?.from_hex,4);
+  assert.equal(ownerMove?.to_hex,1);
+  assert.equal(ownerMove.damage_applied,false);
+  assert.equal(ownerMove.official_position_changed,false);
+  assert.equal(boardPositions3x3.get(id+"/"+owner+"/4").hex_position,1);
+  assert.equal(boardPositions3x3.get(id+"/"+owner+"/4").formation_slot,4,
+    "Creature c4 retains its original formation identity after moving");
+  assert.equal(hp3x3.get(id+"/"+owner+"/4").hp_remaining,10,
+    "Movement cannot change HP");
+  assert.match(host("lobby-3x3-board-history").textContent,/hex 1/);
+  assert.equal(host("lobby-3x3-move").hidden,true);
+  assert.ok((await makeClient(owner).rpc("chaotic_move_preview_3x3_unit",{
+    p_lobby_id:id,p_expected_turn:1,p_formation_slot:5,p_target_hex:2})).error,
+    "Second movement by another creature in same player turn must fail");
+  assert.equal(boardPositions3x3.get(id+"/"+owner+"/5").hex_position,5);
   assert.ok((await makeClient(owner).rpc("chaotic_prepare_preview_3x3_hp",{
     p_lobby_id:id,p_expected_turn:1})).error,"Reinitialization cannot restore HP");
   assert.ok((await makeClient(owner).rpc("chaotic_prepare_preview_3x3_allies",{
@@ -2222,6 +2264,19 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
   assert.equal(guest("lobby-3x3-hp-prepare").hidden,false);
   await guest("lobby-3x3-hp-prepare").onclick();
   assert.equal(guest("lobby-3x3-hp-prepare").hidden,true);
+  await guest("lobby-3x3-board-prepare").onclick();
+  assert.equal(boardPositions3x3.get(id+"/"+opponent+"/4").hex_position,4);
+  assert.equal(boardPositions3x3.get(id+"/"+owner+"/4").hex_position,1,
+    "Each player has a separate experimental side; guest cannot override host");
+  assert.ok((await makeClient(owner).rpc("chaotic_move_preview_3x3_unit",{
+    p_lobby_id:id,p_expected_turn:2,p_formation_slot:4,p_target_hex:2})).error,
+    "Host cannot move during opponent's turn");
+  guest("lobby-3x3-move-unit").value="5";
+  guest("lobby-3x3-move-destination").value="2";
+  await guest("lobby-3x3-move").onclick();
+  assert.equal(boardPositions3x3.get(id+"/"+opponent+"/5").hex_position,2);
+  assert.equal(moveEvents3x3.get(id+"/2/"+opponent).official_position_changed,false);
+  assert.equal(boardPositions3x3.get(id+"/"+owner+"/4").hex_position,1);
   assert.equal(hp3x3.get(id+"/"+opponent+"/4").hp_max,55);
   assert.equal(hp3x3.get(id+"/"+opponent+"/5").hp_max,40);
   assert.equal(hp3x3.get(id+"/"+opponent+"/6").hp_remaining,32);
