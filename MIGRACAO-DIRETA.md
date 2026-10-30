@@ -153,3 +153,15 @@ O servidor só permite criar a proposta após um ataque individual capturado, um
 **Nenhuma dessas propostas é um status ativo**: `confirmation_state='candidate_requires_final_damage'` e `applied_to_match=false` por restrição do banco. A projeção NÃO modifica turno real, bloqueio de ataque, compra, saldo ou HP, pois ainda falta resolver efeitos de imunidades, equipamentos e dano definitivo. Ativar status apenas após integrar um motor autoritativo que valide dano final e expiração, em uma única transação.
 
 Regressão: `supabase/tests/chaotic-preview-conditional-effects.test.sql`, mais testes Node de duas contas simuladas para proibição de repetição e confirmação de que o jogador-alvo **mantém sua vez**. Não equivale a testes reais de dois aparelhos.
+
+## HP acumulado hipotético no Supabase (versão 0.1.18 — 30/10/2026)
+
+A migração `supabase/chaotic-preview-persistent-hp.sql` implementa duas tabelas exclusivas para treinamento de 1x1: `chaotic_preview_hp_wallets` (saldos atuais por criatura/jogador) e `chaotic_preview_hp_events` (auditoria dos ataques simulados). **Não é o HP oficial do jogo.**
+
+A função `chaotic_prepare_preview_hp` exige participante na própria vez, 1x1 pronto, duas fichas individuais válidas e Local já definido; bloqueia partidas em que a prévia de dano começou antes da carteira de treino. Inicializa os dois lados em uma transação, usando Energia individual da ficha e bônus +10 de Kiru se a tribo for Azul.
+
+A função `chaotic_apply_preview_hp_projection` confere o atacante, alvo, turno, carta individual validada, pagamento de teste, Local e ficha de ambos, e recusa dano ainda indeterminado (por exemplo, rolagens e especiais pendentes). Usa exclusivamente `calculation_status='partial_estimate'` como **dano indicativo**, atualizado cumulativamente até o mínimo de zero, uma única vez por turno. Eventos gravam `official_hp_changed=false` e `final_damage_verified=false`, imposições conferidas diretamente no banco.
+
+Os clientes apenas leem as carteiras e eventos mediante RLS para integrantes da sala; não podem reescrever HP ou eventos. O histórico é sincronizado via Realtime e atualização periódica. O teste `supabase/tests/chaotic-preview-persistent-hp.test.sql` passou em transação sem alterar registros do usuário. O teste JavaScript de Kiru simula dois ataques em turnos distintos, sem modificar `loadouts.stats.e`, recompensas, turno oficial ou cartas do álbum.
+
+**Não confundir saldo experimental com resolução de PvP final:** faltam um motor de dano completamente autoritativo, condições de vitória, efeitos de status sobre turnos e provas de propriedade das cartas. Não foram realizados testes reais com dois telefones. Até lá, nenhuma habilidade condicional pode ser ativada a partir de um evento hipotético.
