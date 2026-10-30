@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -237,6 +237,37 @@ function makeClient(actor) {
         initiatives.set(key,item);
         return {data:{...item},error:null};
       }
+      if(name==="chaotic_capture_preview_effect_candidate"){
+        const m=matches.get(room.id),k=room.id+"/"+args.p_expected_turn;
+        const d=individualDamage.get(k),a=attackInstances.get(k),cl=clashes.get(k);
+        if(room.mode!=="1x1"||!m||m.status!=="active"
+          ||m.turn_no!==args.p_expected_turn||m.current_player!==actor
+          ||actor!==d?.attacker_id||a?.actor_id!==actor
+          ||a?.attack_instance_id!==d?.attack_instance_id
+          ||a?.catalog_attack_id!==d?.catalog_attack_id
+          ||cl?.defender_id!==d?.defender_id
+          ||d?.cost_status!=="test_spent"
+          ||d?.calculation_status!=="partial_estimate"
+          ||!(d.preview_subtotal>0)
+          ||!["107","111","112"].includes(d.catalog_attack_id)
+          ||effectCandidates.has(k))
+          return {data:null,error:{message:"Efeito condicional não autorizado"}};
+        const duration=d.catalog_attack_id==="111"?2:1;
+        const obj={lobby_id:room.id,turn_no:args.p_expected_turn,attacker_id:actor,
+          victim_id:d.defender_id,attack_instance_id:d.attack_instance_id,
+          catalog_attack_id:d.catalog_attack_id,
+          effect_code:d.catalog_attack_id==="107"?"vine_skip":
+            d.catalog_attack_id==="111"?"electronic_attack_lock":"hand_attack_lock",
+          effect_scope:d.catalog_attack_id==="107"?
+            "full_turn_no_draw_no_points":"attack_only",
+          duration_target_turns:duration,first_target_turn:m.turn_no+1,
+          last_target_turn:m.turn_no+1+2*(duration-1),
+          indicative_damage:d.preview_subtotal,
+          confirmation_state:"candidate_requires_final_damage",
+          applied_to_match:false};
+        effectCandidates.set(k,obj);
+        return {data:{...obj},error:null};
+      }
       if(name==="chaotic_calculate_individual_preview"){
         const match=matches.get(room.id),key=room.id+"/"+args.p_expected_turn;
         const clash=clashes.get(key),attack=attackInstances.get(key);
@@ -263,7 +294,8 @@ function makeClient(actor) {
         const magmaElemental=locId===503&&attack.catalog_attack_id==="101"?5:0;
         const total=special?null:Math.max(0,attack.base_damage+locationDelta+magmaElemental);
         const result={lobby_id:room.id,turn_no:match.turn_no,attacker_id:actor,
-          defender_id:clash.defender_id,attack_name:attack.attack_name,
+          defender_id:clash.defender_id,attack_instance_id:attack.attack_instance_id,
+          catalog_attack_id:attack.catalog_attack_id,attack_name:attack.attack_name,
           attacker_name:attacker.creature_name,defender_name:defender.creature_name,
           defender_energy_initial:defender.stats.e+locationEnergy,base_damage:attack.base_damage,
           elemental_bonus:0,attribute_bonus:0,equipment_bonus:0,
@@ -384,7 +416,7 @@ function makeClient(actor) {
       throw Error(name);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
         then(resolve,reject) {
           const room=rooms.get(this.id);
@@ -425,6 +457,8 @@ function makeClient(actor) {
                                 ?[...initiatives.values()].filter(x=>x.lobby_id===this.id)
                                 :table==="chaotic_preview_room_locations"
                                   ?[...locations.values()].filter(x=>x.lobby_id===this.id)
+                                  :table==="chaotic_preview_effect_candidates"
+                                    ?[...effectCandidates.values()].filter(x=>x.lobby_id===this.id)
                         :(journals.get(this.id)||[])):[];
           return Promise.resolve({data:[...events].reverse().slice(0,size),error:null});
         },
@@ -1190,4 +1224,67 @@ test("1x1 Kiru location preview adds Blue energy without changing saved DNA or t
   assert.equal(matches.get(id).current_player,"location-kiru-host");
   await guest("lobby-turn-refresh").onclick();
   assert.match(guest("lobby-individual-damage-history").textContent,/Cidade de Kiru/);
+});
+
+test("1x1 conditional Vinha effect is predicted for next opponent turn but NEVER applied",async()=>{
+  const host=browser("effect-host"),guest=browser("effect-guest");
+  host("lobby-select-mode").value="1x1";
+  await host("lobby-create-btn").onclick();
+  const code=host("lobby-room-code").textContent;
+  const id=[...rooms.values()].find(x=>x.code===code).id;
+  guest("lobby-input-code").value=code;
+  await guest("lobby-join-btn").onclick();
+  await host("lobby-refresh").onclick();
+  await host("lobby-turn-start").onclick();
+  host("lobby-combat-kind").value="creature";
+  host("lobby-combat-deck").value="1";
+  host("lobby-combat-slot").value="6";
+  await host("lobby-combat-submit").onclick();
+  await host("lobby-hex-place").onclick();
+  await host("lobby-loadout-capture").onclick();
+  await host("lobby-hand-prepare").onclick();
+  await host("lobby-turn-pass").onclick();
+  await guest("lobby-turn-refresh").onclick();
+  guest("lobby-combat-kind").value="creature";
+  guest("lobby-combat-deck").value="1";
+  guest("lobby-combat-slot").value="6";
+  await guest("lobby-combat-submit").onclick();
+  await guest("lobby-hex-place").onclick();
+  await guest("lobby-loadout-capture").onclick();
+  await guest("lobby-turn-pass").onclick();
+  await host("lobby-turn-refresh").onclick();
+  await host("lobby-hand-sync").onclick();
+  host("lobby-combat-kind").value="attack";
+  host("lobby-combat-deck").value="1";
+  host("lobby-combat-slot").value="1";
+  await host("lobby-combat-submit").onclick();
+  await host("lobby-clash-open").onclick();
+  await host("lobby-attack-instance-capture").onclick();
+  const attack=attackInstances.get(id+"/3");
+  attack.catalog_attack_id="107";
+  attack.attack_name="Armadilha de Vinha";
+  await host("lobby-hand-spend").onclick();
+  assert.equal(host("lobby-effect-candidate-capture").hidden,true);
+  await host("lobby-individual-damage-calculate").onclick();
+  assert.equal(host("lobby-effect-candidate-capture").hidden,false);
+  assert.ok((await makeClient("effect-guest").rpc("chaotic_capture_preview_effect_candidate",{
+    p_lobby_id:id,p_expected_turn:3})).error);
+  await host("lobby-effect-candidate-capture").onclick();
+  const effect=effectCandidates.get(id+"/3");
+  assert.equal(effect.effect_code,"vine_skip");
+  assert.equal(effect.effect_scope,"full_turn_no_draw_no_points");
+  assert.equal(effect.first_target_turn,4);
+  assert.equal(effect.duration_target_turns,1);
+  assert.equal(effect.applied_to_match,false);
+  assert.match(host("lobby-effect-candidates-history").textContent,/NÃO ATIVADO/);
+  assert.equal(host("lobby-effect-candidate-capture").hidden,true);
+  assert.ok((await makeClient("effect-host").rpc("chaotic_capture_preview_effect_candidate",{
+    p_lobby_id:id,p_expected_turn:3})).error,"No duplicate projection");
+  await guest("lobby-turn-refresh").onclick();
+  assert.match(guest("lobby-effect-candidates-history").textContent,/Armadilha de Vinha/);
+  await host("lobby-turn-pass").onclick();
+  await guest("lobby-turn-refresh").onclick();
+  assert.equal(matches.get(id).current_player,"effect-guest","Candidate cannot skip an actual turn");
+  assert.equal(matches.get(id).turn_no,4);
+  assert.equal(loadouts.get(id+"/effect-guest").stats.e,65);
 });
