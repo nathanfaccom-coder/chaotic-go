@@ -1,6 +1,6 @@
 # Chaotic GO — Status de conclusão e pendências (30/10/2026)
 
-Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 69% (incerteza aproximada ±10 pontos percentuais).**
+Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 70% (incerteza aproximada ±10 pontos percentuais).**
 
 ## Critérios ponderados
 
@@ -9,12 +9,12 @@ Este documento acompanha **prontidão para lançar o jogo completo com Supabase*
 | Motor legado, scanner, cartas, imagens, áudios e interfaces preservados | 25% | 90% | 22,5 p.p. |
 | Contas, migração de coleção, Decks e persistência privada Supabase | 15% | 75% | 11,25 p.p. |
 | Salas privadas, sincronização e protocolo de turnos | 10% | 75% | 7,5 p.p. |
-| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 82% | 20,5 p.p. |
+| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 86% | 21,5 p.p. |
 | Economia, amigos, trocas, recompensas e progressão integradas | 15% | 25% | 3,75 p.p. |
 | Testes ponta a ponta, dois dispositivos, mobile, segurança e publicação | 10% | 35% | 3,5 p.p. |
-| **Estimativa total** | **100%** | | **69 p.p.** |
+| **Estimativa total** | **100%** | | **70 p.p.** |
 
-Números estimados para planejamento, não verificação automática de 69% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
+Números estimados para planejamento, não verificação automática de 70% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
 
 ## Entregas já implementadas ou disponíveis
 - Jogo completo e recursos originais publicados no site; backup de branches anteriores.
@@ -241,3 +241,14 @@ Números estimados para planejamento, não verificação automática de 69% das 
 - Teste SQL transacional `supabase/tests/chaotic-preview-creature-healing-abilities.test.sql` aprovado; GitHub Actions executou **43/43 testes Node aprovados**, incluindo três habilidades, alvo de Lion restrito, possibilidade de curar outro campeão, débito único e rejeição de repetições. Os testes Node utilizam um simulador de banco, não substituem um teste real entre duas contas.
 - **Não implementado nesta etapa:** habilidades de Frador, Leona, Guru, Spedman, Naty, Alakazaz; ganho de fichas por Arpa Mágica; gasto oficial de habilidades; HP real; dano real; derrota/vitória. Cartas, Decks, moedas, XP e combate oficial não são modificados por esta migração.
 - **Conclusão geral estimada em 69% (±10 p.p.)**, crescimento de 1 ponto percentual por habilidades ativas em HP de treino. Publicação no GitHub Pages e comportamento em dois celulares reais ainda exigem confirmação.
+
+
+## Versão 0.1.32 — Arpa Mágica original concede +1 ficha no treino (30/10/2026)
+- A carta do catálogo original `cartas.js` **Arpa Mágica (equipamento 203)**, cuja arte continua em `cartas/equips/arpa_magica.jpg`, tem texto original: “Descarte este equipamento e adicione 1 ficha de habilidade no campeão equipado.” **Nenhuma imagem original, arquivo de arte, card ID, Deck ou álbum foi substituído ou editado.** As imagens de cartas externas exibidas em uma resposta de ChatGPT anterior eram apenas ilustrações inadequadas e não partes do projeto.
+- Nova RPC `chaotic_discard_preview_harp_for_token` no Supabase permite somente o jogador dono no seu turno, em sala 1x1 pronta, com a **Arpa Mágica original previamente congelada na ficha de equipamento e já revelada por esse jogador**, registrar um **descarte hipotético de treinamento** e somar uma ficha à carteira de treinamento. Não executa durante Clash/Burst/dano do mesmo turno.
+- O servidor trava o turno e a carteira; a tabela `chaotic_preview_harp_token_events` tem chave primária (sala, jogador) para **impedir um segundo uso na mesma sala**, com verificação do ID da criatura, ID do equipamento, identidade do turno e teto de 20 fichas. A carteira agora contém `bonus_tokens` (0 ou 1); uma nova restrição autoriza `remaining_tokens ≤ starting_tokens + bonus_tokens`. Somente o catálogo original determina o saldo inicial.
+- **Importante:** o equipamento fica marcado como descartado **somente no livro de treino**. A carta original continua no Deck/álbum e o snapshot do equipamento continua intacto para preservar os dados; essa versão ainda NÃO integra o descarte ao combate oficial. A interface identifica claramente a simulação.
+- O DROME ganhou botão para o efeito, saldo revisado, histórico e atualizações em Realtime. O teste de fluxo simulado cobre Arpa equipada/revelada, rejeição antes de revelar, usuário adversário sem permissão, +1, falha em tentar reutilizar, uso posterior da habilidade Xamã consumindo 1 ficha e preservação da carta original.
+- Verificação SQL de permissões, RLS, turno, revelação, anti-replay, teto de saldo e inexistência de descarte oficial aprovada em `supabase/tests/chaotic-preview-harp-magic-training-token-grant.test.sql`; GitHub Actions **44/44 testes Node aprovados** após esta mudança.
+- **Alakazaz permanece pendente:** sua habilidade transfere fichas de habilidade para *outros* campeões aliados; como o preview 1x1 permite só uma criatura por jogador, o sistema não forçará uma transferência fictícia para o adversário nem usará uma segunda criatura inexistente. Será necessário implementar mais de uma criatura pertencente ao mesmo jogador (3x3/6x6) com controle de posse no servidor.
+- Ainda sem execução de Mugics/HP/dano/vitória oficiais, dois celulares reais e confirmação da publicação no GitHub Pages. **Estimativa geral 70% (±10 p.p.)**: avanço da mecânica de ganho de fichas no treino, não conclusão do PvP.
