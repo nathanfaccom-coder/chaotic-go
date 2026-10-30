@@ -24,7 +24,7 @@ $("btn-cadastrar").onclick=async ()=>{
     const password=$("nova-senha").value;
     if(!email || !username || password.length<8) throw Error("Preencha e-mail, nome e senha com pelo menos 8 caracteres.");
     feedback("Criando conta...");
-    const {data,error}=await ChaoticAuth.getClient().auth.signUp({email,password,options:{data:{username},emailRedirectTo:new URL("login.html",window.location.href).href}});
+    const {data,error}=await ChaoticAuth.getClient().auth.signUp({email,password,options:{data:{username},emailRedirectTo:"https://nathanfaccom-coder.github.io/chaotic-go/login.html"}});
     if(error) throw error;
     if(data.session) window.location.replace("scanner-completo.html");
     else { show("");feedback("Cadastro recebido. Confira seu e-mail para confirmar a conta antes de entrar."); }
@@ -34,7 +34,7 @@ $("btn-recuperar-senha").onclick=async ()=>{
   try {
     const email=$("usuario").value.trim().toLowerCase();
     if(!email) throw Error("Informe seu e-mail acima.");
-    const {error}=await ChaoticAuth.getClient().auth.resetPasswordForEmail(email,{redirectTo:new URL("redefinir-senha.html",location.href).href});
+    const {error}=await ChaoticAuth.getClient().auth.resetPasswordForEmail(email,{redirectTo:"https://nathanfaccom-coder.github.io/chaotic-go/redefinir-senha.html"});
     if(error) throw error;
     feedback("Se o e-mail estiver cadastrado, você receberá um link para redefinir a senha.");
   } catch(e){feedback(e.message);}
