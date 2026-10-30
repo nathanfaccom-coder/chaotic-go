@@ -1,6 +1,6 @@
 # Chaotic GO — Status de conclusão e pendências (30/10/2026)
 
-Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 63% (incerteza aproximada ±10 pontos percentuais).**
+Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 64% (incerteza aproximada ±10 pontos percentuais).**
 
 ## Critérios ponderados
 
@@ -9,12 +9,12 @@ Este documento acompanha **prontidão para lançar o jogo completo com Supabase*
 | Motor legado, scanner, cartas, imagens, áudios e interfaces preservados | 25% | 90% | 22,5 p.p. |
 | Contas, migração de coleção, Decks e persistência privada Supabase | 15% | 75% | 11,25 p.p. |
 | Salas privadas, sincronização e protocolo de turnos | 10% | 70% | 7 p.p. |
-| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 60% | 15 p.p. |
+| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 64% | 16 p.p. |
 | Economia, amigos, trocas, recompensas e progressão integradas | 15% | 25% | 3,75 p.p. |
 | Testes ponta a ponta, dois dispositivos, mobile, segurança e publicação | 10% | 35% | 3,5 p.p. |
-| **Estimativa total** | **100%** | | **63 p.p.** |
+| **Estimativa total** | **100%** | | **64 p.p.** |
 
-Números estimados para planejamento, não verificação automática de 63% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
+Números estimados para planejamento, não verificação automática de 64% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
 
 ## Entregas já implementadas ou disponíveis
 - Jogo completo e recursos originais publicados no site; backup de branches anteriores.
@@ -170,3 +170,14 @@ Números estimados para planejamento, não verificação automática de 63% das 
 - **Interface/Realtime:** botões só aparecem ao atacante com plano válido, equipamento compatível e carteira experimental; histórico compartilhado mostra os saldos antes/depois e indica que não houve alteração oficial.
 - **Testes:** `supabase/tests/chaotic-preview-burst-equipment-effects.test.sql` passou (três efeitos, zero mínimo, equipamento não suportado, RLS, sem escritura oficial e proteção de redeclaração); **41 testes Node** passaram com três confrontos simulados completos (Anel, Bastão e Bomba), sem alterações do DNA original.
 - **Estimativa geral: 63% (±10 pontos percentuais).** O motor do combate oficial e o Burst multi-resposta continuam incompletos; a disponibilidade do site publicado e um combate real em dois celulares ainda não foram verificados.
+
+## Versão 0.1.25 — dano parcial após efeito de equipamento no Burst (30/10/2026)
+
+- **Integração de duas etapas experimentais:** a RPC `chaotic_calculate_individual_preview` agora pode calcular dano parcial após **Anel Precioso, Bastão da Sabedoria ou Bomba de Fogo** terem seu efeito aplicado pelo servidor ao HP/Sabedoria de treino, na mesma janela Burst. Antes do efeito ser aplicado, a resposta de equipamento ainda bloqueia a prévia completamente.
+- **Conferências server-side:** exige resposta do defensor encerrada, sequência LIFO já validada, mesmo atacante, turno, alvo, instâncias de criatura/equipamento, registro de efeito exclusivamente experimental, carteira de HP consistente com snapshot gravado e pagamento real no sistema de cartas de teste. Divergência na carteira, replay ou efeito não suportado impede prosseguir.
+- **Dano indicativo corrigido:** usa `hp_remaining` do saldo acumulado em vez da energia inicial do DNA (evita somar Kiru duas vezes); Bastão inclui os +40 de Sabedoria na comparação de atributos **apenas daquela prévia**; Anel neutraliza o componente elemental do ataque e o bônus adicional de Magma, mantendo o efeito de terreno que não é elemental. A Bomba já tem +5 de energia atual/máxima na carteira de treino. O campo de bônus elemental exibido para o Anel também foi zerado para não induzir erro.
+- **Fluxo encadeado:** a prévia parcial confirmada permite aplicar **uma vez** o ataque à carteira de treinamento via `chaotic_apply_preview_hp_projection`, após o custo da carta já pago, mantendo os registros de efeito do equipamento e dano por turno. A fila de revelação oficial permanece `queued_unexecuted`; **não executa uma pilha real de Burst nem certifica dano final**.
+- **Interface:** botão de prévia liberado somente após o efeito experimental ser aplicado. Rótulo mostra energia de referência da prévia (que pode estar reduzida por ataques anteriores), não confunde com o DNA original.
+- **Testes:** `supabase/tests/chaotic-preview-burst-training-damage-reconciliation.test.sql` passou no Supabase; cobre SONAR original de 10 Ar neutralizado pelo Anel, guarda de carta/equipamento, uso de HP de treinamento, atualização da Sabedoria, bloqueio antes da resolução e controle de acesso. **41 testes Node** passaram no fluxo de dois jogadores simulados com HP acumulado e proteção contra duplicação.
+- **Limites:** simulações parciais não resolvem Burst completo, contra-ataques, habilidades, imunidade definitiva, HP real, derrotas, vitória, XP, moedas ou economia. O usuário ainda não validou jogo 1x1 com duas contas reais em celulares distintos; disponibilidade do site publicado não foi verificada diretamente.
+- **Estimativa manual geral: 64% (±10 p.p.)**, avançando 1 ponto pela ligação de efeitos e dano experimentais — ainda sem reivindicar funcionamento de PvP oficial.
