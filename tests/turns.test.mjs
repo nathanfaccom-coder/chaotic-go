@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map(),burstOrderPlans=new Map(),burstPriority=new Map(),burstPriorityPasses=new Map(),burstMugicIntents=new Map(),burstMugicCounterplans=new Map(),mugicTrainingWallets=new Map(),mugicTrainingSettlements=new Map(),trainingAbilityEvents=new Map(),harpTrainingEvents=new Map(),allies3x3=new Map(),transfers3x3=new Map(),decks3x3=new Map(),hp3x3=new Map(),boardPositions3x3=new Map(),moveEvents3x3=new Map(),contacts3x3=new Map(),attackProjections3x3=new Map(),hand3x3Wallets=new Map(),hand3x3Cards=new Map(),costChecks3x3=new Map(),attackSpends3x3=new Map(),burstEquipmentResponses=new Map(),burstEquipmentEffects=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map(),burstOrderPlans=new Map(),burstPriority=new Map(),burstPriorityPasses=new Map(),burstMugicIntents=new Map(),burstMugicCounterplans=new Map(),mugicTrainingWallets=new Map(),mugicTrainingSettlements=new Map(),trainingAbilityEvents=new Map(),harpTrainingEvents=new Map(),allies3x3=new Map(),transfers3x3=new Map(),decks3x3=new Map(),hp3x3=new Map(),boardPositions3x3=new Map(),moveEvents3x3=new Map(),contacts3x3=new Map(),attackProjections3x3=new Map(),hand3x3Wallets=new Map(),hand3x3Cards=new Map(),hand3x3Discards=new Map(),hand3x3DrawEvents=new Map(),costChecks3x3=new Map(),attackSpends3x3=new Map(),burstEquipmentResponses=new Map(),burstEquipmentEffects=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -104,17 +104,42 @@ function makeClient(actor) {
           return {data:null,error:{message:"Invalid 3x3 hand seed or replay"}};
         const wallet={lobby_id:room.id,actor_id:actor,deck_slot:slot,
           prepared_turn:m.turn_no,last_draw_turn:m.turn_no,
-          total_cards:attacks.length,spent_points:0,
+          total_cards:attacks.length,spent_points:0,recycle_cycles:0,
           official_points_changed:false,official_match_modified:false};
         hand3x3Wallets.set(key,wallet);
         attacks.forEach((card,i)=>hand3x3Cards.set(key+"/"+(i+1),{
           lobby_id:room.id,actor_id:actor,card_slot:i+1,
-          attack_instance_id:card.id,draw_position:i+1,
+          attack_instance_id:card.id,draw_position:i+1,draw_cycle:0,recycle_priority:0,
+          spent_turn:null,spent_reason:null,
           card_state:i<3?"hand":"deck",original_card_consumed:false
         }));
         return {data:{state:"3x3_private_shuffled_training_hand",
           cards_in_hand:3,cards_in_deck:attacks.length-3,
           points_available:3,official_match_modified:false},error:null};
+      }
+      if(name==="chaotic_discard_preview_3x3_hand"){
+        const m=matches.get(room.id),wallet=hand3x3Wallets.get(room.id+"/"+actor);
+        const key=room.id+"/"+args.p_expected_turn+"/"+actor;
+        const card=hand3x3Cards.get(room.id+"/"+actor+"/"+args.p_card_slot);
+        const turnKey=room.id+"/"+args.p_expected_turn;
+        if(!m||m.status!=="active"||m.turn_no!==args.p_expected_turn
+          ||m.current_player!==actor||room.mode!=="3x3"||room.status!=="ready"
+          ||![m.host_id,m.guest_id].includes(actor)
+          ||!Number.isInteger(args.p_card_slot)||args.p_card_slot<1||args.p_card_slot>20
+          ||!wallet||wallet.last_draw_turn!==m.turn_no
+          ||wallet.prepared_turn>m.turn_no||(m.turn_no-wallet.prepared_turn)%2!==0
+          ||hand3x3Discards.has(key)||!card||card.card_state!=="hand"
+          ||card.spent_turn!=null||contacts3x3.has(turnKey)
+          ||attackProjections3x3.has(turnKey)||costChecks3x3.has(turnKey)
+          ||attackSpends3x3.has(turnKey)||clashes.has(turnKey)||burstWindows.has(turnKey))
+          return {data:null,error:{message:"Cannot discard outside own turn or after contact/attack"}};
+        const e={lobby_id:room.id,turn_no:m.turn_no,actor_id:actor,
+          card_slot:card.card_slot,attack_instance_id:card.attack_instance_id,
+          original_card_consumed:false,training_points_changed:false,
+          official_match_modified:false};
+        card.card_state="spent";card.spent_turn=m.turn_no;card.spent_reason="discard";
+        hand3x3Discards.set(key,e);
+        return {data:{...e},error:null};
       }
       if(name==="chaotic_sync_preview_3x3_hand"){
         const m=matches.get(room.id),key=room.id+"/"+actor,w=hand3x3Wallets.get(key);
@@ -124,15 +149,43 @@ function makeClient(actor) {
           ||(args.p_expected_turn-w.prepared_turn)%2!==0)
           return {data:null,error:{message:"Bad turn to synchronize hand"}};
         const own=[...hand3x3Cards.values()].filter(x=>x.lobby_id===room.id&&x.actor_id===actor);
-        let drew=false;
+        let drew=false,recycled=0,drawnSlot=null;
         if(w.last_draw_turn<args.p_expected_turn){
           const held=own.filter(x=>x.card_state==="hand");
-          const next=own.filter(x=>x.card_state==="deck").sort((a,b)=>a.draw_position-b.draw_position)[0];
-          if(held.length<5&&next){next.card_state="hand";drew=true;}
+          if(held.length<5){
+            let deckCards=own.filter(x=>x.card_state==="deck");
+            if(deckCards.length===0){
+              const spent=own.filter(x=>x.card_state==="spent");
+              if(spent.length){
+                if(w.recycle_cycles>=120)
+                  return {data:null,error:{message:"Maximum recycle cycles reached"}};
+                w.recycle_cycles++;
+                recycled=spent.length;
+                for(const item of spent){
+                  item.card_state="deck";item.spent_turn=null;item.spent_reason=null;
+                  item.draw_cycle=w.recycle_cycles;item.recycle_priority=item.card_slot;
+                }
+                deckCards=spent;
+              }
+            }
+            const next=deckCards.sort((a,b)=>
+              a.draw_cycle-b.draw_cycle||a.recycle_priority-b.recycle_priority||
+              a.draw_position-b.draw_position)[0];
+            if(next){next.card_state="hand";drew=true;drawnSlot=next.card_slot;}
+          }
           w.last_draw_turn=args.p_expected_turn;
+          hand3x3DrawEvents.set(room.id+"/"+args.p_expected_turn+"/"+actor,{
+            lobby_id:room.id,actor_id:actor,turn_no:m.turn_no,drew_card:drew,
+            drawn_card_slot:drawnSlot,recycle_cycle:w.recycle_cycles,
+            recycled_count:recycled,
+            hand_count_after:own.filter(x=>x.card_state==="hand").length,
+            available_points:3+(m.turn_no-w.prepared_turn)/2-w.spent_points,
+            official_match_modified:false,original_card_consumed:false
+          });
         }
         return {data:{available_points:3+(args.p_expected_turn-w.prepared_turn)/2-w.spent_points,
-          drew_card:drew,turn_no:m.turn_no,cost_not_paid:true},error:null};
+          drew_card:drew,recycled:recycled>0,recycled_count:recycled,
+          recycle_cycle:w.recycle_cycles,turn_no:m.turn_no,cost_not_paid:true},error:null};
       }
       if(name==="chaotic_inspect_preview_3x3_hand_cost"){
         const m=matches.get(room.id),key=room.id+"/"+args.p_expected_turn,
@@ -1346,6 +1399,10 @@ function makeClient(actor) {
                                               ?[...hand3x3Wallets.values()].filter(x=>x.lobby_id===this.id&&x.actor_id===actor)
                                               :table==="chaotic_preview_3x3_attack_hand"
                                               ?[...hand3x3Cards.values()].filter(x=>x.lobby_id===this.id&&x.actor_id===actor)
+                                              :table==="chaotic_preview_3x3_hand_discards"
+                                              ?[...hand3x3Discards.values()].filter(x=>x.lobby_id===this.id&&x.actor_id===actor)
+                                              :table==="chaotic_preview_3x3_hand_draw_events"
+                                              ?[...hand3x3DrawEvents.values()].filter(x=>x.lobby_id===this.id&&x.actor_id===actor)
                                               :table==="chaotic_preview_3x3_cost_inspections"
                                               ?[...costChecks3x3.values()].filter(x=>x.lobby_id===this.id)
                                               :table==="chaotic_preview_3x3_attack_spends"
