@@ -1,6 +1,6 @@
 # Chaotic GO — Status de conclusão e pendências (30/10/2026)
 
-Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 66% (incerteza aproximada ±10 pontos percentuais).**
+Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 67% (incerteza aproximada ±10 pontos percentuais).**
 
 ## Critérios ponderados
 
@@ -9,12 +9,12 @@ Este documento acompanha **prontidão para lançar o jogo completo com Supabase*
 | Motor legado, scanner, cartas, imagens, áudios e interfaces preservados | 25% | 90% | 22,5 p.p. |
 | Contas, migração de coleção, Decks e persistência privada Supabase | 15% | 75% | 11,25 p.p. |
 | Salas privadas, sincronização e protocolo de turnos | 10% | 75% | 7,5 p.p. |
-| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 70% | 17,5 p.p. |
+| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 74% | 18,5 p.p. |
 | Economia, amigos, trocas, recompensas e progressão integradas | 15% | 25% | 3,75 p.p. |
 | Testes ponta a ponta, dois dispositivos, mobile, segurança e publicação | 10% | 35% | 3,5 p.p. |
-| **Estimativa total** | **100%** | | **66 p.p.** |
+| **Estimativa total** | **100%** | | **67 p.p.** |
 
-Números estimados para planejamento, não verificação automática de 66% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
+Números estimados para planejamento, não verificação automática de 67% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
 
 ## Entregas já implementadas ou disponíveis
 - Jogo completo e recursos originais publicados no site; backup de branches anteriores.
@@ -210,3 +210,13 @@ Números estimados para planejamento, não verificação automática de 66% das 
 - Testes SQL transacionais de RLS, permissões, integridade do Deck e bloqueios aprovados: `supabase/tests/chaotic-preview-burst-mugic-intents.test.sql`. Teste simulado de interface incluindo declaração/cancelamento integrado à suíte de 41 testes Node.
 - **Ainda pendente:** execução real de Canção da Criação/Rejeição, consumo autoritativo de fichas, alvo, contraposição, cadeia LIFO completa, habilidades, HP oficial, derrota, vitória e teste real com duas contas e celulares. A prévia só avança a preparação segura.
 - **Conclusão geral estimada: 66% (±10 p.p.)**, +1 ponto de estimativa pela integração privada da declaração, do estado no servidor e do cancelamento, **não pela conclusão das regras de Mugic**.
+
+
+## Versão 0.1.29 — contra-plano LIFO de Mugics sem consumir fichas (30/10/2026)
+- Novo RPC `chaotic_prepare_preview_mugic_counterplan` registra **somente um plano de inspeção**, exclusivamente para o par: Canção da Criação (301) declarada pelo atacante e Canção da Rejeição (302) declarada depois pelo defensor.
+- O servidor exige a janela 1x1 ativa, turno/autorização do atacante, ambas as declarações originais pendentes, dois passes de prioridade autenticados na sequência atacante→defensor, e ausência de inspeção/dano já preparado. Rejeita tentativas de duplicação e qualquer outro par de Mugics.
+- A nova tabela `chaotic_preview_burst_mugic_counterplans` usa RLS de leitura limitada aos dois participantes e bloqueia escrita direta. Guarda a revisão em LIFO: Rejeição primeiro, Criação depois. A indicação `hypothetical_creation_negated=true` é **somente contrafactual**: saldo de fichas NÃO verificado, custo NÃO pago, nenhuma carta gasta e nenhum efeito executado.
+- O painel 1x1 ganhou controle para conferir esse contra-plano após a prioridade fechar, além do histórico visível apenas depois da preparação. Para retomar a inspeção anterior do treino, ambos os jogadores ainda precisam cancelar individualmente suas intenções pendentes. O histórico é documental e não executa efeitos.
+- Teste SQL transacional em `supabase/tests/chaotic-preview-burst-mugic-lifo-counterplan.test.sql` aprovou verificação de grants, RLS, critérios e inexistência de efeitos oficiais. Teste Node com os dois jogadores simulados cobre Criação→Rejeição, passes, LIFO, privacidade prévia, cancelamentos e ausência de consumo. **42/42 testes automatizados Node aprovados** no GitHub Actions do commit de desenvolvimento.
+- **Importante:** não existe saldo autoritativo de fichas de habilidade/Mugic no combate oficial nem prova completa de emissão/posse das cartas (álbum e Deck editáveis). Nenhum dano, vitória, XP, moeda, HP ou carta oficial foi alterado por esta etapa.
+- **Conclusão estimada 67% (±10 p.p.)**, +1 ponto pela inspeção de contra-Mugic; o PvP completo em dois aparelhos reais continua sem validação.
