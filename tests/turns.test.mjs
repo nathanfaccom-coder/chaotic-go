@@ -53,7 +53,7 @@ function makeClient(actor) {
           return {data:null,error:{message:"Ação inválida ou fora da vez"}};
         const record={actor_id:actor,turn_no:match.turn_no,kind:args.p_kind,
           deck_slot:args.p_deck_slot,card_slot:args.p_card_slot,
-          card_id:args.p_kind==="creature"?"1":"105"};
+          card_id:args.p_kind==="creature"?"1":String(104+args.p_card_slot)};
         values.push(record);declarations.set(room.id,values);
         return {data:record,error:null};
       }
@@ -192,9 +192,10 @@ function makeClient(actor) {
             &&x.attack_instance_id===chosen.card_id&&x.card_state==="hand"))
           return {data:null,error:{message:"Instância de ataque não autorizada"}};
         const snapshot={lobby_id:room.id,turn_no:match.turn_no,actor_id:actor,
-          attack_instance_id:chosen.card_id,catalog_attack_id:"105",
+          attack_instance_id:chosen.card_id,catalog_attack_id:chosen.card_id,
           deck_slot:chosen.deck_slot,card_slot:chosen.card_slot,
-          attack_name:"Vento Forte",attack_cost:1,base_damage:5};
+          attack_name:chosen.card_id==="107"?"Armadilha de Vinha":"Vento Forte",
+          attack_cost:1,base_damage:5};
         attackInstances.set(key,snapshot);
         return {data:{...snapshot},error:null};
       }
