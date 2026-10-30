@@ -34,7 +34,8 @@ function makeClient(actor) {
       if(name==="chaotic_pass_turn"){
         const state=matches.get(room.id);
         if(!state||state.status!=="active"||room.status!=="ready"
-           ||state.current_player!==actor||state.turn_no!==args.p_expected_turn)
+           ||state.current_player!==actor||state.turn_no!==args.p_expected_turn
+           ||(room.mode==="1x1"&&burstWindows.get(room.id+"/"+args.p_expected_turn)?.status==="awaiting_defender"))
           return {data:null,error:{message:"Turno inválido"}};
         state.last_player=actor;state.current_player=actor===state.host_id?state.guest_id:state.host_id;
         state.turn_no++;
@@ -1561,6 +1562,11 @@ test("1x1 Burst defender may pass during attacker's turn but cannot resolve dama
   assert.equal(host("lobby-burst-open").hidden,false);
   await host("lobby-burst-open").onclick();
   assert.equal(burstWindows.get(id+"/3").status,"awaiting_defender");
+  assert.equal(host("lobby-turn-pass").hidden,true,
+    "Attacker cannot pass while defender is deciding");
+  assert.ok((await makeClient("burst-host").rpc("chaotic_pass_turn",{
+    p_lobby_id:id,p_expected_turn:3})).error,
+    "Direct RPC cannot skip pending Burst");
   await host("lobby-hand-spend").onclick();
   assert.equal(host("lobby-individual-damage-calculate").hidden,true,
     "Defender's pending response blocks damage preview");
@@ -1589,6 +1595,7 @@ test("1x1 Burst defender may pass during attacker's turn but cannot resolve dama
     p_lobby_id:id,p_expected_turn:3})).error,"Pass is one-time");
   await host("lobby-turn-refresh").onclick();
   assert.match(host("lobby-burst-history").textContent,/PASSAR/);
+  assert.equal(host("lobby-turn-pass").hidden,false);
   assert.equal(host("lobby-individual-damage-calculate").hidden,false);
   await host("lobby-individual-damage-calculate").onclick();
   await host("lobby-resolution-audit-capture").onclick();
