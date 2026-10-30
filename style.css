@@ -1777,3 +1777,46 @@ html, body {
 .legacy-import-panel button{width:100%;box-sizing:border-box;}
 .legacy-import-panel button[hidden]{display:none!important;}
 .legacy-import-panel button:disabled{opacity:.55;}
+
+
+/* DROME: tabuleiro hexagonal compartilhado de testes (sem combate automático). */
+.lobby-hex-board {
+  display:flex;
+  flex-direction:column;
+  gap:9px;
+  margin-top:10px;
+  padding:12px;
+  background:linear-gradient(160deg,#0b1e16,#142019);
+  border:1px solid #7b9d53;
+  border-radius:9px;
+  box-sizing:border-box;
+}
+.lobby-hex-board[hidden] {display:none!important;}
+.lobby-hex-board > strong {color:#cbed8d; font-size:11px;line-height:1.4;}
+.lobby-hex-board > p {font-size:10px;line-height:1.5;}
+.lobby-hex-board label {font-size:10px; color:#dceaca;}
+.lobby-hex-row {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:6px;
+}
+.lobby-hex {
+  min-width:0;
+  min-height:42px;
+  padding:8px 3px;
+  box-sizing:border-box;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  overflow-wrap:anywhere;
+  color:#bdd0ba;
+  border:1px solid #5b6854;
+  border-radius:10px 10px 14px 14px;
+  background:#182720;
+  font:10px/1.25 monospace;
+}
+.lobby-hex[hidden]{display:none!important;}
+.lobby-hex.ocupado {border:2px solid #4daa65;background:#15572a;color:#fff;font-weight:700;}
+.lobby-hex.sua-vez {box-shadow:0 0 10px #4aaa5e;}
+.lobby-hex-board button:disabled {opacity:.5;}
