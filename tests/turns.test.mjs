@@ -1775,9 +1775,12 @@ test("1x1 Burst defender may pass during attacker's turn but cannot resolve dama
     p_lobby_id:id,p_expected_turn:3})).error,"Pass is one-time");
   await host("lobby-turn-refresh").onclick();
   assert.match(host("lobby-burst-history").textContent,/PASSAR/);
-  assert.equal(host("lobby-burst-order-prepare").hidden,false);
+  assert.equal(host("lobby-burst-order-prepare").hidden,true);
+  assert.ok((await makeClient("burst-host").rpc("chaotic_prepare_preview_burst_order",{
+    p_lobby_id:id,p_expected_turn:3})).error,"Cannot prepare before both priority passes");
   assert.ok((await makeClient("burst-guest").rpc("chaotic_prepare_preview_burst_order",{
     p_lobby_id:id,p_expected_turn:3})).error,"Defender cannot forge attacker plan");
+  await completePriority(host,guest);
   await host("lobby-burst-order-prepare").onclick();
   const plan=burstOrderPlans.get(id+"/3");
   assert.equal(plan.inspection_step_count,1,"PASS is not a counter-card");
@@ -1803,6 +1806,21 @@ test("1x1 Burst defender may pass during attacker's turn but cannot resolve dama
 });
 
 for (const defenseKind of ["rex","amulet"]) {
+
+async function completePriority(host,guest){
+  assert.equal(host("lobby-burst-priority-open").hidden,false);
+  await host("lobby-burst-priority-open").onclick();
+  assert.equal(host("lobby-burst-priority-pass").hidden,false);
+  await host("lobby-burst-priority-pass").onclick();
+  assert.equal(host("lobby-burst-priority-pass").hidden,true,"Attacker cannot repeat PASS");
+  await guest("lobby-turn-refresh").onclick();
+  assert.equal(guest("lobby-burst-priority-pass").hidden,false);
+  await guest("lobby-burst-priority-pass").onclick();
+  assert.match(guest("lobby-burst-priority-history").textContent,/Dois passes confirmados/);
+  await host("lobby-turn-refresh").onclick();
+  assert.equal(host("lobby-burst-order-prepare").hidden,false);
+}
+
 test("Burst 1x1 validates "+defenseKind+" immunity to Ar without changing official damage",async()=>{
   const hostId="air-"+defenseKind+"-host",guestId="air-"+defenseKind+"-guest";
   const host=browser(hostId),guest=browser(guestId);
@@ -1864,7 +1882,8 @@ test("Burst 1x1 validates "+defenseKind+" immunity to Ar without changing offici
     p_lobby_id:id,p_expected_turn:3})).error,"Cannot acknowledge twice");
   await host("lobby-turn-refresh").onclick();
   assert.match(host("lobby-burst-history").textContent,/imunidade a Ar/);
-  assert.equal(host("lobby-burst-order-prepare").hidden,false);
+  assert.equal(host("lobby-burst-order-prepare").hidden,true);
+  await completePriority(host,guest);
   await host("lobby-burst-order-prepare").onclick();
   const plan=burstOrderPlans.get(id+"/3");
   assert.equal(plan.inspection_step_count,2);
@@ -1951,6 +1970,7 @@ test("Burst 1x1 queues real defender equipment for LIFO inspection without prema
   assert.ok((await makeClient(hostId).rpc("chaotic_calculate_individual_preview",{
     p_lobby_id:id,p_expected_turn:3})).error,
     "Direct preview damage RPC cannot ignore queued equipment");
+  await completePriority(host,guest);
   await host("lobby-burst-order-prepare").onclick();
   const plan=burstOrderPlans.get(id+"/3");
   assert.equal(plan.inspection_step_count,2);
@@ -2033,6 +2053,7 @@ test("Burst equipment "+scenario.name+" changes ONLY server training ledger",asy
   await host("lobby-turn-refresh").onclick();
   assert.equal(host("lobby-burst-equipment-effect-apply").hidden,true,
     "Cannot apply before order inspection is prepared");
+  await completePriority(host,guest);
   await host("lobby-burst-order-prepare").onclick();
   assert.equal(host("lobby-burst-equipment-effect-apply").hidden,false);
   assert.ok((await makeClient(guestId).rpc("chaotic_apply_preview_burst_equipment_effect",{
