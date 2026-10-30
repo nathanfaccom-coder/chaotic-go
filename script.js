@@ -11,14 +11,14 @@ let monstroAtual = null;
 let tipoDeCartaAtual = ""; 
 let cartaVisualizadaId = null; 
 
-let inventario = JSON.parse(localStorage.getItem("chaoticAlbum")) || [];
+let inventario = JSON.parse(ChaoticState.getItem("chaoticAlbum")) || [];
 inventario.forEach(item => { 
     if(!item.id) item.id = Math.random(); 
     if(!item.quantidade) item.quantidade = 1;
 });
 
 // MEMÓRIA DO JOGADOR
-let perfilJogador = JSON.parse(localStorage.getItem("chaoticPerfil")) || {
+let perfilJogador = JSON.parse(ChaoticState.getItem("chaoticPerfil")) || {
     nome: "Chaotic Player",
     avatar: "👤",
     vitorias: 0,
@@ -26,7 +26,7 @@ let perfilJogador = JSON.parse(localStorage.getItem("chaoticPerfil")) || {
 };
 
 // AMIGOS E SOCIAL
-let amigos = JSON.parse(localStorage.getItem("chaoticAmigos")) || [];
+let amigos = JSON.parse(ChaoticState.getItem("chaoticAmigos")) || [];
 let amigoAtualTroca = null;
 let minhaCartaOfertada = null;
 let cartaSimuladaAmigo = null;
@@ -140,7 +140,7 @@ document.getElementById("btn-acao-dir").onclick = function() {
             }
         };
         inventario.push(novaCaptura);
-        localStorage.setItem("chaoticAlbum", JSON.stringify(inventario));
+        ChaoticState.setItem("chaoticAlbum", JSON.stringify(inventario));
         mostrarMensagemScanner("CARTA ARMAZENADA NO ÁLBUM!");
         voltarAoRadar();
     } else if (tipoDeCartaAtual === "album") {
@@ -179,7 +179,7 @@ window.excluirCartaConfirmada = function() {
     } else {
         inventario = inventario.filter(c => c.id !== cartaVisualizadaId); mostrarMensagemScanner("CARTA EXCLUÍDA!");
     }
-    localStorage.setItem("chaoticAlbum", JSON.stringify(inventario)); 
+    ChaoticState.setItem("chaoticAlbum", JSON.stringify(inventario)); 
     document.getElementById("tela-detalhe-carta").style.display = "none";
     document.getElementById("painel-viagem").style.display = "none";
     abrirAlbum(); 
@@ -427,7 +427,7 @@ function escanearLocalAtual() {
         };
         inventario.push(novoLocal);
     }
-    localStorage.setItem("chaoticAlbum", JSON.stringify(inventario));
+    ChaoticState.setItem("chaoticAlbum", JSON.stringify(inventario));
     
     let mapaTela = document.getElementById("tela-mapa");
     mapaTela.style.boxShadow = "inset 0 0 50px #4CAF50";
@@ -546,7 +546,7 @@ window.toggleFavorito = function(id, event) {
     let carta = inventario.find(c => c.id === id);
     if(carta) {
         carta.favorito = !carta.favorito;
-        localStorage.setItem("chaoticAlbum", JSON.stringify(inventario));
+        ChaoticState.setItem("chaoticAlbum", JSON.stringify(inventario));
         renderizarListaAlbum(); 
     }
 }
@@ -695,7 +695,7 @@ window.salvarEdicaoPerfil = function() {
     if(nAvatar !== "") perfilJogador.avatar = nAvatar;
     else if (perfilJogador.avatar === "") perfilJogador.avatar = "👤"; 
     
-    localStorage.setItem("chaoticPerfil", JSON.stringify(perfilJogador));
+    ChaoticState.setItem("chaoticPerfil", JSON.stringify(perfilJogador));
     fecharModalPerfil();
     abrirPerfil(); 
 }
@@ -720,7 +720,7 @@ window.adicionarAmigo = function() {
     
     let novoAmigo = { id: id, nome: "Jogador " + id, avatar: ["👾","🤖","👹","🤠"][Math.floor(Math.random()*4)], jaTrocou: false };
     amigos.push(novoAmigo); 
-    localStorage.setItem("chaoticAmigos", JSON.stringify(amigos));
+    ChaoticState.setItem("chaoticAmigos", JSON.stringify(amigos));
     document.getElementById("input-add-amigo").value = "";
     mostrarMensagemScanner("SINAL DE AMIGO ENCONTRADO!"); 
     renderizarAmigos();
@@ -837,8 +837,8 @@ window.confirmarTroca = function() {
     }
     
     amigoAtualTroca.jaTrocou = true; 
-    localStorage.setItem("chaoticAmigos", JSON.stringify(amigos));
-    localStorage.setItem("chaoticAlbum", JSON.stringify(inventario));
+    ChaoticState.setItem("chaoticAmigos", JSON.stringify(amigos));
+    ChaoticState.setItem("chaoticAlbum", JSON.stringify(inventario));
     
     mostrarMensagemScanner("TROCA ÉPICA CONCLUÍDA!");
     fecharTroca();
