@@ -44,7 +44,7 @@ declare
  a integer;
  d integer;
 begin
- if p_attribute<>'v' then
+ if p_attribute is distinct from 'v' then
    raise exception 'Only the location-free Speed fallback is supported';end if;
  if pg_catalog.jsonb_typeof(p_attacker_stats)<>'object'
    or pg_catalog.jsonb_typeof(p_defender_stats)<>'object'
