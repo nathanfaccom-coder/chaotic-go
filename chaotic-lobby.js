@@ -165,6 +165,8 @@
           " duplicado no catálogo original. Cálculo bloqueado para preservar as duas cartas.";
       if(x.calculation_status!=="base_only")
         return "Turno "+x.turn_no+" · "+who+": referência não identificada ("+x.calculation_status+").";
+      if(x.attack_card_id==="104")
+        return "Turno "+x.turn_no+" · "+who+" · Fogo Primordial 2.0: 5 de dano BASE, mas o efeito exige rolagem de dado. Energia NÃO calculada.";
       return "Turno "+x.turn_no+" · "+who+" · "+x.attack_name+
         ": dano BASE "+x.base_damage+" · "+x.defender_name+
         " (energia base "+x.defender_energy_base+
