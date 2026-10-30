@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -216,6 +216,40 @@
     }).join("\n"):"Nenhum confronto registrado.";
     updateClashUI();
   }
+  function updateLoadoutUI(){
+    const panel=$("lobby-loadout-panel");
+    if(!panel)return;
+    panel.hidden=!room||!match||room.mode!=="1x1";
+    if(panel.hidden)return;
+    const mine=board.find(x=>x.actor_id===userId);
+    const has=loadouts.some(x=>x.actor_id===userId);
+    const ownTurn=match.status==="active"&&room.status==="ready"&&
+      match.current_player===userId&&new Date(room.expires_at).getTime()>Date.now();
+    $("lobby-loadout-capture").hidden=!(ownTurn&&mine&&!has);
+    const read=(actor,side)=>{
+      const record=loadouts.find(x=>x.actor_id===actor);
+      const label=$("lobby-loadout-"+side);
+      if(!label)return;
+      if(!record){label.textContent="Ainda sem ficha individual.";return;}
+      const t=record.stats||{};
+      label.textContent=record.creature_name+
+        " · Energia "+t.e+" | Coragem "+t.c+" | Poder "+t.p+
+        " | Sabedoria "+t.s+" | Velocidade "+t.v+
+        (record.equipment_name?" · Equipamento: "+record.equipment_name:" · Sem equipamento");
+    };
+    read(room.host_id,"host");
+    read(room.guest_id,"guest");
+  }
+  async function refreshLoadouts(){
+    if(!$("lobby-loadout-panel"))return;
+    if(!room||!match){loadouts=[];updateLoadoutUI();return;}
+    const {data,error}=await api.from("chaotic_preview_loadouts")
+      .select("actor_id,card_instance_id,creature_name,tribe,position,stats,equipment_name")
+      .eq("lobby_id",room.id);
+    if(error)throw new Error(error.message);
+    loadouts=data||[];
+    updateLoadoutUI();
+  }
   function updateBoardUI() {
     const box=$("lobby-hex-board");
     if(!box) return;
@@ -321,6 +355,7 @@
     await refreshHistory();
     await refreshDeclarations();
     await refreshBoard();
+    await refreshLoadouts();
     await refreshClashes();
     await refreshBaseDamage();
     await refreshModifiers();
@@ -389,6 +424,9 @@
         .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_dice",filter:"lobby_id=eq."+lobbyId
         },sync)
+        .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_loadouts",filter:"lobby_id=eq."+lobbyId
+        },sync)
         .subscribe(status=>{
           if(status==="CHANNEL_ERROR"||status==="TIMED_OUT")
             console.warn("DROME: canal em tempo real temporariamente indisponível; consultas periódicas seguem ativas.");
@@ -401,7 +439,7 @@
     }, 6000);
   }
   function show() {
-    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = [];
+    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -469,6 +507,14 @@
       '<option value="3">c3</option><option value="4">c4</option>',
       '<option value="5">c5</option><option value="6">c6</option></select>',
       '<button id="lobby-hex-move" type="button" hidden>Mover para a casa escolhida</button>',
+      '</section>',
+      '<section id="lobby-loadout-panel" class="lobby-combat" hidden>',
+      '<strong>🧬 FICHAS INDIVIDUAIS — 1x1 (TESTE)</strong>',
+      '<p>A ficha usa os atributos de cada carta salva no álbum, não somente o padrão do catálogo.</p>',
+      '<p>Anfitrião: <span id="lobby-loadout-host">Ainda sem ficha individual.</span></p>',
+      '<p>Convidado: <span id="lobby-loadout-guest">Ainda sem ficha individual.</span></p>',
+      '<button id="lobby-loadout-capture" type="button" hidden>Preparar ficha da minha criatura</button>',
+      '<p>Ficha congelada para este teste; nenhuma energia foi reduzida.</p>',
       '</section>',
       '<section id="lobby-clash-panel" class="lobby-clash-panel" hidden>',
       '<strong>⚔️ ENCONTRO DE CRIATURAS (TESTE)</strong>',
@@ -542,6 +588,15 @@
     });
     $("lobby-refresh").onclick = () => action(refreshRoom);
     $("lobby-turn-refresh").onclick = () => action(refreshRoom);
+    $("lobby-loadout-capture").onclick = () => action(async()=>{
+      if(!room||!match||room.mode!=="1x1"||match.status!=="active"
+        ||match.current_player!==userId)return;
+      await rpc("chaotic_capture_preview_loadout",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refreshLoadouts();
+      note("Ficha individual da criatura confirmada no servidor, com equipamento do deck.");
+    });
     $("lobby-hex-place").onclick = () => action(async()=>{
       if(!room || !match || match.status!=="active" || match.current_player!==userId)return;
       await rpc("chaotic_place_preview_creature",{p_lobby_id:room.id,p_expected_turn:match.turn_no});
