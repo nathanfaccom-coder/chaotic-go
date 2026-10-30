@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map(),burstOrderPlans=new Map(),burstPriority=new Map(),burstPriorityPasses=new Map(),burstMugicIntents=new Map(),burstMugicCounterplans=new Map(),mugicTrainingWallets=new Map(),mugicTrainingSettlements=new Map(),trainingAbilityEvents=new Map(),harpTrainingEvents=new Map(),allies3x3=new Map(),transfers3x3=new Map(),decks3x3=new Map(),burstEquipmentResponses=new Map(),burstEquipmentEffects=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map(),burstOrderPlans=new Map(),burstPriority=new Map(),burstPriorityPasses=new Map(),burstMugicIntents=new Map(),burstMugicCounterplans=new Map(),mugicTrainingWallets=new Map(),mugicTrainingSettlements=new Map(),trainingAbilityEvents=new Map(),harpTrainingEvents=new Map(),allies3x3=new Map(),transfers3x3=new Map(),decks3x3=new Map(),hp3x3=new Map(),burstEquipmentResponses=new Map(),burstEquipmentEffects=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -38,6 +38,35 @@ function makeClient(actor) {
         }));
         return {data:{status:"captured_3x3_training_only",count:3,
           mode:"3x3",official_match_modified:false},error:null};
+      }
+      if(name==="chaotic_prepare_preview_3x3_hp"){
+        const m=matches.get(room.id);
+        const own=[...allies3x3.values()].filter(x=>x.lobby_id===room.id&&x.actor_id===actor)
+          .sort((a,b)=>a.position-b.position);
+        const existing=[...hp3x3.values()].filter(x=>x.lobby_id===room.id&&x.actor_id===actor);
+        if(!m||m.status!=="active"||m.turn_no!==args.p_expected_turn
+          ||m.current_player!==actor||room.mode!=="3x3"||room.status!=="ready"
+          ||![m.host_id,m.guest_id].includes(actor)||own.length!==3||existing.length)
+          return {data:null,error:{message:"Not your turn, invalid 3x3 formation, or HP replay"}};
+        const eligible=own.map(x=>{
+          const deck=decks3x3.get(actor+"/"+x.deck_slot);
+          const card=deck?.[x.position-1];
+          return card?.id===x.creature_instance_id&&card?.name===x.creature_name
+            &&Number.isInteger(card.energy)&&card.energy>=1&&card.energy<=500
+            ?{unit:x,energy:card.energy}:null;
+        });
+        if(eligible.some(x=>!x))return {data:null,error:{message:"Invalid individual card energy or Deck mismatch"}};
+        for(const x of eligible)hp3x3.set(room.id+"/"+actor+"/"+x.unit.position,{
+          lobby_id:room.id,actor_id:actor,position:x.unit.position,
+          creature_instance_id:x.unit.creature_instance_id,creature_name:x.unit.creature_name,
+          hp_initial:x.energy,hp_max:x.energy,hp_remaining:x.energy,
+          initialized_turn:m.turn_no,damage_events:0,healing_events:0,
+          official_hp_changed:false,official_match_modified:false,
+          location_bonuses_applied:false
+        });
+        return {data:{status:"hp_3x3_training_seeded",count:3,
+          official_match_modified:false,location_bonuses_applied:false,
+          damage_applied:false},error:null};
       }
       if(name==="chaotic_transfer_preview_alakazaz_token"){
         const m=matches.get(room.id);
@@ -978,7 +1007,7 @@ function makeClient(actor) {
       throw Error(name);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits","chaotic_preview_burst_windows","chaotic_preview_burst_priority","chaotic_preview_burst_priority_passes","chaotic_preview_burst_mugic_intents","chaotic_preview_burst_mugic_counterplans","chaotic_preview_mugic_token_wallets","chaotic_preview_mugic_token_settlements","chaotic_preview_ability_heal_events","chaotic_preview_harp_token_events","chaotic_preview_3x3_allies","chaotic_preview_3x3_token_transfers","chaotic_preview_burst_order_plans","chaotic_preview_burst_equipment_responses","chaotic_preview_burst_equipment_effects"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits","chaotic_preview_burst_windows","chaotic_preview_burst_priority","chaotic_preview_burst_priority_passes","chaotic_preview_burst_mugic_intents","chaotic_preview_burst_mugic_counterplans","chaotic_preview_mugic_token_wallets","chaotic_preview_mugic_token_settlements","chaotic_preview_ability_heal_events","chaotic_preview_harp_token_events","chaotic_preview_3x3_allies","chaotic_preview_3x3_hp_wallets","chaotic_preview_3x3_token_transfers","chaotic_preview_burst_order_plans","chaotic_preview_burst_equipment_responses","chaotic_preview_burst_equipment_effects"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
         then(resolve,reject) {
           const room=rooms.get(this.id);
@@ -1048,6 +1077,8 @@ function makeClient(actor) {
                                               ?[...harpTrainingEvents.values()].filter(x=>x.lobby_id===this.id)
                                               :table==="chaotic_preview_3x3_allies"
                                               ?[...allies3x3.values()].filter(x=>x.lobby_id===this.id)
+                                              :table==="chaotic_preview_3x3_hp_wallets"
+                                              ?[...hp3x3.values()].filter(x=>x.lobby_id===this.id)
                                               :table==="chaotic_preview_3x3_token_transfers"
                                               ?[...transfers3x3.values()].filter(x=>x.lobby_id===this.id)
                                               :table==="chaotic_preview_burst_order_plans"
@@ -2065,13 +2096,13 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
   await host("lobby-refresh").onclick();
   await host("lobby-turn-start").onclick();
   const deckA=[null,null,null,
-    {id:"allied-alakazaz-1",name:"Alakazaz"},
-    {id:"allied-vidal-2",name:"Vidal"},
-    {id:"allied-lion-3",name:"Lion"}];
+    {id:"allied-alakazaz-1",name:"Alakazaz",energy:10},
+    {id:"allied-vidal-2",name:"Vidal",energy:35},
+    {id:"allied-lion-3",name:"Lion",energy:46}];
   const deckB=[null,null,null,
-    {id:"enemy-frador-1",name:"Frador"},
-    {id:"enemy-lion-2",name:"Lion"},
-    {id:"enemy-vidal-3",name:"Vidal"}];
+    {id:"enemy-frador-1",name:"Frador",energy:55},
+    {id:"enemy-lion-2",name:"Lion",energy:40},
+    {id:"enemy-vidal-3",name:"Vidal",energy:32}];
   decks3x3.set(owner+"/1",deckA);
   decks3x3.set(opponent+"/1",deckB);
   assert.equal(host("lobby-3x3-prepare").hidden,false);
