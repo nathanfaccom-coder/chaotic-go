@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -112,6 +112,20 @@ function makeClient(actor) {
         clashes.set(key,item);
         return {data:{...item},error:null};
       }
+      if(name==="chaotic_roll_preview_die"){
+        const match=matches.get(room.id),key=room.id+"/"+args.p_expected_turn;
+        const mod=modifiers.get(key),clash=clashes.get(key);
+        if(!match||match.status!=="active"||match.current_player!==actor||
+           match.turn_no!==args.p_expected_turn||!mod||!clash||
+           clash.attacker_id!==actor||clash.attack_card!=="104"||
+           mod.formula_status!=="roll_or_special_required"||dice.has(key))
+          return {data:null,error:{message:"Dado indisponível ou já rolado"}};
+        // Deterministic mock only; SQL uses server-side 1d6.
+        const row={lobby_id:room.id,turn_no:match.turn_no,actor_id:actor,
+           attack_id:"104",die_faces:6,rolled_value:4,original_base:mod.base_damage,
+           multiplied_base:mod.base_damage*4};
+        dice.set(key,row);return {data:{...row},error:null};
+      }
       if(name==="chaotic_preview_calculate_modifiers"){
         const match=matches.get(room.id);
         const key=room.id+"/"+args.p_expected_turn;
@@ -163,7 +177,7 @@ function makeClient(actor) {
       throw Error(name);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
         then(resolve,reject) {
           const room=rooms.get(this.id);
@@ -184,7 +198,9 @@ function makeClient(actor) {
                 ?[...baseDamage.values()].filter(x=>x.lobby_id===this.id)
                 :table==="chaotic_preview_modifiers"
                   ?[...modifiers.values()].filter(x=>x.lobby_id===this.id)
-                  :(journals.get(this.id)||[])):[];
+                  :table==="chaotic_preview_dice"
+                    ?[...dice.values()].filter(x=>x.lobby_id===this.id)
+                    :(journals.get(this.id)||[])):[];
           return Promise.resolve({data:[...events].reverse().slice(0,size),error:null});
         },
         async maybeSingle(){
@@ -420,6 +436,19 @@ test("Fogo Primordial 2.0 requires dice roll and never shows a fake final damage
   assert.equal(mod.error,null);
   assert.equal(mod.data.formula_status,"roll_or_special_required");
   assert.equal(mod.data.reference_subtotal,null);
+  await host("lobby-turn-refresh").onclick();
+  assert.equal(host("lobby-dice-roll").hidden,false);
+  await host("lobby-dice-roll").onclick();
+  assert.match(host("lobby-dice-history").textContent,/🎲 4 de 6/);
+  assert.match(host("lobby-dice-history").textContent,/5 × 4 = 20/);
+  assert.equal(dice.get(room.id+"/1").multiplied_base,20);
+  assert.equal(host("lobby-dice-roll").hidden,true);
+  const second=await makeClient("ambig-host").rpc("chaotic_roll_preview_die",{
+     p_lobby_id:room.id,p_expected_turn:1});
+  assert.ok(second.error,"No rerolls");
+  const stranger=await makeClient("outside-user").rpc("chaotic_roll_preview_die",{
+     p_lobby_id:room.id,p_expected_turn:1});
+  assert.ok(stranger.error,"Only current attacker can roll");
   await host("lobby-turn-refresh").onclick();
   assert.match(host("lobby-modifiers-history").textContent,/exige dado/);
   assert.equal(host("lobby-damage-calculate").hidden,true);
