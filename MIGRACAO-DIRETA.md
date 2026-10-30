@@ -63,3 +63,9 @@ O service worker de lançamento não armazena telas autenticadas nem JavaScript 
 - A interface mostra **Conferir bônus elementais e atributos** e o histórico. O valor NÃO altera HP, posição, cartas, recompensas, dados, equipamentos, imunidades, modificadores de local, habilidades ou estado oficial de combate.
 - Uma transação SQL com rollback e testes Node verificaram, entre outros exemplos, Lion + Ácido Gástrico = 10+5=15, Johnes + Armadilha de Vinha = 5+5=10, bônus de coragem maior/menor e bloqueio de resultados de dado.
 - Ainda é necessária a migração completa e validada do motor oficial antes de habilitar batalhas PvP com dano verdadeiro.
+
+## Fogo Primordial 2.0 — dado autoritativo (fase de teste)
+- `chaotic_preview_dice` registra um único resultado de dado 1d6 por confronto do ataque ativo ID 104; `chaotic_roll_preview_die` valida participante, turno e cálculo anterior, com bloqueio transacional anti-repetição.
+- A multiplicação `danoBase × valorDoDado` reproduz essa etapa do `batalha.js`, mas os demais efeitos permanecem pendentes. **Não altera HP nem determina vencedor.**
+- A API anônima e escrita direta estão proibidas; leitura somente com RLS de participantes. Há teste automático emulado e checagens negativas no banco, mas ainda faltam duas contas reais para teste completo.
+- Uma estimativa geral com critérios ponderados está em `STATUS-PROJETO.md` (**53% de prontidão estimada para versão completa**).
