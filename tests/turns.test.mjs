@@ -2516,7 +2516,7 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
     p_lobby_id:id,p_expected_turn:2,p_attack_card_slot:1})).error,
     "Host cannot validate an Attack on the guest's turn");
   assert.ok((await makeClient(opponent).rpc("chaotic_prepare_preview_3x3_base_attack",{
-    p_lobby_id:id,p_expected_turn:2,p_attack_card_slot:2})).error,
+    p_lobby_id:id,p_expected_turn:2,p_attack_card_slot:4})).error,
     "An empty Attack slot cannot be projected");
   const originalCost=deckB.attacks[0].custo;
   deckB.attacks[0].custo=45;
