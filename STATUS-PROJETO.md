@@ -1,6 +1,6 @@
 # Chaotic GO — Status de conclusão e pendências (30/10/2026)
 
-Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 68% (incerteza aproximada ±10 pontos percentuais).**
+Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 69% (incerteza aproximada ±10 pontos percentuais).**
 
 ## Critérios ponderados
 
@@ -9,12 +9,12 @@ Este documento acompanha **prontidão para lançar o jogo completo com Supabase*
 | Motor legado, scanner, cartas, imagens, áudios e interfaces preservados | 25% | 90% | 22,5 p.p. |
 | Contas, migração de coleção, Decks e persistência privada Supabase | 15% | 75% | 11,25 p.p. |
 | Salas privadas, sincronização e protocolo de turnos | 10% | 75% | 7,5 p.p. |
-| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 78% | 19,5 p.p. |
+| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 82% | 20,5 p.p. |
 | Economia, amigos, trocas, recompensas e progressão integradas | 15% | 25% | 3,75 p.p. |
 | Testes ponta a ponta, dois dispositivos, mobile, segurança e publicação | 10% | 35% | 3,5 p.p. |
-| **Estimativa total** | **100%** | | **68 p.p.** |
+| **Estimativa total** | **100%** | | **69 p.p.** |
 
-Números estimados para planejamento, não verificação automática de 68% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
+Números estimados para planejamento, não verificação automática de 69% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
 
 ## Entregas já implementadas ou disponíveis
 - Jogo completo e recursos originais publicados no site; backup de branches anteriores.
@@ -231,3 +231,13 @@ Números estimados para planejamento, não verificação automática de 68% das 
 - Verificação SQL transacional de 16 fichas originais, RLS, permissões mínimas, impedimento de reinicialização, consistência aritmética e bloqueios de débito: `supabase/tests/chaotic-preview-mugic-training-token-wallets.test.sql` aprovado. Cenário Node com 2 contas simuladas testa falta de saldo, ausência de cobrança parcial, pagamento 1+2, impossibilidade de segundo débito e ausência de mutação oficial.
 - **Limite crítico:** o saldo é apenas da criatura preparada em 1x1 (não cobre 3x3/6x6, transferências, Arpa Mágica, habilidades, fichas extras e outros gastos). A integridade da emissão original das cartas ainda não é garantida porque o álbum é editável; a simulação não serve como resultado de PvP oficial. Derrota, vitória, danos, fichas oficiais, XP, moeda e Decks não foram modificados.
 - **Conclusão geral estimada: 68% (±10 p.p.)**: +1 ponto percentual pela primeira contabilização segura de fichas no servidor, restrita ao treinamento. Teste completo com duas contas em celulares distintos e publicação no GitHub Pages ainda pendentes.
+
+
+## Versão 0.1.31 — habilidades de energia no HP de treinamento (30/10/2026)
+- Pela primeira vez o motor 1x1 experimental aplica habilidades originais diretamente ao HP **isolado de treinamento**: **Lion** gasta 1 ficha e aumenta o próprio HP atual e o máximo em 10; **Vidal** gasta 1 ficha e recupera até 15 HP de qualquer criatura na sala; **Xamã** gasta 1 ficha e recupera até 10 HP de qualquer criatura. Cura não ultrapassa o máximo atual, e não ressuscita HP zerado. Códigos e números confrontados com `cartas.js` e `efeitos.js`.
+- Nova função `chaotic_apply_preview_ability_heal` exige login, participante, turno próprio, sala 1x1 pronta, criaturas congeladas, alvo participante, carteira de fichas de treino vinculada à criatura, HP de treino preparado e **saldo mínimo de uma ficha**. Não aceita números de dano/HP/custo vindos do cliente; o servidor escolhe o efeito conforme o nome original da criatura. Lion não pode mirar o adversário.
+- As escritas de HP e ficha são feitas em uma transação com trava de turno e linhas de carteira e HP. Diário `chaotic_preview_ability_heal_events` guarda origem, alvo, custo, saldo antes/depois e HP antes/depois; a chave `(lobby_id,turn_no,actor_id)` impede debitar duas vezes a mesma habilidade na rodada. A tabela tem RLS só para participantes, sem escrita direta pelo navegador.
+- Não é uma resposta de Burst: o uso fica bloqueado após abertura de Clash/Burst/dano no **mesmo turno**. A UI mostra controles e histórico em 1x1. HP de treino e carteira precisam existir: na versão atual o HP normalmente é preparado após um confronto anterior, então o uso é mais adequado em um turno subsequente sem Clash aberto.
+- Teste SQL transacional `supabase/tests/chaotic-preview-creature-healing-abilities.test.sql` aprovado; GitHub Actions executou **43/43 testes Node aprovados**, incluindo três habilidades, alvo de Lion restrito, possibilidade de curar outro campeão, débito único e rejeição de repetições. Os testes Node utilizam um simulador de banco, não substituem um teste real entre duas contas.
+- **Não implementado nesta etapa:** habilidades de Frador, Leona, Guru, Spedman, Naty, Alakazaz; ganho de fichas por Arpa Mágica; gasto oficial de habilidades; HP real; dano real; derrota/vitória. Cartas, Decks, moedas, XP e combate oficial não são modificados por esta migração.
+- **Conclusão geral estimada em 69% (±10 p.p.)**, crescimento de 1 ponto percentual por habilidades ativas em HP de treino. Publicação no GitHub Pages e comportamento em dois celulares reais ainda exigem confirmação.
