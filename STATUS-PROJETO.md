@@ -1,6 +1,6 @@
 # Chaotic GO — Status de conclusão e pendências (30/10/2026)
 
-Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 67% (incerteza aproximada ±10 pontos percentuais).**
+Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 68% (incerteza aproximada ±10 pontos percentuais).**
 
 ## Critérios ponderados
 
@@ -9,12 +9,12 @@ Este documento acompanha **prontidão para lançar o jogo completo com Supabase*
 | Motor legado, scanner, cartas, imagens, áudios e interfaces preservados | 25% | 90% | 22,5 p.p. |
 | Contas, migração de coleção, Decks e persistência privada Supabase | 15% | 75% | 11,25 p.p. |
 | Salas privadas, sincronização e protocolo de turnos | 10% | 75% | 7,5 p.p. |
-| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 74% | 18,5 p.p. |
+| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 78% | 19,5 p.p. |
 | Economia, amigos, trocas, recompensas e progressão integradas | 15% | 25% | 3,75 p.p. |
 | Testes ponta a ponta, dois dispositivos, mobile, segurança e publicação | 10% | 35% | 3,5 p.p. |
-| **Estimativa total** | **100%** | | **67 p.p.** |
+| **Estimativa total** | **100%** | | **68 p.p.** |
 
-Números estimados para planejamento, não verificação automática de 67% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
+Números estimados para planejamento, não verificação automática de 68% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
 
 ## Entregas já implementadas ou disponíveis
 - Jogo completo e recursos originais publicados no site; backup de branches anteriores.
@@ -220,3 +220,14 @@ Números estimados para planejamento, não verificação automática de 67% das 
 - Teste SQL transacional em `supabase/tests/chaotic-preview-burst-mugic-lifo-counterplan.test.sql` aprovou verificação de grants, RLS, critérios e inexistência de efeitos oficiais. Teste Node com os dois jogadores simulados cobre Criação→Rejeição, passes, LIFO, privacidade prévia, cancelamentos e ausência de consumo. **42/42 testes automatizados Node aprovados** no GitHub Actions do commit de desenvolvimento.
 - **Importante:** não existe saldo autoritativo de fichas de habilidade/Mugic no combate oficial nem prova completa de emissão/posse das cartas (álbum e Deck editáveis). Nenhum dano, vitória, XP, moeda, HP ou carta oficial foi alterado por esta etapa.
 - **Conclusão estimada 67% (±10 p.p.)**, +1 ponto pela inspeção de contra-Mugic; o PvP completo em dois aparelhos reais continua sem validação.
+
+
+## Versão 0.1.30 — carteiras e custos de Mugic **apenas no treinamento** (30/10/2026)
+- Cadastro independente em `chaotic_preview_mugic_token_catalog` dos **16 saldos iniciais de fichas** copiados dos campos `fichasHabilidade` das criaturas originais de `cartas.js`: nunca aceita números fornecidos diretamente pelo cliente. O álbum/Deck original NÃO é modificado.
+- Nova RPC `chaotic_prepare_preview_mugic_token_wallet` cria de forma única uma carteira para a criatura 1x1 previamente capturada no servidor. A carteira é persistente durante toda a sala, inclusive após troca de turno, com impeditivo para reiniciá-la e refazer fichas. Só o dono consulta seu saldo via RLS; somente RPC controla escritas.
+- A RPC `chaotic_simulate_preview_mugic_counter_cost` exige atacante autorizado na própria vez, sala válida, prioridade encerrada, o plano Criação→Rejeição original, as duas intenções ainda pendentes e carteiras compatíveis com as criaturas preparadas. Em uma única transação, exige **pelo menos 1 ficha para Criação e 2 para Rejeição** e debita esses valores somente das carteiras de treinamento. Se qualquer saldo for insuficiente, **nenhum jogador é debitado**.
+- Registro único por turno em `chaotic_preview_mugic_token_settlements`: guarda ambos os saldos antes/depois, confirma a negação **somente como resultado da simulação de Mugics**, sem efeito de cartas ou verificação de dano real. Bloqueia repetição/replay e mantém histórico acessível aos participantes. Após débito, as intenções passam ao estado `resolved_training`, em vez de permanecer pendentes ou serem canceladas.
+- Novo painel DROME para preparar saldo próprio, exibir ficha restante e histórico da simulação. Realtime, recuperação de sessão e testes de interface conectados.
+- Verificação SQL transacional de 16 fichas originais, RLS, permissões mínimas, impedimento de reinicialização, consistência aritmética e bloqueios de débito: `supabase/tests/chaotic-preview-mugic-training-token-wallets.test.sql` aprovado. Cenário Node com 2 contas simuladas testa falta de saldo, ausência de cobrança parcial, pagamento 1+2, impossibilidade de segundo débito e ausência de mutação oficial.
+- **Limite crítico:** o saldo é apenas da criatura preparada em 1x1 (não cobre 3x3/6x6, transferências, Arpa Mágica, habilidades, fichas extras e outros gastos). A integridade da emissão original das cartas ainda não é garantida porque o álbum é editável; a simulação não serve como resultado de PvP oficial. Derrota, vitória, danos, fichas oficiais, XP, moeda e Decks não foram modificados.
+- **Conclusão geral estimada: 68% (±10 p.p.)**: +1 ponto percentual pela primeira contabilização segura de fichas no servidor, restrita ao treinamento. Teste completo com duas contas em celulares distintos e publicação no GitHub Pages ainda pendentes.
