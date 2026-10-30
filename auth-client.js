@@ -37,7 +37,7 @@
   async function requireUser() {
     var user = await currentUser();
     if (!user) {
-      window.location.replace("login.html");
+      window.location.replace("login-v2.html");
       return null;
     }
     return user;
