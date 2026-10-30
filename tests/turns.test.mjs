@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -82,6 +82,20 @@ function makeClient(actor) {
           card_instance_id:unit.card_id,creature_name:"Criatura original",
           stats:{c:65,p:55,s:70,v:45,e:65},equipment_name:"Equipamento original"};
         loadouts.set(key,snapshot);
+        return {data:{...snapshot},error:null};
+      }
+      if(name==="chaotic_capture_preview_attack"){
+        const match=matches.get(room.id),key=room.id+"/"+args.p_expected_turn;
+        const chosen=(declarations.get(room.id)||[]).find(x=>
+          x.actor_id===actor&&x.turn_no===args.p_expected_turn&&x.kind==="attack");
+        if(room.mode!=="1x1"||!match||match.status!=="active"||
+          match.current_player!==actor||match.turn_no!==args.p_expected_turn||
+          !loadouts.has(room.id+"/"+actor)||!chosen||attackInstances.has(key))
+          return {data:null,error:{message:"Instância de ataque não autorizada"}};
+        const snapshot={lobby_id:room.id,turn_no:match.turn_no,actor_id:actor,
+          attack_instance_id:chosen.card_id,catalog_attack_id:"105",
+          attack_name:"Vento Forte",attack_cost:1,base_damage:5};
+        attackInstances.set(key,snapshot);
         return {data:{...snapshot},error:null};
       }
       if(name==="chaotic_move_preview_creature"){
@@ -190,7 +204,7 @@ function makeClient(actor) {
       throw Error(name);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
         then(resolve,reject) {
           const room=rooms.get(this.id);
@@ -216,7 +230,9 @@ function makeClient(actor) {
                   ?[...modifiers.values()].filter(x=>x.lobby_id===this.id)
                   :table==="chaotic_preview_dice"
                     ?[...dice.values()].filter(x=>x.lobby_id===this.id)
-                    :(journals.get(this.id)||[])):[];
+                    :table==="chaotic_preview_attack_instances"
+                      ?[...attackInstances.values()].filter(x=>x.lobby_id===this.id)
+                      :(journals.get(this.id)||[])):[];
           return Promise.resolve({data:[...events].reverse().slice(0,size),error:null});
         },
         async maybeSingle(){
@@ -502,4 +518,50 @@ test("1x1 loadout captures DNA and equipment once, only when owned turn is activ
   await host("lobby-turn-pass").onclick();
   await guest("lobby-turn-refresh").onclick();
   assert.match(guest("lobby-loadout-host").textContent,/Energia 65/,"Opponent receives the same snapshot");
+});
+
+
+test("1x1 attack instance snapshot is bound to declaration, turn and owner",async()=>{
+  const host=browser("attack-host"),guest=browser("attack-guest");
+  host("lobby-select-mode").value="1x1";
+  await host("lobby-create-btn").onclick();
+  guest("lobby-input-code").value=host("lobby-room-code").textContent;
+  await guest("lobby-join-btn").onclick();
+  await host("lobby-refresh").onclick();
+  await host("lobby-turn-start").onclick();
+  const id=[...rooms.values()].find(r=>r.host_id==="attack-host").id;
+  host("lobby-combat-kind").value="creature";
+  host("lobby-combat-deck").value="1";
+  host("lobby-combat-slot").value="6";
+  await host("lobby-combat-submit").onclick();
+  await host("lobby-hex-place").onclick();
+  await host("lobby-loadout-capture").onclick();
+  await host("lobby-turn-pass").onclick();
+  await guest("lobby-turn-refresh").onclick();
+  guest("lobby-combat-kind").value="creature";
+  guest("lobby-combat-deck").value="1";
+  guest("lobby-combat-slot").value="6";
+  await guest("lobby-combat-submit").onclick();
+  await guest("lobby-hex-place").onclick();
+  await guest("lobby-loadout-capture").onclick();
+  await guest("lobby-turn-pass").onclick();
+  await host("lobby-turn-refresh").onclick();
+  assert.equal(host("lobby-attack-instance-capture").hidden,true);
+  host("lobby-combat-kind").value="attack";
+  host("lobby-combat-slot").value="1";
+  await host("lobby-combat-submit").onclick();
+  assert.equal(host("lobby-attack-instance-capture").hidden,false);
+  await host("lobby-attack-instance-capture").onclick();
+  assert.match(host("lobby-attack-instance-history").textContent,/Vento Forte/);
+  assert.match(host("lobby-attack-instance-history").textContent,/catálogo #105/);
+  assert.equal(host("lobby-attack-instance-capture").hidden,true);
+  assert.equal(attackInstances.get(id+"/3").attack_instance_id,"105");
+  const duplicate=await makeClient("attack-host").rpc("chaotic_capture_preview_attack",
+    {p_lobby_id:id,p_expected_turn:3});
+  assert.ok(duplicate.error);
+  const outsider=await makeClient("attack-outsider").rpc("chaotic_capture_preview_attack",
+    {p_lobby_id:id,p_expected_turn:3});
+  assert.ok(outsider.error);
+  await guest("lobby-turn-refresh").onclick();
+  assert.match(guest("lobby-attack-instance-history").textContent,/Vento Forte/);
 });
