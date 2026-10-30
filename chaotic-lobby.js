@@ -324,11 +324,22 @@
       '<button id="lobby-back" class="lobby-outline" type="button">Voltar ao DROME</button>',
       '</div>'
     ].join("");
+    // Usa por padrão os slots da linha correta no tabuleiro original.
+    // Ataques usam a posição da carta no baralho (1–20), não a posição de criatura.
+    function setDefaultCreatureSlot() {
+      const slot=$("lobby-combat-slot");
+      if(slot)slot.value=room?.mode==="1x1"?"6":room?.mode==="3x3"?"4":"1";
+    }
+    $("lobby-combat-kind").onchange = () => {
+      if($("lobby-combat-kind").value==="creature")setDefaultCreatureSlot();
+      else $("lobby-combat-slot").value="1";
+    };
     $("lobby-create-btn").onclick = () => action(async () => {
       note("Criando sala...");
       const mode = $("lobby-select-mode").value;
       if (!["1x1","3x3","6x6"].includes(mode)) throw new Error("Modo inválido");
       room = await rpc("chaotic_create_lobby", { p_mode: mode });
+      setDefaultCreatureSlot();
       updateRoomUI(); watch(); note("Sala criada. Compartilhe o código com outro jogador.");
     });
     $("lobby-join-btn").onclick = () => action(async () => {
@@ -336,6 +347,7 @@
       if (!/^[A-F0-9]{12}$/.test(code)) throw new Error("Digite um código de 12 caracteres válido.");
       note("Entrando na sala...");
       room = await rpc("chaotic_join_lobby", { p_code: code });
+      setDefaultCreatureSlot();
       updateRoomUI(); watch(); note("Você entrou na sala. O anfitrião será avisado.");
     });
     $("lobby-copy").onclick = () => action(async () => {
