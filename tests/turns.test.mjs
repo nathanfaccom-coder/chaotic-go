@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -86,6 +86,32 @@ function makeClient(actor) {
         tile.position=dest;tile.moved_turn=match.turn_no;
         return {data:{...tile},error:null};
       }
+      if(name==="chaotic_open_preview_clash"){
+        const match=matches.get(room.id);
+        const own=board.get(room.id+"/"+actor);
+        const otherId=room.host_id===actor?room.guest_id:room.host_id;
+        const enemy=board.get(room.id+"/"+otherId);
+        const attack=(declarations.get(room.id)||[]).find(x=>
+          x.actor_id===actor && x.kind==="attack" && x.turn_no===args.p_expected_turn);
+        const pair=(a,b)=>{
+          if(room.mode==="1x1")return a===6&&b===6;
+          if(room.mode==="3x3")return [4,5].includes(a)&&[4,5].includes(b);
+          return (a===1&&[2,3].includes(b)) ||
+            (a===2&&[1,2,3].includes(b)) ||
+            (a===3&&[1,2].includes(b));
+        };
+        const key=room.id+"/"+args.p_expected_turn;
+        if(!match || match.status!=="active" || match.current_player!==actor ||
+          match.turn_no!==args.p_expected_turn || !own || !enemy || !attack ||
+          !pair(own.position,enemy.position) || clashes.has(key))
+          return {data:null,error:{message:"Confronto indisponível"}};
+        const item={lobby_id:room.id,turn_no:match.turn_no,attacker_id:actor,
+          defender_id:otherId,attacker_card:own.card_id,defender_card:enemy.card_id,
+          attack_card:attack.card_id,attacker_position:own.position,
+          defender_position:enemy.position,result:"awaiting_original_engine"};
+        clashes.set(key,item);
+        return {data:{...item},error:null};
+      }
       if(name==="chaotic_stop_match"){
         const state=matches.get(room.id);
         if(!state||!["host","guest"].some(a=>a===actor)||state.status!=="active")
@@ -105,7 +131,7 @@ function makeClient(actor) {
       throw Error(name);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
         then(resolve,reject) {
           const room=rooms.get(this.id);
@@ -118,8 +144,11 @@ function makeClient(actor) {
         limit(size) {
           const room=rooms.get(this.id);
           const isMember=room&&(room.host_id===actor||room.guest_id===actor);
-          const events=isMember?(table==="chaotic_combat_declarations"?
-            (declarations.get(this.id)||[]):(journals.get(this.id)||[])):[];
+          const events=isMember?(table==="chaotic_combat_declarations"
+            ?(declarations.get(this.id)||[])
+            :table==="chaotic_preview_clashes"
+              ?[...clashes.values()].filter(x=>x.lobby_id===this.id)
+              :(journals.get(this.id)||[])):[];
           return Promise.resolve({data:[...events].reverse().slice(0,size),error:null});
         },
         async maybeSingle(){
@@ -152,6 +181,7 @@ function browser(actor) {
     setInterval:()=>1,clearInterval:()=>{},Date,console};
   vm.runInNewContext(source,context);
   context.window.abrirSalaPrivadaDrome();
+  el.crossBoardContact=context.window.chaoticPreviewContact;
   return el;
 }
 test("ordered turns, replay prevention, unauthorized opponent and stop",async()=>{
@@ -251,4 +281,64 @@ test("preview board: 3x3 placement, adjacent move and one move per turn",async()
   await host("lobby-hex-move").onclick();
   assert.match(host("lobby-hex-host-6").textContent,/c6 · #1/);
   assert.equal(board.get(id+"/board-host").moved_turn,3);
+});
+
+
+test("official DROME cross-board contact matrix is respected",()=>{
+  const ui=browser("contact-reader");
+  for(const [mode,source,target] of [
+    ["1x1",6,6],["3x3",4,4],["3x3",5,4],["6x6",1,3],
+    ["6x6",2,2],["6x6",3,1]
+  ]) assert.equal(ui.crossBoardContact(mode,source,target),true,
+      mode+": c"+source+" should contact c"+target);
+  for(const [mode,source,target] of [
+    ["1x1",5,6],["3x3",6,4],["3x3",4,6],["6x6",6,6],
+    ["6x6",1,1],["6x6",3,3],["6x6",4,5]
+  ]) assert.equal(ui.crossBoardContact(mode,source,target),false,
+      mode+": c"+source+" must not contact c"+target);
+});
+
+test("1x1 encounter requires both placed creatures and an attack on turn",async()=>{
+  const host=browser("duel-host"),guest=browser("duel-guest");
+  host("lobby-select-mode").value="1x1";
+  await host("lobby-create-btn").onclick();
+  const code=host("lobby-room-code").textContent;
+  guest("lobby-input-code").value=code;
+  await guest("lobby-join-btn").onclick();
+  await host("lobby-refresh").onclick();
+  await host("lobby-turn-start").onclick();
+  const room=[...rooms.values()].find(x=>x.code===code);
+  // No enemy creature placed => no confrontation even if caller tampers with UI.
+  assert.ok((await makeClient("duel-host").rpc("chaotic_open_preview_clash",
+    {p_lobby_id:room.id,p_expected_turn:1})).error);
+  host("lobby-combat-kind").value="creature";
+  host("lobby-combat-deck").value="1";
+  host("lobby-combat-slot").value="6";
+  await host("lobby-combat-submit").onclick();
+  await host("lobby-hex-place").onclick();
+  await host("lobby-turn-pass").onclick();
+  await guest("lobby-turn-refresh").onclick();
+  guest("lobby-combat-kind").value="creature";
+  guest("lobby-combat-deck").value="1";
+  guest("lobby-combat-slot").value="6";
+  await guest("lobby-combat-submit").onclick();
+  await guest("lobby-hex-place").onclick();
+  await guest("lobby-turn-pass").onclick();
+  await host("lobby-turn-refresh").onclick();
+  assert.equal(host("lobby-clash-open").hidden,true,"Attack must be declared first");
+  host("lobby-combat-kind").value="attack";
+  host("lobby-combat-slot").value="1";
+  await host("lobby-combat-submit").onclick();
+  assert.equal(host("lobby-clash-open").hidden,false);
+  await host("lobby-clash-open").onclick();
+  assert.match(host("lobby-clash-history").textContent,/resolução pendente/);
+  const key=room.id+"/3";
+  assert.equal(clashes.get(key).attack_card,"30");
+  assert.equal(clashes.get(key).result,"awaiting_original_engine");
+  const again=await makeClient("duel-host").rpc("chaotic_open_preview_clash",
+    {p_lobby_id:room.id,p_expected_turn:3});
+  assert.ok(again.error,"Confronto duplicado deve ser rejeitado");
+  const intruder=await makeClient("intruder").rpc("chaotic_open_preview_clash",
+    {p_lobby_id:room.id,p_expected_turn:3});
+  assert.ok(intruder.error,"Terceiro usuário deve ser rejeitado");
 });

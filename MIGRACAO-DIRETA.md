@@ -38,3 +38,11 @@ O service worker de lançamento não armazena telas autenticadas nem JavaScript 
 - A prévia visual tem botões **Posicionar minha criatura** e **Mover para a casa escolhida**, além das duas áreas de hexágonos.
 - Nenhuma carta, estatística, dano ou recompensa foi alterada. O tabuleiro oficial de combate ainda não recebe esses comandos; a integração com o motor completo permanece pendente.
 - Testes automatizados e uma transação de verificação no Supabase validaram os bloqueios. Ainda não houve teste com duas contas reais.
+
+## Encontro de criaturas e cartas originais (fase seguinte)
+- A tabela `chaotic_preview_clashes` registra um **encontro de teste**, somente por RPC autenticada, após o servidor confirmar jogador da vez, duas criaturas posicionadas, carta de ataque declarada no próprio turno e adjacência real entre os dois lados do DROME.
+- Regras originais de contato: 1x1 c6↔c6; 3x3 c4/c5↔c4/c5; 6x6 primeira linha c1/c2/c3 com os pares de `obterAdjacencias` em `batalha.js`.
+- A prévia mostra o nome, a arte e a energia **base** das criaturas e o nome do ataque a partir do catálogo `cartas.js`, sem alterar suas definições.
+- O confronto fica com `result='awaiting_original_engine'`: **não aplica dano, efeitos especiais, custos, vitória, cartas transferidas ou XP**. O motor oficial completo continua no projeto e precisa ser portado com validação no servidor antes da liberação de PvP.
+- O catálogo é público; as informações apresentadas nesta etapa de testes não substituem a regra de criaturas ocultas do combate oficial.
+- Testes no GitHub validam 1x1 com criaturas de duas contas simuladas, bloqueio de confronto repetido, jogador não autorizado e matriz de adjacência; teste real entre dois celulares ainda pendente.

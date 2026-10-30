@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -52,6 +52,7 @@
         : "Aguardando a vez do outro jogador. Turno " + match.turn_no + ".");
     $("lobby-turn-count").textContent = match ? String(match.turn_no) : "—";
     updateBoardUI();
+    updateClashUI();
     const combatPanel = $("lobby-combat");
     if (combatPanel) {
       combatPanel.hidden = !match;
@@ -74,6 +75,69 @@
     $("lobby-turn-start").hidden = !!match || room.host_id !== userId || room.status !== "ready";
     $("lobby-turn-pass").hidden = !active || match.current_player !== userId;
     $("lobby-turn-stop").hidden = !active;
+  }
+  // Conexões entre lados extraídas de batalha.js/obterAdjacencias.
+  // Mesmo mapa para anfitrião e convidado: os pares são simétricos.
+  function contactBetweenSides(mode,source,target) {
+    const a=Number(source),b=Number(target);
+    if(!Number.isInteger(a)||!Number.isInteger(b))return false;
+    if(mode==="1x1")return a===6 && b===6;
+    if(mode==="3x3")return [4,5].includes(a)&&[4,5].includes(b);
+    if(mode==="6x6")return (a===1&&[2,3].includes(b))
+      || (a===2&&[1,2,3].includes(b))
+      || (a===3&&[1,2].includes(b));
+    return false;
+  }
+  window.chaoticPreviewContact=contactBetweenSides;
+  function updateClashUI(){
+    const panel=$("lobby-clash-panel");
+    if(!panel)return;
+    panel.hidden=!room || !match;
+    if(panel.hidden)return;
+    const mine=board.find(x=>x.actor_id===userId);
+    const other=board.find(x=>x.actor_id!==userId);
+    const attack=declarations.find(x=>x.actor_id===userId&&x.turn_no===match.turn_no&&x.kind==="attack");
+    const already=clashes.some(x=>x.turn_no===match.turn_no);
+    const myTurn=match.status==="active"&&room.status==="ready"&&
+      match.current_player===userId&&new Date(room.expires_at).getTime()>Date.now();
+    const adjacent=!!mine&&!!other&&contactBetweenSides(room.mode,mine.position,other.position);
+    $("lobby-clash-open").hidden=!(myTurn&&attack&&adjacent&&!already);
+    const label=$("lobby-clash-status");
+    label.textContent=already?"Confronto deste turno registrado. Dano ainda não é aplicado."
+      :!myTurn?"Aguarde a sua vez para declarar um confronto."
+      :!mine||!other?"Os dois jogadores precisam posicionar uma criatura."
+      :!adjacent?"Sem contato entre os lados. Aproxime sua criatura até a linha de combate."
+      :!attack?"Declare uma carta de ataque do seu deck neste turno."
+      :"Confronto permitido: use o botão para registrar a intenção no servidor.";
+  }
+  function showOfficialCard(side,unit){
+    const img=$("lobby-official-"+side+"-img"),label=$("lobby-official-"+side+"-text");
+    if(!img||!label)return;
+    const record=(window.ChaoticOriginalCards?.creatures||[])
+      .find(c=>String(c.id)===String(unit?.card_id));
+    img.hidden=!record?.cartaBlank;
+    if(record?.cartaBlank)img.src=record.cartaBlank;
+    label.textContent=record
+      ?record.nome+" · Energia base "+(record.statsMax?.energia??"—")+" · "+(record.tribo||"")
+      :unit?"Carta #"+unit.card_id+" · c"+unit.position:"Sem criatura posicionada";
+  }
+  async function refreshClashes(){
+    const log=$("lobby-clash-history");
+    if(!log)return;
+    if(!room||!match){clashes=[];log.textContent="Sem confrontos.";updateClashUI();return;}
+    const {data,error}=await api.from("chaotic_preview_clashes")
+      .select("turn_no,attacker_id,defender_id,attacker_card,defender_card,attack_card,attacker_position,defender_position,result")
+      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(12);
+    if(error)throw new Error(error.message);
+    clashes=data||[];
+    log.textContent=clashes.length?clashes.slice().reverse().map(e=>{
+      const side=e.attacker_id===room.host_id?"Anfitrião":"Convidado";
+      const attack=(window.ChaoticOriginalCards?.attacks||[])
+        .find(c=>String(c.id)===String(e.attack_card));
+      return "Turno "+e.turn_no+" · "+side+": "+(attack?.nome||"Ataque #"+e.attack_card)
+        +" (c"+e.attacker_position+" contra c"+e.defender_position+") · resolução pendente";
+    }).join("\n"):"Nenhum confronto registrado.";
+    updateClashUI();
   }
   function updateBoardUI() {
     const box=$("lobby-hex-board");
@@ -122,7 +186,10 @@
       .eq("lobby_id",room.id);
     if(error)throw new Error(error.message);
     board=data||[];
+    showOfficialCard("host",board.find(x=>x.actor_id===room.host_id));
+    showOfficialCard("guest",board.find(x=>x.actor_id===room.guest_id));
     updateBoardUI();
+    updateClashUI();
   }
   async function refreshDeclarations() {
     const log = $("lobby-combat-history");
@@ -177,6 +244,7 @@
     await refreshHistory();
     await refreshDeclarations();
     await refreshBoard();
+    await refreshClashes();
   }
   function updateRoomUI() {
     if (!$("lobby-create")) return;
@@ -229,6 +297,9 @@
         .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_board",filter:"lobby_id=eq."+lobbyId
         },sync)
+        .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_clashes",filter:"lobby_id=eq."+lobbyId
+        },sync)
         .subscribe(status=>{
           if(status==="CHANNEL_ERROR"||status==="TIMED_OUT")
             console.warn("DROME: canal em tempo real temporariamente indisponível; consultas periódicas seguem ativas.");
@@ -241,7 +312,7 @@
     }, 6000);
   }
   function show() {
-    halt(); room = null; match = null; declarations = []; board = [];
+    halt(); room = null; match = null; declarations = []; board = []; clashes = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -310,6 +381,21 @@
       '<option value="5">c5</option><option value="6">c6</option></select>',
       '<button id="lobby-hex-move" type="button" hidden>Mover para a casa escolhida</button>',
       '</section>',
+      '<section id="lobby-clash-panel" class="lobby-clash-panel" hidden>',
+      '<strong>⚔️ ENCONTRO DE CRIATURAS (TESTE)</strong>',
+      '<p>Utiliza as posições originais do DROME. O dano e os efeitos ainda não são aplicados.</p>',
+      '<div class="lobby-official-cards">',
+      '<div class="lobby-official-card"><img id="lobby-official-host-img" alt="Criatura do anfitrião" hidden>',
+      '<span id="lobby-official-host-text">Sem criatura</span></div>',
+      '<div class="lobby-official-versus">VS</div>',
+      '<div class="lobby-official-card"><img id="lobby-official-guest-img" alt="Criatura do convidado" hidden>',
+      '<span id="lobby-official-guest-text">Sem criatura</span></div>',
+      '</div>',
+      '<p id="lobby-clash-status" role="status"></p>',
+      '<button id="lobby-clash-open" type="button" hidden>Registrar confronto</button>',
+      '<p class="lobby-history-label">Confrontos registrados</p>',
+      '<p id="lobby-clash-history" class="lobby-events" aria-live="polite">Nenhum confronto registrado.</p>',
+      '</section>',
       '<p class="lobby-history-label">📜 Histórico de turnos</p>',
       '<p id="lobby-events" class="lobby-events" aria-live="polite">Aguardando início.</p>',
       '<button id="lobby-turn-start" type="button" hidden>Iniciar teste de turnos</button>',
@@ -375,6 +461,14 @@
       });
       await refreshBoard();
       note("Movimento aceito pelo servidor. A criatura mudou de posição.");
+    });
+    $("lobby-clash-open").onclick = () => action(async()=>{
+      if(!room||!match||match.status!=="active"||match.current_player!==userId)return;
+      await rpc("chaotic_open_preview_clash",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refreshClashes();
+      note("Encontro validado e registrado no servidor. A resolução de danos segue em desenvolvimento.");
     });
     $("lobby-combat-submit").onclick = () => action(async()=>{
       if(!room || !match || match.status!=="active" || match.current_player!==userId) return;

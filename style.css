@@ -1820,3 +1820,51 @@ html, body {
 .lobby-hex.ocupado {border:2px solid #4daa65;background:#15572a;color:#fff;font-weight:700;}
 .lobby-hex.sua-vez {box-shadow:0 0 10px #4aaa5e;}
 .lobby-hex-board button:disabled {opacity:.5;}
+
+
+/* DROME: encontro validado pelo servidor usando as artes originais. */
+.lobby-clash-panel {
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  padding:12px;
+  margin-top:10px;
+  border:1px solid #cda957;
+  border-radius:10px;
+  background:linear-gradient(150deg,#1b160e,#261e12);
+  color:#f4ecd7;
+  box-sizing:border-box;
+}
+.lobby-clash-panel[hidden]{display:none!important;}
+.lobby-clash-panel > strong{color:#ffda75;font-size:12px;line-height:1.4;}
+.lobby-clash-panel p{font-size:10px;line-height:1.5;overflow-wrap:anywhere;}
+.lobby-official-cards {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 20px minmax(0,1fr);
+  gap:7px;
+  align-items:center;
+}
+.lobby-official-card {
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  align-items:center;
+  border:1px solid #806a3c;
+  border-radius:8px;
+  padding:7px;
+  font-size:10px;
+  line-height:1.4;
+  text-align:center;
+  overflow-wrap:anywhere;
+}
+.lobby-official-card img {
+  width:100%;
+  max-width:115px;
+  aspect-ratio:3/4;
+  object-fit:contain;
+  border-radius:5px;
+}
+.lobby-official-card img[hidden]{display:none!important;}
+.lobby-official-versus {font-size:12px;font-weight:800;color:#ffe7a0;text-align:center;}
+#lobby-clash-open{background:#66501e;border-color:#e0b654;}
