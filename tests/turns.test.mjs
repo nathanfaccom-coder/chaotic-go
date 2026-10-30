@@ -2079,7 +2079,7 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
     p_lobby_id:id,p_expected_turn:1,p_deck_slot:1})).error,
     "Other player cannot capture cards outside their own turn");
   await host("lobby-3x3-prepare").onclick();
-  assert.equal(host("lobby-3x3-prepare").hidden,true);
+  assert.equal(host("lobby-3x3-prepare").hidden,true,host("lobby-notice").textContent);
   assert.equal(allies3x3.get(id+"/"+owner+"/4").creature_name,"Alakazaz");
   assert.equal(allies3x3.get(id+"/"+owner+"/4").starting_tokens,5);
   assert.equal(allies3x3.get(id+"/"+owner+"/5").creature_name,"Vidal");
