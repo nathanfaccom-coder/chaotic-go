@@ -161,8 +161,8 @@ begin
    raise exception 'Iniciativa aceita apenas atributos c/p/s/v';end if;
  if pg_catalog.jsonb_typeof(p_attacker_stats)<>'object'
    or pg_catalog.jsonb_typeof(p_defender_stats)<>'object'
-   or coalesce(p_attacker_stats->>p_attribute,'') !~ '^[0-9]{1,3}
-   or coalesce(p_defender_stats->>p_attribute,'') !~ '^[0-9]{1,3} then
+   or coalesce(p_attacker_stats->>p_attribute,'') !~ '^[0-9]{1,3}$'
+   or coalesce(p_defender_stats->>p_attribute,'') !~ '^[0-9]{1,3}$' then
    raise exception 'Individual Speed stats missing or invalid';end if;
  a:=(p_attacker_stats->>p_attribute)::integer;
  d:=(p_defender_stats->>p_attribute)::integer;
