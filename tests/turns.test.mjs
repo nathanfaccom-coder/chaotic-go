@@ -1637,7 +1637,7 @@ test("1x1 Burst defender may pass during attacker's turn but cannot resolve dama
   assert.equal(plan.inspection_steps[0].stage,"inspect_attack");
   assert.equal(plan.burst_stack_executed,false);
   assert.equal(plan.final_damage_verified,false);
-  assert.match(host("lobby-burst-order-history").textContent,/PASSAR/);
+  assert.match(host("lobby-burst-order-history").textContent,/PASSOU/);
   assert.ok((await makeClient("burst-host").rpc("chaotic_prepare_preview_burst_order",{
     p_lobby_id:id,p_expected_turn:3})).error,"Cannot recapture sequence");
   assert.equal(host("lobby-turn-pass").hidden,false);
