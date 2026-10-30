@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -138,6 +138,9 @@
       &&!individualDamage.some(x=>x.turn_no===match.turn_no));
     const dmg=individualDamage.find(x=>x.turn_no===match.turn_no
       &&x.attacker_id===userId);
+    $("lobby-resolution-audit-capture").hidden=!(room.mode==="1x1"
+      &&myTurn&&dmg&&dmg.cost_status==="test_spent"
+      &&!resolutionAudits.some(x=>x.turn_no===match.turn_no));
     const hpReady=hpWallets.some(x=>x.actor_id===room.host_id)&&
       hpWallets.some(x=>x.actor_id===room.guest_id);
     $("lobby-hp-prepare").hidden=!(room.mode==="1x1"&&myTurn&&bothLoadouts
@@ -285,6 +288,45 @@
         x.defender_energy_initial+" → "+x.preview_energy_remaining+
         " (SIMULAÇÃO: HP real inalterado)."+locationText+detail+cost;
     }).join("\n"):"Nenhuma simulação individual.";
+    updateClashUI();
+  }
+  async function refreshResolutionAudits(){
+    const panel=$("lobby-resolution-audit");
+    if(!panel)return;
+    panel.hidden=!room||!match||room.mode!=="1x1";
+    if(panel.hidden){resolutionAudits=[];return;}
+    const {data,error}=await api.from("chaotic_preview_resolution_audits")
+      .select("turn_no,actor_id,catalog_attack_id,blocker_codes,blocker_count,review_status,final_damage_verified,applied_to_official_match")
+      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(20);
+    if(error)throw new Error(error.message);
+    resolutionAudits=data||[];
+    const labels={
+      burst_unresolved:"Burst pendente",
+      creature_abilities_unresolved:"habilidades de criaturas pendentes",
+      official_turn_and_hp_unintegrated:"combate oficial separado",
+      card_ownership_not_authoritative:"emissão e posse de cartas não certificadas",
+      damage_formula_incomplete:"fórmula de dano incompleta",
+      die_roll_or_special_resolution:"dado ou efeito especial pendente",
+      graveyard_scaling_unresolved:"bônus do cemitério não resolvido",
+      hand_draw_heal_or_other_action_unresolved:"compra, cura ou ação especial pendente",
+      opponent_equipment_removal_unresolved:"remoção de equipamento pendente",
+      hidden_creature_reveal_unresolved:"revelação de criatura pendente",
+      poison_over_future_turns_unresolved:"veneno por turnos pendente",
+      vine_turn_skip_requires_final_damage:"Vinha exige dano final",
+      electronic_attack_lock_requires_final_damage:"Mão Eletrônica exige dano final",
+      hand_attack_lock_requires_final_damage:"Mão Mão exige dano final",
+      equipment_full_effects_unresolved:"efeitos de equipamentos pendentes",
+      creature_name_not_validated:"criatura não validada",
+      location_not_selected:"Local não definido"
+    };
+    $("lobby-resolution-audit-history").textContent=resolutionAudits.length
+      ?resolutionAudits.slice().reverse().map(x=>
+        "T"+x.turn_no+" · ataque #"+x.catalog_attack_id+
+        " · "+x.blocker_count+" pendência(s): "+
+        (x.blocker_codes||[]).map(v=>labels[v]||"regra ainda não integrada").join("; ")+
+        ". DANO FINAL NÃO CONFIRMADO. Nenhum HP oficial alterado."
+      ).join("\n")
+      :"Nenhuma auditoria registrada. Dano final ainda não disponível.";
     updateClashUI();
   }
   async function refreshHpLedger(){
@@ -684,6 +726,7 @@
     await refreshIndividualDamage();
     await refreshHpLedger();
     await refreshEffectCandidates();
+    await refreshResolutionAudits();
   }
   function updateRoomUI() {
     if (!$("lobby-create")) return;
@@ -781,6 +824,9 @@
         .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_hp_events",filter:"lobby_id=eq."+lobbyId
         },sync)
+        .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_resolution_audits",filter:"lobby_id=eq."+lobbyId
+        },sync)
         .subscribe(status=>{
           if(status==="CHANNEL_ERROR"||status==="TIMED_OUT")
             console.warn("DROME: canal em tempo real temporariamente indisponível; consultas periódicas seguem ativas.");
@@ -793,7 +839,7 @@
     }, 6000);
   }
   function show() {
-    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = [];
+    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -927,6 +973,12 @@
       '<p>Simula dano com DNA, equipamento revelado e efeitos dos três Locais originais após validar o gasto SOMENTE no servidor de teste. Bônus de Kiru é somado à energia indicada. HP oficial, economia e recompensas não mudam.</p>',
       '<button id="lobby-individual-damage-calculate" type="button" hidden>Simular dano com DNA no servidor</button>',
       '<p id="lobby-individual-damage-history" class="lobby-events" aria-live="polite">Nenhuma simulação individual.</p>',
+      '</section>',
+      '<section id="lobby-resolution-audit" class="lobby-combat" hidden>',
+      '<strong>🔍 AUDITORIA DO DANO FINAL — 1x1 (TESTE)</strong>',
+      '<p>Identifica regras ainda não resolvidas para cada ataque. Mesmo que exista dano parcial, Burst, habilidades e outros efeitos podem modificar o resultado. Não ativa dano final, derrota ou vitória.</p>',
+      '<button id="lobby-resolution-audit-capture" type="button" hidden>Verificar impedimentos de dano final no servidor</button>',
+      '<p id="lobby-resolution-audit-history" class="lobby-events">Nenhuma auditoria registrada.</p>',
       '</section>',
       '<section id="lobby-effect-candidates-preview" class="lobby-combat" hidden>',
       '<strong>🌿⚡ EFEITOS CONDICIONAIS — 1x1 (TESTE)</strong>',
@@ -1130,6 +1182,15 @@
       note(result.calculation_status==="partial_estimate"
         ?"Simulação de dano com DNA individual registrada no servidor. Nenhuma energia real foi alterada."
         :"Ataque especial identificado. A simulação NÃO informa dano final sem resolver seu efeito.");
+    });
+    $("lobby-resolution-audit-capture").onclick = () => action(async()=>{
+      if(!room||!match||room.mode!=="1x1"||match.current_player!==userId)return;
+      const r=await rpc("chaotic_audit_preview_damage",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refreshResolutionAudits();
+      note("Auditoria concluída: "+r.blocker_count+
+        " regra(s) pendentes. Dano final NÃO certificado e HP oficial intacto.");
     });
     $("lobby-hp-prepare").onclick = () => action(async()=>{
       if(!room||!match||room.mode!=="1x1"||match.current_player!==userId)return;
