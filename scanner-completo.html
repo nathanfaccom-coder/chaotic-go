@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Chaotic GO - Scanner</title>
-    <link rel="stylesheet" href="style.css?v=release-1">
+    <link rel="stylesheet" href="style.css?v=release-2">
     <link rel="stylesheet" href="entrada-drome.css"> 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -128,7 +128,8 @@
 <section class="conta-perfil" aria-label="Conta e sincronização">
                     <h4>CONTA E SINCRONIZAÇÃO</h4>
                     <p id="cloud-status" role="status" aria-live="polite">Verificando conexão...</p>
-                    <button type="button" id="btn-importar-legado" class="botao-conta" hidden>Importar dados antigos deste aparelho</button>
+                    <button type="button" id="btn-importar-legado" class="botao-conta">Importar coleção antiga (Firebase)</button>
+                    <button type="button" id="btn-exportar-backup" class="botao-conta">Baixar backup do progresso</button>
                     <button type="button" id="btn-sair-conta" class="botao-conta botao-conta-sair">Sair da conta</button>
                 </section>
                 <button class="btn-voltar-pequeno" id="btn-voltar-perfil" style="margin-top: 15px; margin-bottom: 15px;">Voltar</button>
@@ -458,8 +459,8 @@
     <script src="cartas.js"></script>
     <script src="efeitos.js"></script> 
     <script>window.chaoticAPI = {};</script>
-    <script src="entrada-drome.js?v=release-1" defer></script>
-    <script type="module" src="full-game-bootstrap.js?v=release-1"></script>
+    <script src="entrada-drome.js?v=release-2" defer></script>
+    <script type="module" src="full-game-bootstrap.js?v=release-2"></script>
     
 </body>
 </html>
