@@ -54,3 +54,12 @@ O service worker de lançamento não armazena telas autenticadas nem JavaScript 
 - Exemplo de referência: `Vento Forte` (ID 105) possui 5 de dano base, mas seu efeito especial e possíveis modificadores **não são aplicados**. A energia exibida é a energia **base** da criatura, não a energia real em jogo.
 - Confrontos continuam no status `awaiting_original_engine`; danos elementais, atributos, equipamentos, bloqueios, cartas especiais, resolução definitiva, efeitos e mortes exigem portabilidade completa do motor.
 - Testes automatizados cobrem uma carta com ID único, ID ambíguo, acesso de terceiro, repetição e nenhum estado de HP modificado. Consulta real ao Supabase validou 32 definições, acesso privado e proibição de operações sem partida/turno.
+
+## Bônus elementais e checagens de atributos — prévia (30/10/2026)
+- Revisão do `cartas.js`: **15 ataques ativos + 16 criaturas**. O “Golpe de Bravura” está apenas em um comentário de exemplo; uma referência erroneamente incluída nos testes anteriores foi retirada exclusivamente da tabela de referência. Nenhuma carta real, imagem ou inventário foi apagado.
+- `chaotic_preview_card_reference` agora guarda os elementos e atributos **base** do catálogo e os elementos de dano dos ataques. Não lê nem altera o DNA individual de cada carta.
+- A função privada `chaotic_reference_modifier_formula` calcula um subtotal demonstrativo de base + elemento correspondente + checagem de atributo presente no catálogo; ela bloqueia resultado final para o “Fogo Primordial 2.0”, que exige dado.
+- `chaotic_preview_calculate_modifiers` permite que somente o atacante autenticado e no turno atual registre o subtotal depois de registrar o confronto e o dano base. Os resultados têm RLS privada, sem escrita direta pelo cliente.
+- A interface mostra **Conferir bônus elementais e atributos** e o histórico. O valor NÃO altera HP, posição, cartas, recompensas, dados, equipamentos, imunidades, modificadores de local, habilidades ou estado oficial de combate.
+- Uma transação SQL com rollback e testes Node verificaram, entre outros exemplos, Lion + Ácido Gástrico = 10+5=15, Johnes + Armadilha de Vinha = 5+5=10, bônus de coragem maior/menor e bloqueio de resultados de dado.
+- Ainda é necessária a migração completa e validada do motor oficial antes de habilitar batalhas PvP com dano verdadeiro.
