@@ -2,5 +2,5 @@
 // NUNCA colocar uma chave service_role / sb_secret_ neste arquivo.
 window.CHAOTIC_SUPABASE_CONFIG = {
   url: "https://avmpfnveotjzoqkrygfn.supabase.co",
-  publishableKey: ""
+  publishableKey: "sb_publishable_1phPHDRHtQGWUvVo33sIzg_jaEsAzyD"
 };
