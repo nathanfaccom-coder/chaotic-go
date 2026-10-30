@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map(),burstOrderPlans=new Map(),burstPriority=new Map(),burstPriorityPasses=new Map(),burstMugicIntents=new Map(),burstMugicCounterplans=new Map(),mugicTrainingWallets=new Map(),mugicTrainingSettlements=new Map(),trainingAbilityEvents=new Map(),burstEquipmentResponses=new Map(),burstEquipmentEffects=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map(),burstOrderPlans=new Map(),burstPriority=new Map(),burstPriorityPasses=new Map(),burstMugicIntents=new Map(),burstMugicCounterplans=new Map(),mugicTrainingWallets=new Map(),mugicTrainingSettlements=new Map(),trainingAbilityEvents=new Map(),harpTrainingEvents=new Map(),burstEquipmentResponses=new Map(),burstEquipmentEffects=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -426,6 +426,37 @@ function makeClient(actor) {
           return {data:null,error:{message:"Intenção não cancelável"}};
         entry.intent_status="cancelled";
         return {data:{...entry},error:null};
+      }
+      if(name==="chaotic_discard_preview_harp_for_token"){
+        const m=matches.get(room.id),key=room.id+"/"+actor;
+        const unit=loadouts.get(key),reveal=equipmentReveals.get(key);
+        const wallet=mugicTrainingWallets.get(key);
+        if(room.mode!=="1x1"||room.status!=="ready"||!m||m.status!=="active"
+           ||m.current_player!==actor||m.turn_no!==args.p_expected_turn
+           ||![m.host_id,m.guest_id].includes(actor)
+           ||unit?.equipment_name!=="Arpa Mágica"||!unit.equipment_instance_id
+           ||reveal?.equipment_name!=="Arpa Mágica"
+           ||reveal.equipment_instance_id!==unit.equipment_instance_id
+           ||reveal.revealed_turn>args.p_expected_turn
+           ||wallet?.creature_instance_id!==unit.card_instance_id
+           ||wallet?.creature_name!==unit.creature_name
+           ||(wallet.bonus_tokens||0)!==0||wallet.remaining_tokens>=20
+           ||harpTrainingEvents.has(key)
+           ||clashes.has(room.id+"/"+args.p_expected_turn)
+           ||burstWindows.has(room.id+"/"+args.p_expected_turn)
+           ||individualDamage.has(room.id+"/"+args.p_expected_turn))
+          return {data:null,error:{message:"Original harp unrevealed, already spent or outside turn"}};
+        const event={lobby_id:room.id,actor_id:actor,turn_no:m.turn_no,
+          creature_instance_id:unit.card_instance_id,
+          equipment_instance_id:unit.equipment_instance_id,equipment_name:"Arpa Mágica",
+          token_gain:1,tokens_before:wallet.remaining_tokens,
+          tokens_after:wallet.remaining_tokens+1,
+          equipment_discarded_training:true,original_equipment_discarded:false,
+          official_tokens_changed:false,official_match_modified:false,effect_scope:"training_only"};
+        wallet.remaining_tokens+=1;
+        wallet.bonus_tokens=(wallet.bonus_tokens||0)+1;
+        harpTrainingEvents.set(key,event);
+        return {data:{...event},error:null};
       }
       if(name==="chaotic_apply_preview_ability_heal"){
         const m=matches.get(room.id),unit=loadouts.get(room.id+"/"+actor);
@@ -897,7 +928,7 @@ function makeClient(actor) {
       throw Error(name);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits","chaotic_preview_burst_windows","chaotic_preview_burst_priority","chaotic_preview_burst_priority_passes","chaotic_preview_burst_mugic_intents","chaotic_preview_burst_mugic_counterplans","chaotic_preview_mugic_token_wallets","chaotic_preview_mugic_token_settlements","chaotic_preview_ability_heal_events","chaotic_preview_burst_order_plans","chaotic_preview_burst_equipment_responses","chaotic_preview_burst_equipment_effects"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits","chaotic_preview_burst_windows","chaotic_preview_burst_priority","chaotic_preview_burst_priority_passes","chaotic_preview_burst_mugic_intents","chaotic_preview_burst_mugic_counterplans","chaotic_preview_mugic_token_wallets","chaotic_preview_mugic_token_settlements","chaotic_preview_ability_heal_events","chaotic_preview_harp_token_events","chaotic_preview_burst_order_plans","chaotic_preview_burst_equipment_responses","chaotic_preview_burst_equipment_effects"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
         then(resolve,reject) {
           const room=rooms.get(this.id);
@@ -963,6 +994,8 @@ function makeClient(actor) {
                                               ?[...mugicTrainingSettlements.values()].filter(x=>x.lobby_id===this.id)
                                               :table==="chaotic_preview_ability_heal_events"
                                               ?[...trainingAbilityEvents.values()].filter(x=>x.lobby_id===this.id)
+                                              :table==="chaotic_preview_harp_token_events"
+                                              ?[...harpTrainingEvents.values()].filter(x=>x.lobby_id===this.id)
                                               :table==="chaotic_preview_burst_order_plans"
                                               ?[...burstOrderPlans.values()].filter(x=>x.lobby_id===this.id)
                                               :table==="chaotic_preview_burst_equipment_responses"
