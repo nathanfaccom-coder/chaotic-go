@@ -42,5 +42,6 @@ Números estimados para planejamento, não verificação automática de 53% das 
 
 ## Integração individual 1x1 — progresso recente
 - Captura de atributos das cartas realmente salvas no álbum, e não apenas dos valores-padrão do catálogo, com equipamento e trava de escrita no servidor.
-- **Próximo bloqueio crítico:** resolver a identidade das instâncias de ataques e verificar a procedência do álbum de forma independente da escrita do navegador; em seguida, calcular o dano com atributos reais e todas as imunidades/efeitos.
+- **Versão 0.1.8:** a função `chaotic_capture_preview_attack` registra uma correspondência de teste entre o ID individual de um ataque no álbum/deck e seu modelo no catálogo ativo (15 ataques), conferindo nome, custo, dano-base, turno e participante. Um novo painel no DROME mostra a confirmação e sincroniza os registros entre participantes.
+- **Próximo bloqueio crítico:** garantir a procedência das cartas por emissão autoritativa (o álbum ainda é gravável pelo usuário), adaptar as prévias antigas que confundem ID individual e ID de catálogo, e então implementar dano com os atributos reais, custos, efeitos e imunidades antes de alterar a energia do oponente.
 - A estimativa ponderada permanece em **53%** até existir um marco funcional maior, como uma partida 1x1 completa e testada.
