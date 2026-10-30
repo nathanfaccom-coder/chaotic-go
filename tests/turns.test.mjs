@@ -2613,6 +2613,35 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
   assert.ok((await makeClient(opponent).rpc("chaotic_inspect_preview_3x3_hand_cost",{
     p_lobby_id:id,p_expected_turn:2})).error,
     "Cost inspection must be idempotent / reject a second event");
+  assert.equal(guest("lobby-3x3-attack-spend").hidden,false);
+  assert.ok((await makeClient(owner).rpc("chaotic_spend_preview_3x3_attack",{
+    p_lobby_id:id,p_expected_turn:2})).error,
+    "Only owner of the current turn can pay an attack cost");
+  const blocked=hand3x3Cards.get(id+"/"+opponent+"/1");
+  blocked.card_state="deck";
+  assert.ok((await makeClient(opponent).rpc("chaotic_spend_preview_3x3_attack",{
+    p_lobby_id:id,p_expected_turn:2})).error,
+    "Spending must reject a card no longer in the server-dealt hand");
+  blocked.card_state="hand";
+  await guest("lobby-3x3-attack-spend").onclick();
+  const guestSpend=attackSpends3x3.get(id+"/2");
+  assert.equal(guestSpend?.training_attack_cost,2);
+  assert.equal(guestSpend?.points_before,3);
+  assert.equal(guestSpend?.points_after,1);
+  assert.equal(guestSpend.training_points_paid,true);
+  assert.equal(guestSpend.training_card_spent,true);
+  assert.equal(guestSpend.official_points_changed,false);
+  assert.equal(guestSpend.original_card_consumed,false);
+  assert.equal(guestSpend.training_damage_applied,false);
+  assert.equal(hand3x3Wallets.get(id+"/"+opponent).spent_points,2);
+  assert.equal(hand3x3Cards.get(id+"/"+opponent+"/1").card_state,"spent");
+  assert.equal(hand3x3Cards.get(id+"/"+opponent+"/1").spent_turn,2);
+  assert.equal(hand3x3Cards.get(id+"/"+opponent+"/1").spent_reason,"attack");
+  assert.equal(guest("lobby-3x3-attack-spend").hidden,true);
+  assert.match(guest("lobby-3x3-spend-history").textContent,/3 → 1 pontos/);
+  assert.ok((await makeClient(opponent).rpc("chaotic_spend_preview_3x3_attack",{
+    p_lobby_id:id,p_expected_turn:2})).error,"Clicking twice must never debit twice");
+  assert.equal(hand3x3Wallets.get(id+"/"+opponent).spent_points,2);
   assert.equal(hp3x3.get(id+"/"+owner+"/5").hp_remaining,35,
     "Only damage projection is saved; no training HP is changed");
   assert.match(guest("lobby-3x3-attack-history").textContent,/SOMENTE SE dano-base/);
@@ -2660,6 +2689,26 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
   assert.equal(hostCost?.points_after_if_paid,1);
   assert.equal(hostCost?.actual_attack_cost_paid,false);
   assert.equal(hostCost?.training_hp_changed,false);
+  assert.equal(host("lobby-3x3-attack-spend").hidden,false);
+  const tooExpensive=costChecks3x3.get(id+"/3");
+  tooExpensive.can_afford=false;
+  assert.ok((await makeClient(owner).rpc("chaotic_spend_preview_3x3_attack",{
+    p_lobby_id:id,p_expected_turn:3})).error,
+    "Server rejects payment whenever the inspection is not affordable");
+  tooExpensive.can_afford=true;
+  await host("lobby-3x3-attack-spend").onclick();
+  const hostSpend=attackSpends3x3.get(id+"/3");
+  assert.equal(hostSpend?.training_attack_cost,3);
+  assert.equal(hostSpend?.points_before,4);
+  assert.equal(hostSpend?.points_after,1);
+  assert.equal(hostSpend?.training_damage_applied,false);
+  assert.equal(hostSpend?.official_match_modified,false);
+  assert.equal(hand3x3Wallets.get(id+"/"+owner).spent_points,3);
+  assert.equal(hand3x3Cards.get(id+"/"+owner+"/1").card_state,"spent");
+  assert.equal(host("lobby-3x3-attack-spend").hidden,true);
+  assert.ok((await makeClient(owner).rpc("chaotic_spend_preview_3x3_attack",{
+    p_lobby_id:id,p_expected_turn:3})).error,
+    "Replayed Attack cost must not be charged again");
   assert.equal(hp3x3.get(id+"/"+opponent+"/4").hp_remaining,55);
   assert.equal(host("lobby-3x3-move").hidden,true,
     "Contact freezes further movement on its own turn");
