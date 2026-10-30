@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map(),journals=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -41,6 +41,22 @@ function makeClient(actor) {
         journals.get(room.id).push({seq:state.turn_no,actor_id:actor,event_type:"pass",turn_no:state.turn_no});
         return {data:{...state},error:null};
       }
+      if(name==="chaotic_declare_combat_action"){
+        const match=matches.get(room.id);
+        const values=declarations.get(room.id)||[];
+        const hasCreature=values.some(x=>x.actor_id===actor&&x.kind==="creature");
+        if(!match || match.status!=="active" || match.current_player!==actor ||
+          match.turn_no!==args.p_expected_turn ||
+          values.some(x=>x.turn_no===args.p_expected_turn) ||
+          (args.p_kind==="attack"&&!hasCreature)||
+          (args.p_kind==="creature"&&hasCreature))
+          return {data:null,error:{message:"Ação inválida ou fora da vez"}};
+        const record={actor_id:actor,turn_no:match.turn_no,kind:args.p_kind,
+          deck_slot:args.p_deck_slot,card_slot:args.p_card_slot,
+          card_id:args.p_kind==="creature"?"1":"30"};
+        values.push(record);declarations.set(room.id,values);
+        return {data:record,error:null};
+      }
       if(name==="chaotic_stop_match"){
         const state=matches.get(room.id);
         if(!state||!["host","guest"].some(a=>a===actor)||state.status!=="active")
@@ -60,13 +76,14 @@ function makeClient(actor) {
       throw Error(name);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
         order(){return this;},
         limit(size) {
           const room=rooms.get(this.id);
           const isMember=room&&(room.host_id===actor||room.guest_id===actor);
-          const events=isMember?(journals.get(this.id)||[]):[];
+          const events=isMember?(table==="chaotic_combat_declarations"?
+            (declarations.get(this.id)||[]):(journals.get(this.id)||[])):[];
           return Promise.resolve({data:[...events].reverse().slice(0,size),error:null});
         },
         async maybeSingle(){
@@ -112,6 +129,14 @@ test("ordered turns, replay prevention, unauthorized opponent and stop",async()=
   await host("lobby-turn-start").onclick();
   await guest("lobby-turn-refresh").onclick();
   assert.equal(guest("lobby-turn-count").textContent,"1");
+  // Creature selection is only possible on the actor's own turn.
+  assert.equal(host("lobby-combat-submit").hidden,false);
+  host("lobby-combat-kind").value="creature";
+  host("lobby-combat-deck").value="1";
+  host("lobby-combat-slot").value="1";
+  await host("lobby-combat-submit").onclick();
+  assert.match(host("lobby-combat-history").textContent,/escolheu criatura/);
+  assert.equal(host("lobby-combat-submit").hidden,true);
   assert.match(guest("lobby-events").textContent,/iniciou o teste/);
   assert.match(host("lobby-board-host").textContent,/Anfitrião/);
   assert.equal(guest("lobby-turn-pass").hidden,true);
@@ -124,6 +149,15 @@ test("ordered turns, replay prevention, unauthorized opponent and stop",async()=
   await guest("lobby-turn-pass").onclick();
   await host("lobby-turn-refresh").onclick();
   assert.equal(host("lobby-turn-count").textContent,"3");
+  host("lobby-combat-kind").value="attack";
+  host("lobby-combat-slot").value="1";
+  await host("lobby-combat-submit").onclick();
+  assert.match(host("lobby-combat-history").textContent,/declarou ataque/);
+  assert.equal(declarations.get(room.id).length,2);
+  const forbidden=await makeClient("intruder").rpc("chaotic_declare_combat_action",{
+    p_lobby_id:room.id,p_expected_turn:3,p_kind:"attack",p_deck_slot:1,p_card_slot:1
+  });
+  assert.ok(forbidden.error);
   assert.match(host("lobby-events").textContent,/passou o turno 1/);
   assert.match(host("lobby-events").textContent,/passou o turno 2/);
   assert.equal(journals.get(room.id).length,3);
