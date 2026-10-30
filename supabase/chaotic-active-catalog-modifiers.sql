@@ -1,0 +1,40 @@
+-- Original Chaotic GO reference: 15 active attacks (the sample "Golpe de Bravura" is commented out) and 16 creatures.
+-- This migration only repairs the TEST REFERENCE table. It never edits card files or player data.
+alter table public.chaotic_preview_card_reference add column if not exists element_damage jsonb;
+alter table public.chaotic_preview_card_reference add column if not exists creature_elements jsonb;
+alter table public.chaotic_preview_card_reference add column if not exists creature_stats jsonb;
+alter table public.chaotic_preview_card_reference add column if not exists attribute_check text;
+alter table public.chaotic_preview_card_reference add column if not exists attribute_bonus integer;
+-- Remove one erroneous reference to a commented-out example; real cards are untouched.
+delete from public.chaotic_preview_card_reference where kind='attack' and card_id='104' and card_name='Golpe de Bravura';
+update public.chaotic_preview_card_reference set element_damage='{"fogo":5,"agua":5,"terra":0,"vento":0}'::jsonb, attribute_check=null, attribute_bonus=0 where kind='attack' and card_id='101' and card_name='Ácido Gástrico';
+update public.chaotic_preview_card_reference set element_damage='{"fogo":0,"agua":0,"terra":0,"vento":0}'::jsonb, attribute_check=null, attribute_bonus=0 where kind='attack' and card_id='102' and card_name='Mão Negra';
+update public.chaotic_preview_card_reference set element_damage='{"fogo":0,"agua":0,"terra":0,"vento":0}'::jsonb, attribute_check=null, attribute_bonus=0 where kind='attack' and card_id='103' and card_name='Aliança';
+update public.chaotic_preview_card_reference set element_damage='{}'::jsonb, attribute_check=null, attribute_bonus=0 where kind='attack' and card_id='104' and card_name='Fogo Primordial 2.0';
+update public.chaotic_preview_card_reference set element_damage='{"fogo":0,"agua":0,"terra":0,"ar":0}'::jsonb, attribute_check=null, attribute_bonus=0 where kind='attack' and card_id='105' and card_name='Vento Forte';
+update public.chaotic_preview_card_reference set element_damage='{"fogo":0,"agua":0,"terra":0,"ar":0}'::jsonb, attribute_check=null, attribute_bonus=0 where kind='attack' and card_id='106' and card_name='Armadilha de Víbora';
+update public.chaotic_preview_card_reference set element_damage='{"fogo":0,"agua":0,"terra":5,"ar":0}'::jsonb, attribute_check=null, attribute_bonus=0 where kind='attack' and card_id='107' and card_name='Armadilha de Vinha';
+update public.chaotic_preview_card_reference set element_damage='{"fogo":0,"agua":0,"terra":0,"ar":0}'::jsonb, attribute_check=null, attribute_bonus=0 where kind='attack' and card_id='108' and card_name='SPEED';
+update public.chaotic_preview_card_reference set element_damage='{"fogo":0,"agua":0,"terra":0,"ar":0}'::jsonb, attribute_check=null, attribute_bonus=0 where kind='attack' and card_id='109' and card_name='TORNADO';
+update public.chaotic_preview_card_reference set element_damage='{"fogo":0,"agua":0,"terra":10,"ar":10}'::jsonb, attribute_check=null, attribute_bonus=0 where kind='attack' and card_id='110' and card_name='SONAR';
+update public.chaotic_preview_card_reference set element_damage='{"fogo":0,"agua":0,"terra":0,"ar":0}'::jsonb, attribute_check=null, attribute_bonus=0 where kind='attack' and card_id='111' and card_name='MÃO ELETRÔNICA';
+update public.chaotic_preview_card_reference set element_damage='{"fogo":0,"agua":0,"terra":0,"ar":0}'::jsonb, attribute_check=null, attribute_bonus=0 where kind='attack' and card_id='112' and card_name='MÃO MÃO';
+update public.chaotic_preview_card_reference set element_damage='{"fogo":0,"agua":0,"terra":0,"ar":0}'::jsonb, attribute_check=null, attribute_bonus=0 where kind='attack' and card_id='113' and card_name='PURGATÓRIO';
+update public.chaotic_preview_card_reference set element_damage='{"fogo":0,"agua":0,"terra":0,"ar":0}'::jsonb, attribute_check=null, attribute_bonus=0 where kind='attack' and card_id='114' and card_name='ESQUELETO';
+update public.chaotic_preview_card_reference set element_damage='{"fogo":0,"agua":0,"terra":0,"ar":0}'::jsonb, attribute_check=null, attribute_bonus=0 where kind='attack' and card_id='115' and card_name='SOPRO';
+update public.chaotic_preview_card_reference set creature_elements='["terra"]'::jsonb, creature_stats='{"coragem":50,"poder":40,"sabedoria":60,"velocidade":30,"energia":45}'::jsonb where kind='creature' and card_id='1' and card_name='Johnes';
+update public.chaotic_preview_card_reference set creature_elements='[]'::jsonb, creature_stats='{"coragem":40,"poder":40,"sabedoria":80,"velocidade":60,"energia":25}'::jsonb where kind='creature' and card_id='2' and card_name='Promos';
+update public.chaotic_preview_card_reference set creature_elements='[]'::jsonb, creature_stats='{"coragem":50,"poder":20,"sabedoria":80,"velocidade":25,"energia":10}'::jsonb where kind='creature' and card_id='3' and card_name='Alakazaz';
+update public.chaotic_preview_card_reference set creature_elements='["agua"]'::jsonb, creature_stats='{"coragem":50,"poder":15,"sabedoria":45,"velocidade":20,"energia":40}'::jsonb where kind='creature' and card_id='4' and card_name='Alfel';
+update public.chaotic_preview_card_reference set creature_elements='["agua"]'::jsonb, creature_stats='{"coragem":35,"poder":65,"sabedoria":70,"velocidade":45,"energia":40}'::jsonb where kind='creature' and card_id='5' and card_name='Ferez';
+update public.chaotic_preview_card_reference set creature_elements='[]'::jsonb, creature_stats='{"coragem":85,"poder":80,"sabedoria":45,"velocidade":75,"energia":35}'::jsonb where kind='creature' and card_id='6' and card_name='Frador';
+update public.chaotic_preview_card_reference set creature_elements='[]'::jsonb, creature_stats='{"coragem":30,"poder":65,"sabedoria":60,"velocidade":105,"energia":50}'::jsonb where kind='creature' and card_id='7' and card_name='Gaturno';
+update public.chaotic_preview_card_reference set creature_elements='["ar"]'::jsonb, creature_stats='{"coragem":40,"poder":40,"sabedoria":75,"velocidade":45,"energia":25}'::jsonb where kind='creature' and card_id='8' and card_name='Guru';
+update public.chaotic_preview_card_reference set creature_elements='["terra"]'::jsonb, creature_stats='{"coragem":55,"poder":65,"sabedoria":30,"velocidade":55,"energia":50}'::jsonb where kind='creature' and card_id='9' and card_name='Horn-ey';
+update public.chaotic_preview_card_reference set creature_elements='["agua"]'::jsonb, creature_stats='{"coragem":30,"poder":25,"sabedoria":30,"velocidade":45,"energia":35}'::jsonb where kind='creature' and card_id='10' and card_name='Leona';
+update public.chaotic_preview_card_reference set creature_elements='["fogo","terra"]'::jsonb, creature_stats='{"coragem":30,"poder":35,"sabedoria":30,"velocidade":20,"energia":25}'::jsonb where kind='creature' and card_id='11' and card_name='Lion';
+update public.chaotic_preview_card_reference set creature_elements='[]'::jsonb, creature_stats='{"coragem":25,"poder":30,"sabedoria":60,"velocidade":65,"energia":35}'::jsonb where kind='creature' and card_id='12' and card_name='Naty';
+update public.chaotic_preview_card_reference set creature_elements='["ar"]'::jsonb, creature_stats='{"coragem":30,"poder":15,"sabedoria":25,"velocidade":40,"energia":25}'::jsonb where kind='creature' and card_id='13' and card_name='Rex';
+update public.chaotic_preview_card_reference set creature_elements='[]'::jsonb, creature_stats='{"coragem":45,"poder":50,"sabedoria":35,"velocidade":125,"energia":35}'::jsonb where kind='creature' and card_id='14' and card_name='Spedman';
+update public.chaotic_preview_card_reference set creature_elements='[]'::jsonb, creature_stats='{"coragem":35,"poder":20,"sabedoria":40,"velocidade":25,"energia":30}'::jsonb where kind='creature' and card_id='15' and card_name='Vidal';
+update public.chaotic_preview_card_reference set creature_elements='[]'::jsonb, creature_stats='{"coragem":45,"poder":65,"sabedoria":65,"velocidade":50,"energia":15}'::jsonb where kind='creature' and card_id='16' and card_name='Xamã';
