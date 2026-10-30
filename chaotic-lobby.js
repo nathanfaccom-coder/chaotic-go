@@ -344,14 +344,15 @@
       &&x.attack_instance_id===snapshot?.attack_instance_id&&x.spent_turn===match.turn_no);
     $("lobby-hand-spend").hidden=!(myTurn&&wallet?.last_draw_turn===match.turn_no
       &&snapshot&&clash&&inHand&&!spent);
-    const remaining=handCards.filter(x=>x.card_state==="hand");
+    const remaining=handCards.filter(x=>x.card_state==="hand")
+      .slice().sort((a,b)=>a.draw_position-b.draw_position);
     $("lobby-attack-resource-summary").textContent=!wallet
       ?"Prepare a mão de teste após preparar sua criatura."
       :"Mão: "+remaining.length+" carta(s) · monte "+
-        handCards.filter(x=>x.card_state==="deck").length+
+        Math.max(0,(wallet.total_cards??handCards.length)-handCards.length)+
         " · usadas "+handCards.filter(x=>x.card_state==="spent").length+
         " · pontos "+(available===null?"na sua vez":available)+
-        " (3 iniciais e +1 por nova vez em TESTE).";
+        " (3 iniciais e +1 por nova vez em TESTE; baralho oculto).";
     $("lobby-hand-cards").textContent=remaining.length
       ?remaining.map(x=>"slot "+x.card_slot+" · carta #"+x.attack_instance_id).join(" | ")
       :"Nenhuma carta disponível nesta mão de teste.";
@@ -362,13 +363,13 @@
       attackWallets=[];handCards=[];updateAttackResourceUI();return;
     }
     const wallets=await api.from("chaotic_preview_attack_wallets")
-      .select("actor_id,prepared_turn,last_draw_turn,spent_points")
+      .select("actor_id,prepared_turn,last_draw_turn,spent_points,total_cards")
       .eq("lobby_id",room.id).limit(2);
     if(wallets.error)throw new Error(wallets.error.message);
     attackWallets=(wallets.data||[]).filter(x=>x.actor_id===userId);
     const hand=await api.from("chaotic_preview_attack_hand")
-      .select("actor_id,card_slot,attack_instance_id,card_state,spent_turn")
-      .eq("lobby_id",room.id).order("card_slot",{ascending:true}).limit(20);
+      .select("actor_id,card_slot,draw_position,attack_instance_id,card_state,spent_turn")
+      .eq("lobby_id",room.id).order("draw_position",{ascending:true}).limit(20);
     if(hand.error)throw new Error(hand.error.message);
     handCards=(hand.data||[]).filter(x=>x.actor_id===userId);
     updateAttackResourceUI();
@@ -702,8 +703,8 @@
       '</section>',
       '<section id="lobby-attack-resources-panel" class="lobby-combat" hidden>',
       '<strong>🃏 MÃO E PONTOS DE ATAQUE — 1x1 (TESTE)</strong>',
-      '<p>Três primeiras cartas não vazias do deck (ordem fixa nesta prévia). Inicia com 3 pontos; ganha 1 em cada nova vez. Nada é descontado no combate oficial.</p>',
-      '<button id="lobby-hand-prepare" type="button" hidden>Preparar mão de teste</button>',
+      '<p>Embaralhamento feito pelo servidor: só você vê as cartas compradas e usadas. Começa com 3 pontos de teste e ganha 1 a cada nova vez. O baralho não é revelado, e nada é descontado no combate oficial.</p>',
+      '<button id="lobby-hand-prepare" type="button" hidden>Embaralhar e preparar mão de teste</button>',
       '<button id="lobby-hand-sync" type="button" hidden>Comprar carta e atualizar pontos (teste)</button>',
       '<p id="lobby-attack-resource-summary" class="lobby-events" aria-live="polite">Mão não preparada.</p>',
       '<p id="lobby-hand-cards" class="lobby-events">Nenhuma carta na mão.</p>',
@@ -819,8 +820,8 @@
         p_lobby_id:room.id,p_expected_turn:match.turn_no
       });
       await refreshAttackResources();
-      note("Mão experimental preparada: "+out.cards_in_hand+
-        " cartas e "+out.points+" pontos. Ordem fixa somente no teste.");
+      note("Baralho embaralhado no servidor: "+out.cards_in_hand+
+        " cartas iniciais e "+out.points+" pontos de teste. Restante oculto.");
     });
     $("lobby-hand-sync").onclick = () => action(async()=>{
       if(!room||!match||room.mode!=="1x1"||match.current_player!==userId)return;
