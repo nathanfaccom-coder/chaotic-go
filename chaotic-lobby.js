@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -105,15 +105,23 @@
     const adjacent=!!mine&&!!other&&contactBetweenSides(room.mode,mine.position,other.position);
     $("lobby-clash-open").hidden=!(myTurn&&attack&&adjacent&&!already);
     const clashToCalculate=clashes.find(x=>x.turn_no===match.turn_no && x.attacker_id===userId);
-    $("lobby-damage-calculate").hidden=!(myTurn&&clashToCalculate &&
+    $("lobby-damage-calculate").hidden=room.mode==="1x1" || !(myTurn&&clashToCalculate &&
       !baseDamage.some(x=>x.turn_no===match.turn_no));
-    $("lobby-modifiers-calculate").hidden=!(myTurn&&clashToCalculate &&
+    $("lobby-modifiers-calculate").hidden=room.mode==="1x1" || !(myTurn&&clashToCalculate &&
       baseDamage.some(x=>x.turn_no===match.turn_no) &&
       !modifiers.some(x=>x.turn_no===match.turn_no));
-    $("lobby-dice-roll").hidden=!(myTurn && clashToCalculate &&
+    $("lobby-dice-roll").hidden=room.mode==="1x1" || !(myTurn && clashToCalculate &&
       modifiers.some(x=>x.turn_no===match.turn_no && x.formula_status==="roll_or_special_required"
         && x.attack_card_id==="104") &&
       !dice.some(x=>x.turn_no===match.turn_no));
+    const attackResolved=attackInstances.some(x=>x.turn_no===match.turn_no
+      && x.actor_id===userId && x.attack_instance_id===clashToCalculate?.attack_card);
+    const bothLoadouts=loadouts.some(x=>x.actor_id===room.host_id)
+      && loadouts.some(x=>x.actor_id===room.guest_id);
+    $("lobby-individual-damage-calculate").hidden=!(room.mode==="1x1"
+      &&myTurn&&clashToCalculate&&attackResolved&&bothLoadouts
+      &&!individualDamage.some(x=>x.turn_no===match.turn_no));
+    $("lobby-reference-preview").hidden=room.mode==="1x1";
     const label=$("lobby-clash-status");
     label.textContent=already?"Confronto deste turno registrado. Dano ainda não é aplicado."
       :!myTurn?"Aguarde a sua vez para declarar um confronto."
@@ -125,13 +133,18 @@
   function showOfficialCard(side,unit){
     const img=$("lobby-official-"+side+"-img"),label=$("lobby-official-"+side+"-text");
     if(!img||!label)return;
+    const actor=side==="host"?room?.host_id:room?.guest_id;
+    const snapshot=loadouts.find(x=>x.actor_id===actor);
+    const canonicalName=snapshot?.creature_name?.replace(/ \\(Max\\)$/,"");
     const record=(window.ChaoticOriginalCards?.creatures||[])
-      .find(c=>String(c.id)===String(unit?.card_id));
+      .find(c=>c.nome===canonicalName);
     img.hidden=!record?.cartaBlank;
     if(record?.cartaBlank)img.src=record.cartaBlank;
-    label.textContent=record
-      ?record.nome+" · Energia base "+(record.statsMax?.energia??"—")+" · "+(record.tribo||"")
-      :unit?"Carta #"+unit.card_id+" · c"+unit.position:"Sem criatura posicionada";
+    label.textContent=snapshot
+      ?snapshot.creature_name+" · Energia individual "+snapshot.stats?.e+
+       " · c"+snapshot.position
+      :unit?"Carta individual #"+unit.card_id+" · c"+unit.position+
+        " (prepare a ficha para mostrar atributos e imagem)":"Sem criatura posicionada";
   }
   async function refreshDice(){
     const log=$("lobby-dice-history");
@@ -196,6 +209,29 @@
         " (energia base "+x.defender_energy_base+
         " → "+x.energy_after_base+" APENAS se não houver modificadores).";
     }).join("\n"):"Nenhum dano base calculado.";
+    updateClashUI();
+  }
+  async function refreshIndividualDamage(){
+    const log=$("lobby-individual-damage-history");
+    if(!log)return;
+    if(!room||!match){individualDamage=[];log.textContent="Nenhuma simulação individual.";return;}
+    const {data,error}=await api.from("chaotic_preview_individual_damage")
+      .select("turn_no,attacker_id,attack_name,attacker_name,defender_name,defender_energy_initial,base_damage,elemental_bonus,attribute_bonus,preview_subtotal,preview_energy_remaining,calculation_status")
+      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(12);
+    if(error)throw new Error(error.message);
+    individualDamage=data||[];
+    log.textContent=individualDamage.length?individualDamage.slice().reverse().map(x=>{
+      const who=x.attacker_id===room.host_id?"Anfitrião":"Convidado";
+      if(x.calculation_status!=="partial_estimate")
+        return "T"+x.turn_no+" · "+who+": "+x.attack_name+" exige dado/efeito especial."+
+          " Base "+x.base_damage+"; dano total e energia restante NÃO simulados.";
+      return "T"+x.turn_no+" · "+who+" · "+x.attacker_name+" usou "+x.attack_name+
+        " contra "+x.defender_name+": "+x.base_damage+" base + "+
+        x.elemental_bonus+" elemento + "+x.attribute_bonus+" atributo = "+
+        x.preview_subtotal+" dano parcial. Energia individual inicial "+
+        x.defender_energy_initial+" → "+x.preview_energy_remaining+
+        " (SIMULAÇÃO: HP real inalterado).";
+    }).join("\n"):"Nenhuma simulação individual.";
     updateClashUI();
   }
   async function refreshClashes(){
@@ -395,6 +431,7 @@
     await refreshBaseDamage();
     await refreshModifiers();
     await refreshDice();
+    await refreshIndividualDamage();
   }
   function updateRoomUI() {
     if (!$("lobby-create")) return;
@@ -465,6 +502,9 @@
         .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_attack_instances",filter:"lobby_id=eq."+lobbyId
         },sync)
+        .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_individual_damage",filter:"lobby_id=eq."+lobbyId
+        },sync)
         .subscribe(status=>{
           if(status==="CHANNEL_ERROR"||status==="TIMED_OUT")
             console.warn("DROME: canal em tempo real temporariamente indisponível; consultas periódicas seguem ativas.");
@@ -477,7 +517,7 @@
     }, 6000);
   }
   function show() {
-    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = [];
+    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -572,6 +612,13 @@
       '</div>',
       '<p id="lobby-clash-status" role="status"></p>',
       '<button id="lobby-clash-open" type="button" hidden>Registrar confronto</button>',
+      '<section id="lobby-individual-preview" class="lobby-combat">',
+      '<strong>🧬 PRÉVIA COM DNA INDIVIDUAL — 1x1</strong>',
+      '<p>Usa o ataque validado, a energia individual e os atributos de ambas as criaturas. Elementos vêm do catálogo. Não gasta energia, não aplica HP e não resolve efeitos especiais.</p>',
+      '<button id="lobby-individual-damage-calculate" type="button" hidden>Simular dano com DNA no servidor</button>',
+      '<p id="lobby-individual-damage-history" class="lobby-events" aria-live="polite">Nenhuma simulação individual.</p>',
+      '</section>',
+      '<div id="lobby-reference-preview">',
       '<button id="lobby-damage-calculate" type="button" hidden>Conferir dano base no servidor</button>',
       '<p class="lobby-history-label">Prévia do dano (sem aplicar pontos de vida)</p>',
       '<p id="lobby-damage-history" class="lobby-events" aria-live="polite">Nenhum cálculo.</p>',
@@ -579,6 +626,7 @@
       '<p id="lobby-modifiers-history" class="lobby-events" aria-live="polite">Nenhuma conferência de bônus.</p>',
       '<button id="lobby-dice-roll" type="button" hidden>🎲 Rolar dado do Fogo Primordial (servidor)</button>',
       '<p id="lobby-dice-history" class="lobby-events" aria-live="polite">Nenhum dado rolado.</p>',
+      '</div>',
       '<p class="lobby-history-label">Confrontos registrados</p>',
       '<p id="lobby-clash-history" class="lobby-events" aria-live="polite">Nenhum confronto registrado.</p>',
       '</section>',
@@ -685,6 +733,17 @@
       note(result.formula_status==="reference_only"
         ?"Bônus de catálogo conferidos; ainda não é dano final e não altera energia."
         :"Carta com efeitos ou referência incompleta: dano final não calculado.");
+    });
+    $("lobby-individual-damage-calculate").onclick = () => action(async()=>{
+      if(!room||!match||room.mode!=="1x1"||match.status!=="active"
+        ||match.current_player!==userId)return;
+      const result=await rpc("chaotic_calculate_individual_preview",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refreshIndividualDamage();
+      note(result.calculation_status==="partial_estimate"
+        ?"Simulação de dano com DNA individual registrada no servidor. Nenhuma energia real foi alterada."
+        :"Ataque especial identificado. A simulação NÃO informa dano final sem resolver seu efeito.");
     });
     $("lobby-damage-calculate").onclick = () => action(async()=>{
       if(!room||!match||match.status!=="active"||match.current_player!==userId)return;
