@@ -2,8 +2,8 @@
 import {initializeApp, getApps, getApp} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import {getAuth, setPersistence, inMemoryPersistence, signInWithEmailAndPassword, signOut} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 import {getDatabase, ref as oldRef, get as oldGet} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
-import {mergeAlbum,selectMissingDecks} from "./legacy-merge-core.js?v=release-2";
-import * as cloud from "./supabase-game-bridge.js?v=release-2";
+import {mergeAlbum,selectMissingDecks} from "./legacy-merge-core.js?v=release-3";
+import * as cloud from "./supabase-game-bridge.js?v=release-3";
 
 const firebaseConfig={
   apiKey:"AIzaSyD9o1B06TShDaO--6-DQsS8abutVXuU_jo",
