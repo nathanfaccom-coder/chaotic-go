@@ -264,6 +264,28 @@ function makeClient(actor) {
         win.status="defender_passed";win.defender_response="pass";
         return {data:{...win},error:null};
       }
+      if(name==="chaotic_acknowledge_preview_air_immunity"){
+        const m=matches.get(room.id),k=room.id+"/"+args.p_expected_turn;
+        const win=burstWindows.get(k),cl=clashes.get(k),atk=attackInstances.get(k);
+        const defender=loadouts.get(room.id+"/"+actor);
+        const revealed=equipmentReveals.get(room.id+"/"+actor);
+        const air=atk?.catalog_attack_id==="110";
+        const isRex=defender?.creature_name==="Rex";
+        const amulet=defender?.equipment_name==="Amuleto do Vácuo"
+          &&revealed?.equipment_instance_id===defender.equipment_instance_id
+          &&revealed?.equipment_name===defender.equipment_name;
+        if(room.mode!=="1x1"||room.status!=="ready"||!m||m.status!=="active"
+          ||m.turn_no!==args.p_expected_turn||win?.status!=="awaiting_defender"
+          ||win.defender_id!==actor||win.attacker_id!==m.current_player
+          ||cl?.defender_id!==actor||cl?.defender_card!==defender?.card_instance_id
+          ||atk?.actor_id!==win.attacker_id||atk?.attack_instance_id!==win.attack_instance_id
+          ||!air||(!isRex&&!amulet))
+          return {data:null,error:{message:"Imunidade de Ar não autorizada"}};
+        win.status="defender_immunity_noted";
+        win.defender_response="acknowledge_air_immunity";
+        win.defensive_immunity_source=isRex?"rex_air":"vacuum_amulet_air";
+        return {data:{...win},error:null};
+      }
       if(name==="chaotic_audit_preview_damage"){
         const m=matches.get(room.id),k=room.id+"/"+args.p_expected_turn;
         const d=individualDamage.get(k),atk=attackInstances.get(k),cl=clashes.get(k);
@@ -300,6 +322,8 @@ function makeClient(actor) {
         const win=burstWindows.get(k);
         blockers.push(!win?"burst_window_not_opened":
           win.status==="awaiting_defender"?"burst_defender_response_pending":
+          win.status==="defender_immunity_noted"?
+            "burst_air_immunity_acknowledged_preview_only":
           "burst_defender_passed_preview_only");
         if(a.equipment_name||v.equipment_name)
           blockers.push("equipment_full_effects_unresolved");
@@ -423,7 +447,10 @@ function makeClient(actor) {
         const hasWater=attack.catalog_attack_id==="101";
         const locationDelta=locId===502?(hasWind?5:0)-(hasWater?5:0):0;
         const magmaElemental=locId===503&&attack.catalog_attack_id==="101"?5:0;
-        const total=special?null:Math.max(0,attack.base_damage+locationDelta+magmaElemental);
+        const immune=hasWind&&(defender.creature_name==="Rex"||
+          (defender.equipment_name==="Amuleto do Vácuo"&&
+           equipmentReveals.has(room.id+"/"+defender.actor_id)));
+        const total=special?null:immune?0:Math.max(0,attack.base_damage+locationDelta+magmaElemental);
         const result={lobby_id:room.id,turn_no:match.turn_no,attacker_id:actor,
           defender_id:clash.defender_id,attack_instance_id:attack.attack_instance_id,
           catalog_attack_id:attack.catalog_attack_id,attack_name:attack.attack_name,
@@ -437,6 +464,8 @@ function makeClient(actor) {
           attack_cost:attack.attack_cost,cost_status:"test_spent",
           attacker_equipment_revealed:equipmentReveals.has(room.id+"/"+actor),
           defender_equipment_revealed:equipmentReveals.has(room.id+"/"+clash.defender_id),
+          immunity_reason:immune?(defender.creature_name==="Rex"
+            ?"Rex: imune a Ar":"Amuleto do Vácuo revelado: imune a Ar"):null,
           preview_subtotal:total,
           preview_energy_remaining:total===null?null:Math.max(0,defender.stats.e+locationEnergy-total),
           calculation_status:special?"special_resolution_required":"partial_estimate"};
@@ -1573,3 +1602,81 @@ test("1x1 Burst defender may pass during attacker's turn but cannot resolve dama
     p_lobby_id:id,p_expected_turn:3})).error,"Stale Burst cannot be passed");
   assert.equal(matches.get(id).current_player,"burst-guest");
 });
+
+for (const defenseKind of ["rex","amulet"]) {
+test("Burst 1x1 validates "+defenseKind+" immunity to Ar without changing official damage",async()=>{
+  const hostId="air-"+defenseKind+"-host",guestId="air-"+defenseKind+"-guest";
+  const host=browser(hostId),guest=browser(guestId);
+  host("lobby-select-mode").value="1x1";
+  await host("lobby-create-btn").onclick();
+  const code=host("lobby-room-code").textContent;
+  const id=[...rooms.values()].find(x=>x.code===code).id;
+  guest("lobby-input-code").value=code;
+  await guest("lobby-join-btn").onclick();
+  await host("lobby-refresh").onclick();
+  await host("lobby-turn-start").onclick();
+  host("lobby-combat-kind").value="creature";
+  host("lobby-combat-deck").value="1";host("lobby-combat-slot").value="6";
+  await host("lobby-combat-submit").onclick();
+  await host("lobby-hex-place").onclick();
+  await host("lobby-loadout-capture").onclick();
+  await host("lobby-turn-pass").onclick();
+  await guest("lobby-turn-refresh").onclick();
+  guest("lobby-combat-kind").value="creature";
+  guest("lobby-combat-deck").value="1";guest("lobby-combat-slot").value="6";
+  await guest("lobby-combat-submit").onclick();
+  await guest("lobby-hex-place").onclick();
+  await guest("lobby-loadout-capture").onclick();
+  const defender=loadouts.get(id+"/"+guestId);
+  if(defenseKind==="rex"){
+    defender.creature_name="Rex";
+  }else{
+    defender.equipment_name="Amuleto do Vácuo";
+    await guest("lobby-turn-refresh").onclick();
+    await guest("lobby-equipment-reveal").onclick();
+  }
+  await guest("lobby-turn-pass").onclick();
+  await host("lobby-turn-refresh").onclick();
+  await host("lobby-hand-prepare").onclick();
+  host("lobby-combat-kind").value="attack";
+  host("lobby-combat-deck").value="1";host("lobby-combat-slot").value="1";
+  await host("lobby-combat-submit").onclick();
+  await host("lobby-clash-open").onclick();
+  await host("lobby-attack-instance-capture").onclick();
+  const card=attackInstances.get(id+"/3");
+  card.catalog_attack_id="110";card.attack_name="SONAR";
+  await host("lobby-burst-open").onclick();
+  await host("lobby-hand-spend").onclick();
+  assert.ok((await makeClient(hostId).rpc("chaotic_acknowledge_preview_air_immunity",{
+    p_lobby_id:id,p_expected_turn:3})).error,"Attacker cannot acknowledge defense");
+  assert.ok((await makeClient("intruder").rpc("chaotic_acknowledge_preview_air_immunity",{
+    p_lobby_id:id,p_expected_turn:3})).error,"Outsider cannot respond");
+  await guest("lobby-turn-refresh").onclick();
+  assert.equal(guest("lobby-burst-air-immunity").hidden,false);
+  await guest("lobby-burst-air-immunity").onclick();
+  const win=burstWindows.get(id+"/3");
+  assert.equal(win.status,"defender_immunity_noted");
+  assert.equal(win.defender_response,"acknowledge_air_immunity");
+  assert.equal(win.defensive_immunity_source,defenseKind==="rex"?"rex_air":"vacuum_amulet_air");
+  assert.equal(win.burst_fully_resolved,false);
+  assert.equal(win.final_damage_verified,false);
+  assert.equal(guest("lobby-burst-pass").hidden,true,"Second response is forbidden");
+  assert.ok((await makeClient(guestId).rpc("chaotic_acknowledge_preview_air_immunity",{
+    p_lobby_id:id,p_expected_turn:3})).error,"Cannot acknowledge twice");
+  await host("lobby-turn-refresh").onclick();
+  assert.match(host("lobby-burst-history").textContent,/imunidade a Ar/);
+  assert.equal(host("lobby-individual-damage-calculate").hidden,false);
+  await host("lobby-individual-damage-calculate").onclick();
+  const damage=individualDamage.get(id+"/3");
+  assert.equal(damage.preview_subtotal,0,"Air immunity eliminates provisional wind damage");
+  assert.match(damage.immunity_reason,/imune a Ar/);
+  await host("lobby-resolution-audit-capture").onclick();
+  const audit=resolutionAudits.get(id+"/3");
+  assert.ok(audit.blocker_codes.includes("burst_air_immunity_acknowledged_preview_only"));
+  assert.ok(audit.blocker_codes.includes("burst_unresolved"));
+  assert.equal(audit.final_damage_verified,false);
+  assert.equal(loadouts.get(id+"/"+guestId).stats.e,65);
+  assert.equal(matches.get(id).current_player,hostId);
+  assert.equal(matches.get(id).turn_no,3);
+});
+}
