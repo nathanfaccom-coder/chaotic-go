@@ -2518,6 +2518,10 @@ test("3x3 defers defender pass until paid, while ordinary no-attack turns still 
     p_lobby_id:id,p_expected_turn:1})).error,
     "Attacker cannot open a reaction without an actual training payment");
   assert.equal(defenseWindows3x3.has(id+"/1"),false);
+  assert.ok((await makeClient(opponent).rpc("chaotic_inspect_preview_3x3_elemental_defense",{
+    p_lobby_id:id,p_expected_turn:1})).error,
+    "No elemental inspection is possible without a paid Attack window");
+  assert.equal(elementReviews3x3.has(id+"/1"),false);
   await host("lobby-turn-pass").onclick();
   assert.equal(matches.get(id).turn_no,2,
     "Ordinary 3x3 turns without a paid Attack must still advance");
@@ -2856,6 +2860,26 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
     "Even after opening the window, the turn is blocked pending the defender");
   await host("lobby-turn-refresh").onclick();
   assert.equal(host("lobby-3x3-defense-pass").hidden,false);
+  assert.equal(host("lobby-3x3-element-review").hidden,false);
+  assert.ok((await makeClient(opponent).rpc("chaotic_inspect_preview_3x3_elemental_defense",{
+    p_lobby_id:id,p_expected_turn:2})).error,
+    "Attacker cannot issue defender-only elemental audit");
+  await host("lobby-3x3-element-review").onclick();
+  const firstElements=elementReviews3x3.get(id+"/2");
+  assert.equal(firstElements?.catalog_attack_id,"104");
+  assert.equal(firstElements?.base_damage,5);
+  assert.equal(firstElements?.fire_component,5);
+  assert.equal(firstElements?.water_component,0);
+  assert.equal(firstElements?.special_resolution,"six_sided_base_multiplier");
+  assert.equal(firstElements?.elemental_eligibility_verified,false);
+  assert.equal(firstElements?.special_effect_executed,false);
+  assert.equal(firstElements?.training_hp_changed,false);
+  assert.equal(hp3x3.get(id+"/"+owner+"/5").hp_remaining,35);
+  assert.match(host("lobby-3x3-element-history").textContent,/dado de 6 lados/);
+  assert.equal(host("lobby-3x3-element-review").hidden,true);
+  assert.ok((await makeClient(owner).rpc("chaotic_inspect_preview_3x3_elemental_defense",{
+    p_lobby_id:id,p_expected_turn:2})).error,
+    "Defender cannot repeat element audit to change projected outcome");
   await host("lobby-3x3-defense-pass").onclick();
   assert.equal(defenseWindows3x3.get(id+"/2").status,"defender_passed_preview");
   assert.equal(host("lobby-3x3-defense-pass").hidden,true);
@@ -2934,6 +2958,18 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
   assert.equal(defenseWindows3x3.get(id+"/3").attacker_id,owner);
   await guest("lobby-turn-refresh").onclick();
   assert.equal(guest("lobby-3x3-defense-pass").hidden,false);
+  assert.equal(guest("lobby-3x3-element-review").hidden,false);
+  await guest("lobby-3x3-element-review").onclick();
+  const secondElements=elementReviews3x3.get(id+"/3");
+  assert.equal(secondElements?.catalog_attack_id,"101");
+  assert.equal(secondElements?.base_damage,10);
+  assert.equal(secondElements?.fire_component,5);
+  assert.equal(secondElements?.water_component,5);
+  assert.equal(secondElements?.special_resolution,"none");
+  assert.equal(secondElements?.defender_equipment_verified,false);
+  assert.equal(secondElements?.final_damage_calculated,false);
+  assert.equal(secondElements?.official_match_modified,false);
+  assert.equal(hp3x3.get(id+"/"+opponent+"/4").hp_remaining,55);
   await guest("lobby-3x3-defense-pass").onclick();
   assert.equal(defenseWindows3x3.get(id+"/3").status,"defender_passed_preview");
   assert.equal(defenseWindows3x3.get(id+"/3").training_hp_changed,false);
