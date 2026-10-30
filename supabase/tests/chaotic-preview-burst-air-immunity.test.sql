@@ -40,6 +40,11 @@ begin
  if position('equipment_instance_id = defender.equipment_instance_id' in answer_sql)=0 and
     position('equipment_instance_id=defender.equipment_instance_id' in answer_sql)=0
  then raise exception 'Revealed amulet instance check missing';end if;
+ if position('status = ''awaiting_defender''' in
+    pg_get_functiondef('public.chaotic_pass_turn(uuid,integer)'::regprocedure))=0
+    and position('status=''awaiting_defender''' in
+    pg_get_functiondef('public.chaotic_pass_turn(uuid,integer)'::regprocedure))=0
+ then raise exception 'Pass-turn does not block pending defender response';end if;
  if position('burst_air_immunity_acknowledged_preview_only' in
    pg_get_functiondef('public.chaotic_audit_preview_damage(uuid,integer)'::regprocedure))=0
  then raise exception 'Final damage audit does not list immunity acknowledgement';end if;
