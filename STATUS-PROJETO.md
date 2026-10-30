@@ -21,7 +21,7 @@ Números estimados para planejamento, não verificação automática de 53% das 
 - Login Supabase, dados do jogador em tabela com RLS, importador opcional de cartas antigas, exportação de backup e Realtime da coleção.
 - Salas privadas com convite, permissões, turnos ordenados, diário de eventos.
 - Prévia de um marcador de criatura por jogador; adjacência, movimento e encontro validados no servidor.
-- Dano base, elementos e verificações de atributo no catálogo **padrão**, em modo de demonstração.
+- Dano base, elementos e verificações de atributo no catálogo **padrão**, em modo de demonstração; prévia adicional com DNA individual no **1x1**.
 - Regra de ataque **Fogo Primordial 2.0**: novo sorteio único 1d6 feito no servidor e compartilhado no turno, sem dano definitivo.
 
 ## O que impede declarar 100%
@@ -43,5 +43,8 @@ Números estimados para planejamento, não verificação automática de 53% das 
 ## Integração individual 1x1 — progresso recente
 - Captura de atributos das cartas realmente salvas no álbum, e não apenas dos valores-padrão do catálogo, com equipamento e trava de escrita no servidor.
 - **Versão 0.1.8:** a função `chaotic_capture_preview_attack` registra uma correspondência de teste entre o ID individual de um ataque no álbum/deck e seu modelo no catálogo ativo (15 ataques), conferindo nome, custo, dano-base, turno e participante. Um novo painel no DROME mostra a confirmação e sincroniza os registros entre participantes.
-- **Próximo bloqueio crítico:** garantir a procedência das cartas por emissão autoritativa (o álbum ainda é gravável pelo usuário), adaptar as prévias antigas que confundem ID individual e ID de catálogo, e então implementar dano com os atributos reais, custos, efeitos e imunidades antes de alterar a energia do oponente.
+- **Versão 0.1.9:** nova tabela e RPC `chaotic_calculate_individual_preview` para o **1x1 de teste**, exigindo duas fichas imutáveis, o ataque individual validado, confronto, turno correto e participante autorizado. Calcula base, elemento de catálogo e comparações sobre o **DNA individual**, exibindo apenas uma **simulação** da energia restante (sem dedução real).
+- **Ataques especiais:** Fogo Primordial 2.0 e bônus dependentes de cemitério ficam sem subtotal/energia simulada até o motor de efeitos e dados ser integrado. As prévias antigas baseadas em IDs do catálogo ficam ocultas **no 1x1**, mas preservadas para diagnósticos legados dos demais modos.
+- **Verificação:** função e RLS aplicadas ao Supabase. Cenários SQL transacionais de fórmula/atributo/ataques especiais/restrição de escrita aprovados, além de testes Node do DROME. Sem dano, cartas, economia, XP ou vitória alterados. **Sem validação em dois celulares reais**.
+- **Próximo bloqueio crítico:** emissão/posse autoritativa das cartas (o álbum ainda é editável pelo jogador), integridade dos decks e da mão, custos, equipamentos revelados, imunidades, locais, rolagens e efeitos antes de liberar dano real.
 - A estimativa ponderada permanece em **53%** até existir um marco funcional maior, como uma partida 1x1 completa e testada.
