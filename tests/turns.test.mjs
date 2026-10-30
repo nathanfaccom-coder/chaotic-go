@@ -76,8 +76,11 @@ function makeClient(actor) {
       throw Error(name);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
+        then(resolve,reject) {
+          return Promise.resolve({data:[],error:null}).then(resolve,reject);
+        },
         order(){return this;},
         limit(size) {
           const room=rooms.get(this.id);
@@ -100,6 +103,7 @@ function browser(actor) {
   function el(id) {
     if(!nodes.has(id)) nodes.set(id,{
       id,style:{},hidden:false,value:"",textContent:"",isConnected:true,disabled:false,onclick:null,
+      classList:{toggle(){},add(){},remove(){}},
       set innerHTML(html) {
         this.raw=html;
         for(const m of html.matchAll(/id="([^"]+)"/g))el(m[1]);
