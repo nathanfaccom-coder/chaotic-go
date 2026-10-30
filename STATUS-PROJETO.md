@@ -1,6 +1,6 @@
 # Chaotic GO — Status de conclusão e pendências (30/10/2026)
 
-Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 57% (incerteza aproximada ±10 pontos percentuais).**
+Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 58% (incerteza aproximada ±10 pontos percentuais).**
 
 ## Critérios ponderados
 
@@ -9,12 +9,12 @@ Este documento acompanha **prontidão para lançar o jogo completo com Supabase*
 | Motor legado, scanner, cartas, imagens, áudios e interfaces preservados | 25% | 90% | 22,5 p.p. |
 | Contas, migração de coleção, Decks e persistência privada Supabase | 15% | 75% | 11,25 p.p. |
 | Salas privadas, sincronização e protocolo de turnos | 10% | 70% | 7 p.p. |
-| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 36% | 9 p.p. |
+| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 40% | 10 p.p. |
 | Economia, amigos, trocas, recompensas e progressão integradas | 15% | 25% | 3,75 p.p. |
 | Testes ponta a ponta, dois dispositivos, mobile, segurança e publicação | 10% | 35% | 3,5 p.p. |
-| **Estimativa total** | **100%** | | **57 p.p.** |
+| **Estimativa total** | **100%** | | **58 p.p.** |
 
-Números estimados para planejamento, não verificação automática de 57% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
+Números estimados para planejamento, não verificação automática de 58% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
 
 ## Entregas já implementadas ou disponíveis
 - Jogo completo e recursos originais publicados no site; backup de branches anteriores.
@@ -93,3 +93,13 @@ Números estimados para planejamento, não verificação automática de 57% das 
 - **Testes:** `supabase/tests/chaotic-preview-location-damage.test.sql` passou no Supabase para os três Locais, elementos naturais, segurança e pagamentos; **33/33 testes** JavaScript aprovados, incluindo fluxo 1x1 de Kiru em dois clientes simulados e DNA original intacto.
 - **Pendente:** o motor de habilidades, imunidades adicionais, equipamentos especiais e dano final em HP não foi migrado; a emissão das cartas ainda se baseia no álbum editável pelo cliente. É necessário testar dois usuários reais, com diferentes aparelhos e contas, antes de considerar o sistema competitivo pronto.
 - **Progresso geral estimado: 57% (±10 p.p.)** por adicionar bônus de Local validados no servidor à prévia individual; o PvP oficial permanece incompleto.
+
+## Versão 0.1.17 — registro condicional de efeitos de ataque (30/10/2026)
+
+- **Efeitos identificados no motor original:** Armadilha de Vinha (107) anula a próxima vez do alvo, inclusive compra e pontos; MÃO ELETRÔNICA (111) impede ataques durante duas próximas vezes do alvo; MÃO MÃO (112) bloqueia ataque na próxima vez do alvo. Todos exigem **dano final positivo**; não basta carta declarada ou dano base positivo.
+- **Nova RPC `chaotic_capture_preview_effect_candidate` e tabela `chaotic_preview_effect_candidates`** validam 1x1 ativo, turno, confrontos, ator, carta individual, custo pago no teste, e dano **parcial positivo**. Captura imutável, com RLS somente para participantes e Realtime. Sem estimativa positiva, não grava candidato.
+- **Intencionalmente NÃO ATIVADO:** o resultado é `candidate_requires_final_damage` e a coluna `applied_to_match` só admite `false`. Não altera ordens de turno, bloqueios reais, compras, pontos de ataque, HP ou recompensas. A elegibilidade futura ainda requer que o motor calcule o dano FINAL, resolvendo equipamentos, Burst, habilidades, imunidades e efeitos.
+- **UI:** seção de efeitos condicionais exibe carta, vítima, turnos que poderiam ser atingidos, duração e ressalva de que nada foi aplicado; não há botão para forçar bloqueios de outro jogador.
+- **Testes:** `supabase/tests/chaotic-preview-conditional-effects.test.sql` verifica mapeamento das três cartas, recusa de zero, dano desconhecido, status especial, acesso anônimo e escrita direta; `tests/turns.test.mjs` simula dois jogadores, rejeição ao adversário, repetição, sincronização e passagem de turno inalterada.
+- **Próximo bloqueio:** preparar estado de vida autoritativo com resolução de efeitos de dano final; só então autorizar a transição `candidate → active` em uma transação que controla turno, mão, pontos e expiração de status.
+- **Estimativa geral 58% (±10 pontos percentuais):** avanço restrito à preparação e verificação dos gatilhos, **não significa que as habilidades já funcionem na partida**.
