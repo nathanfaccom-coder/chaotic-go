@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -217,21 +217,27 @@
     if(!log)return;
     if(!room||!match){individualDamage=[];log.textContent="Nenhuma simulação individual.";return;}
     const {data,error}=await api.from("chaotic_preview_individual_damage")
-      .select("turn_no,attacker_id,attack_name,attacker_name,defender_name,defender_energy_initial,base_damage,elemental_bonus,attribute_bonus,preview_subtotal,preview_energy_remaining,calculation_status")
+      .select("turn_no,attacker_id,attack_name,attacker_name,defender_name,defender_energy_initial,base_damage,elemental_bonus,attribute_bonus,equipment_bonus,attack_cost,cost_status,immunity_reason,attacker_equipment_revealed,defender_equipment_revealed,preview_subtotal,preview_energy_remaining,calculation_status")
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(12);
     if(error)throw new Error(error.message);
     individualDamage=data||[];
     log.textContent=individualDamage.length?individualDamage.slice().reverse().map(x=>{
       const who=x.attacker_id===room.host_id?"Anfitrião":"Convidado";
+      const cost=" · custo "+(x.attack_cost??"?")+
+        " ponto(s) — saldo e mão NÃO verificados; nenhum ponto descontado.";
+      const detail=x.immunity_reason?" · Imunidade: "+x.immunity_reason+".":"";
       if(x.calculation_status!=="partial_estimate")
-        return "T"+x.turn_no+" · "+who+": "+x.attack_name+" exige dado/efeito especial."+
-          " Base "+x.base_damage+"; dano total e energia restante NÃO simulados.";
+        return "T"+x.turn_no+" · "+who+": "+x.attack_name+
+          " exige resolução adicional de efeito/equipamento."+
+          " Base "+x.base_damage+"; dano total e energia restante NÃO simulados."+
+          detail+cost;
       return "T"+x.turn_no+" · "+who+" · "+x.attacker_name+" usou "+x.attack_name+
         " contra "+x.defender_name+": "+x.base_damage+" base + "+
-        x.elemental_bonus+" elemento + "+x.attribute_bonus+" atributo = "+
-        x.preview_subtotal+" dano parcial. Energia individual inicial "+
+        x.elemental_bonus+" elemento + "+x.attribute_bonus+" atributo + "+
+        (x.equipment_bonus??0)+" equipamento = "+x.preview_subtotal+
+        " dano parcial. Energia individual inicial "+
         x.defender_energy_initial+" → "+x.preview_energy_remaining+
-        " (SIMULAÇÃO: HP real inalterado).";
+        " (SIMULAÇÃO: HP real inalterado)."+detail+cost;
     }).join("\n"):"Nenhuma simulação individual.";
     updateClashUI();
   }
@@ -265,6 +271,15 @@
     const ownTurn=match.status==="active"&&room.status==="ready"&&
       match.current_player===userId&&new Date(room.expires_at).getTime()>Date.now();
     $("lobby-loadout-capture").hidden=!(ownTurn&&mine&&!has);
+    const myLoadout=loadouts.find(x=>x.actor_id===userId);
+    const revealed=equipmentReveals.some(x=>x.actor_id===userId);
+    $("lobby-equipment-reveal").hidden=!(ownTurn&&myLoadout?.equipment_instance_id&&!revealed);
+    const revealLog=$("lobby-equipment-reveal-history");
+    revealLog.textContent=equipmentReveals.length
+      ?equipmentReveals.map(x=>(x.actor_id===room.host_id?"Anfitrião":"Convidado")+
+        " revelou "+x.equipment_name+" no turno "+x.revealed_turn+
+        " (somente simulação).").join("\n")
+      :"Nenhum equipamento revelado neste teste.";
     const read=(actor,side)=>{
       const record=loadouts.find(x=>x.actor_id===actor);
       const label=$("lobby-loadout-"+side);
@@ -292,6 +307,16 @@
     showOfficialCard("guest",board.find(x=>x.actor_id===room.guest_id));
     updateAttackInstanceUI();
     updateClashUI();
+  }
+  async function refreshEquipmentReveals(){
+    if(!$("lobby-equipment-reveal-history"))return;
+    if(!room||!match){equipmentReveals=[];updateLoadoutUI();return;}
+    const {data,error}=await api.from("chaotic_preview_equipment_reveals")
+      .select("actor_id,equipment_instance_id,equipment_name,revealed_turn")
+      .eq("lobby_id",room.id).order("revealed_turn",{ascending:true}).limit(2);
+    if(error)throw new Error(error.message);
+    equipmentReveals=data||[];
+    updateLoadoutUI();
   }
   function updateAttackInstanceUI(){
     const panel=$("lobby-attack-instance-panel");
@@ -432,6 +457,7 @@
     await refreshDeclarations();
     await refreshBoard();
     await refreshLoadouts();
+    await refreshEquipmentReveals();
     await refreshAttackInstances();
     await refreshClashes();
     await refreshBaseDamage();
@@ -511,6 +537,9 @@
         .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_individual_damage",filter:"lobby_id=eq."+lobbyId
         },sync)
+        .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_equipment_reveals",filter:"lobby_id=eq."+lobbyId
+        },sync)
         .subscribe(status=>{
           if(status==="CHANNEL_ERROR"||status==="TIMED_OUT")
             console.warn("DROME: canal em tempo real temporariamente indisponível; consultas periódicas seguem ativas.");
@@ -523,7 +552,7 @@
     }, 6000);
   }
   function show() {
-    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = [];
+    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -598,6 +627,8 @@
       '<p>Anfitrião: <span id="lobby-loadout-host">Ainda sem ficha individual.</span></p>',
       '<p>Convidado: <span id="lobby-loadout-guest">Ainda sem ficha individual.</span></p>',
       '<button id="lobby-loadout-capture" type="button" hidden>Preparar ficha da minha criatura</button>',
+      '<button id="lobby-equipment-reveal" type="button" hidden>Revelar meu equipamento (teste)</button>',
+      '<p id="lobby-equipment-reveal-history" class="lobby-events" aria-live="polite">Nenhum equipamento revelado.</p>',
       '<p>Ficha congelada para este teste; nenhuma energia foi reduzida.</p>',
       '</section>',
       '<section id="lobby-attack-instance-panel" class="lobby-combat" hidden>',
@@ -620,7 +651,7 @@
       '<button id="lobby-clash-open" type="button" hidden>Registrar confronto</button>',
       '<section id="lobby-individual-preview" class="lobby-combat">',
       '<strong>🧬 PRÉVIA COM DNA INDIVIDUAL — 1x1</strong>',
-      '<p>Usa o ataque validado, a energia individual e os atributos de ambas as criaturas. Elementos vêm do catálogo. Não gasta energia, não aplica HP e não resolve efeitos especiais.</p>',
+      '<p>Usa o ataque validado e o DNA individual. Considera apenas equipamentos revelados no servidor e imunidades conhecidas. Custo é informativo: saldo e mão ainda NÃO são verificados, e pontos NÃO são gastos. Nenhum HP real é alterado.</p>',
       '<button id="lobby-individual-damage-calculate" type="button" hidden>Simular dano com DNA no servidor</button>',
       '<p id="lobby-individual-damage-history" class="lobby-events" aria-live="polite">Nenhuma simulação individual.</p>',
       '</section>',
@@ -694,6 +725,15 @@
       });
       await refreshLoadouts();
       note("Ficha individual da criatura confirmada no servidor, com equipamento do deck.");
+    });
+    $("lobby-equipment-reveal").onclick = () => action(async()=>{
+      if(!room||!match||room.mode!=="1x1"||match.status!=="active"
+        ||match.current_player!==userId)return;
+      const result=await rpc("chaotic_reveal_preview_equipment",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refreshEquipmentReveals();
+      note(result.equipment_name+" revelado no teste. Efeitos reais não foram ativados.");
     });
     $("lobby-attack-instance-capture").onclick = () => action(async()=>{
       if(!room||!match||room.mode!=="1x1"||match.status!=="active"
