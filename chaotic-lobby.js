@@ -346,11 +346,21 @@
       &&snapshot&&clash&&inHand&&!spent);
     const remaining=handCards.filter(x=>x.card_state==="hand")
       .slice().sort((a,b)=>a.draw_position-b.draw_position);
+    const discardSelect=$("lobby-hand-discard-slot");
+    const oldChoice=discardSelect.value;
+    discardSelect.innerHTML=remaining.map(x=>
+      '<option value="'+x.card_slot+'">Slot '+x.card_slot+
+      ' · carta #'+x.attack_instance_id+'</option>').join("");
+    if(remaining.some(x=>String(x.card_slot)===String(oldChoice)))
+      discardSelect.value=oldChoice;
+    $("lobby-hand-discard").hidden=!(myTurn&&wallet?.last_draw_turn===match.turn_no
+      &&remaining.length>0);
     $("lobby-attack-resource-summary").textContent=!wallet
       ?"Prepare a mão de teste após preparar sua criatura."
       :"Mão: "+remaining.length+" carta(s) · monte "+
         Math.max(0,(wallet.total_cards??handCards.length)-handCards.length)+
-        " · usadas "+handCards.filter(x=>x.card_state==="spent").length+
+        " · lixo "+handCards.filter(x=>x.card_state==="spent").length+
+        " · ciclos de reembaralhamento "+(wallet.recycle_cycles??0)+
         " · pontos "+(available===null?"na sua vez":available)+
         " (3 iniciais e +1 por nova vez em TESTE; baralho oculto).";
     $("lobby-hand-cards").textContent=remaining.length
@@ -363,12 +373,12 @@
       attackWallets=[];handCards=[];updateAttackResourceUI();return;
     }
     const wallets=await api.from("chaotic_preview_attack_wallets")
-      .select("actor_id,prepared_turn,last_draw_turn,spent_points,total_cards")
+      .select("actor_id,prepared_turn,last_draw_turn,spent_points,total_cards,recycle_cycles")
       .eq("lobby_id",room.id).limit(2);
     if(wallets.error)throw new Error(wallets.error.message);
     attackWallets=(wallets.data||[]).filter(x=>x.actor_id===userId);
     const hand=await api.from("chaotic_preview_attack_hand")
-      .select("actor_id,card_slot,draw_position,attack_instance_id,card_state,spent_turn")
+      .select("actor_id,card_slot,draw_position,attack_instance_id,card_state,spent_turn,spent_reason,draw_cycle")
       .eq("lobby_id",room.id).order("draw_position",{ascending:true}).limit(20);
     if(hand.error)throw new Error(hand.error.message);
     handCards=(hand.data||[]).filter(x=>x.actor_id===userId);
@@ -706,6 +716,9 @@
       '<p>Embaralhamento feito pelo servidor: só você vê as cartas compradas e usadas. Começa com 3 pontos de teste e ganha 1 a cada nova vez. O baralho não é revelado, e nada é descontado no combate oficial.</p>',
       '<button id="lobby-hand-prepare" type="button" hidden>Embaralhar e preparar mão de teste</button>',
       '<button id="lobby-hand-sync" type="button" hidden>Comprar carta e atualizar pontos (teste)</button>',
+      '<label for="lobby-hand-discard-slot">Descartar da mão de teste</label>',
+      '<select id="lobby-hand-discard-slot"></select>',
+      '<button id="lobby-hand-discard" type="button" hidden>Descartar carta selecionada (teste)</button>',
       '<p id="lobby-attack-resource-summary" class="lobby-events" aria-live="polite">Mão não preparada.</p>',
       '<p id="lobby-hand-cards" class="lobby-events">Nenhuma carta na mão.</p>',
       '<button id="lobby-hand-spend" type="button" hidden>Confirmar carta e gastar pontos de teste</button>',
@@ -830,7 +843,19 @@
       });
       await refreshAttackResources();
       note("Saldo experimental: "+out.available_points+
-        " pontos"+(out.drew_card?"; uma carta comprada.":"."));
+        " pontos"+(out.recycled?"; lixo reembaralhado no servidor":"")+
+        (out.drew_card?"; uma carta comprada.":"; nenhuma carta comprada."));
+    });
+    $("lobby-hand-discard").onclick = () => action(async()=>{
+      if(!room||!match||room.mode!=="1x1"||match.current_player!==userId)return;
+      const slot=Number($("lobby-hand-discard-slot").value);
+      if(!Number.isInteger(slot)||!handCards.some(x=>x.card_slot===slot&&x.card_state==="hand"))
+        throw new Error("Escolha uma carta da sua mão de teste.");
+      const out=await rpc("chaotic_discard_preview_attack",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no,p_card_slot:slot
+      });
+      await refreshAttackResources();
+      note("Carta do slot "+out.discarded_slot+" enviada ao lixo de teste. Nenhum ponto gasto.");
     });
     $("lobby-hand-spend").onclick = () => action(async()=>{
       if(!room||!match||room.mode!=="1x1"||match.current_player!==userId)return;
