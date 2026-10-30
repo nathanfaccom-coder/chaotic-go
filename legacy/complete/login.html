@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Chaotic GO - Login Cloud</title> 
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .modal-oculto { display: none; }
+        .modal-ativo { display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-conteudo { background: #111; border: 2px solid #4CAF50; padding: 20px; border-radius: 10px; text-align: center; width: 90%; max-width: 350px;}
+        #mensagem-erro { color: #ff5555; font-size: 12px; margin-top: 10px; font-weight: bold; min-height: 15px; }
+        
+        /* O estilo para a caixa que segura a senha e o olhinho */
+        .caixa-senha-olho { position: relative; width: 90%; margin: 10px auto; }
+        .caixa-senha-olho input { width: 100%; padding: 10px; padding-right: 35px; box-sizing: border-box; }
+        .icone-olho { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; font-size: 16px; user-select: none; }
+    </style>
+</head>
+<body>
+
+    <img src="logo.png" alt="Logotipo Chaotic GO" id="logo-login" style="max-width: 200px; margin: 20px auto; display: block;">
+
+    <div class="caixa-botoes" style="text-align: center;">
+        <button class="botao-padrao" id="btn-abrir-login">Fazer Login</button>
+        <button class="botao-padrao" id="btn-abrir-cadastro">Criar Conta</button>
+        <button class="botao-admin" style="margin-top: 10px;">Painel Admin</button>
+        <div id="status-nuvem" style="color: #4CAF50; margin-top: 15px; font-size: 12px; font-weight: bold;">Conectando a Perim...</div>
+    </div>
+
+    <div id="modal-login" class="modal-oculto">
+        <div class="modal-conteudo">
+            <h2 style="color: white;">Acessar Scanner</h2>
+            
+            <input type="email" id="email-login" placeholder="Seu E-mail" style="display: block; width: 90%; margin: 10px auto; padding: 10px;">
+            
+            <div class="caixa-senha-olho">
+                <input type="password" id="senha-login" placeholder="Senha">
+                <span class="icone-olho" onclick="alternarSenha('senha-login', this)">👁️</span>
+            </div>
+            
+            <div id="erro-login" style="color: #ff5555; font-size: 12px; font-weight: bold; margin-bottom: 5px;"></div>
+
+            <button class="botao-padrao" id="btn-entrar" style="margin-top: 10px;">Entrar</button>
+            <button class="botao-voltar" id="btn-fechar-login" style="margin-top: 10px; background: red; color: white;">Voltar</button>
+        </div>
+    </div>
+
+    <div id="modal-cadastro" class="modal-oculto">
+        <div class="modal-conteudo">
+            <h2 style="color: white;">Nova Conta</h2>
+            
+            <input type="email" id="novo-email" placeholder="Seu E-mail" style="display: block; width: 90%; margin: 10px auto; padding: 10px;">
+            <input type="text" id="novo-usuario" placeholder="Nome de Usuário" style="display: block; width: 90%; margin: 10px auto; padding: 10px;">
+            
+            <div class="caixa-senha-olho">
+                <input type="password" id="nova-senha" placeholder="Crie uma Senha (Mínimo 6)">
+                <span class="icone-olho" onclick="alternarSenha('nova-senha', this)">👁️</span>
+            </div>
+            
+            <div id="erro-cadastro" style="color: #ff5555; font-size: 12px; font-weight: bold; margin-bottom: 5px;"></div>
+
+            <button class="botao-padrao" id="btn-cadastrar" style="margin-top: 10px;">Cadastrar</button>
+            <button class="botao-voltar" id="btn-fechar-cadastro" style="margin-top: 10px; background: red; color: white;">Voltar</button>
+        </div>
+    </div>
+    
+    <script>
+        // =====================================
+        // FUNÇÃO DO OLHINHO (Mostra/Esconde Senha)
+        // =====================================
+        function alternarSenha(inputId, iconeElement) {
+            let inputSenha = document.getElementById(inputId);
+            if (inputSenha.type === "password") {
+                inputSenha.type = "text";
+                iconeElement.innerText = "🙈"; 
+            } else {
+                inputSenha.type = "password";
+                iconeElement.innerText = "👁️";
+            }
+        }
+    </script>
+
+    <script type="module">
+        // Importando as ferramentas do Firebase direto da nuvem do Google
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+
+        // Suas Chaves Oficiais
+        const firebaseConfig = {
+            apiKey: "AIzaSyD9o1B06TShDaO--6-DQsS8abutVXuU_jo",
+            authDomain: "chaotic-go.firebaseapp.com",
+            databaseURL: "https://chaotic-go-default-rtdb.firebaseio.com", // Link direto do Realtime Database
+            projectId: "chaotic-go",
+            storageBucket: "chaotic-go.firebasestorage.app",
+            messagingSenderId: "394870191188",
+            appId: "1:394870191188:web:5e6040097ec0a4a4d7e9c1"
+        };
+
+        // Ligar os motores!
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getDatabase(app);
+
+        document.getElementById('status-nuvem').innerText = "☁️ Conectado à Rede de Perim!";
+
+        // =====================================
+        // CONTROLES DAS CAIXAS (MODAIS)
+        // =====================================
+        const modalLogin = document.getElementById('modal-login');
+        const modalCadastro = document.getElementById('modal-cadastro');
+
+        document.getElementById('btn-abrir-login').onclick = () => { modalLogin.className = 'modal-ativo'; };
+        document.getElementById('btn-abrir-cadastro').onclick = () => { modalCadastro.className = 'modal-ativo'; };
+        
+        document.getElementById('btn-fechar-login').onclick = () => { modalLogin.className = 'modal-oculto'; };
+        document.getElementById('btn-fechar-cadastro').onclick = () => { modalCadastro.className = 'modal-oculto'; };
+
+        // =====================================
+        // CRIAR NOVA CONTA (CADASTRO)
+        // =====================================
+        document.getElementById('btn-cadastrar').onclick = () => {
+            const email = document.getElementById('novo-email').value.trim();
+            const usuario = document.getElementById('novo-usuario').value.trim();
+            const senha = document.getElementById('nova-senha').value;
+            const erroMsg = document.getElementById('erro-cadastro');
+
+            if(!email || !usuario || !senha) {
+                erroMsg.innerText = "Preencha todos os campos!"; return;
+            }
+
+            document.getElementById('btn-cadastrar').innerText = "Criando...";
+
+            createUserWithEmailAndPassword(auth, email, senha)
+                .then((userCredential) => {
+                    const user = userCredential.user;
+                    
+                    // Salva os dados básicos do jogador no Banco de Dados
+                    set(ref(db, 'jogadores/' + user.uid), {
+                        nome: usuario,
+                        avatar: "👤",
+                        vitorias: 0,
+                        derrotas: 0
+                    }).then(() => {
+                        // Salva o nome na memória do celular também
+                        localStorage.setItem("chaoticJogadorAtual", usuario);
+                        localStorage.setItem("chaoticUID", user.uid);
+                        window.location.href = "scanner.html"; // Joga para o Scanner
+                    });
+                })
+                .catch((error) => {
+                    document.getElementById('btn-cadastrar').innerText = "Cadastrar";
+                    if(error.code === "auth/email-already-in-use") erroMsg.innerText = "Este e-mail já está em uso.";
+                    else if(error.code === "auth/weak-password") erroMsg.innerText = "A senha deve ter pelo menos 6 letras/números.";
+                    else erroMsg.innerText = "Erro ao criar conta: " + error.message;
+                });
+        };
+
+        // =====================================
+        // FAZER LOGIN (ENTRAR)
+        // =====================================
+        document.getElementById('btn-entrar').onclick = () => {
+            const email = document.getElementById('email-login').value.trim();
+            const senha = document.getElementById('senha-login').value;
+            const erroMsg = document.getElementById('erro-login');
+
+            if(!email || !senha) {
+                erroMsg.innerText = "Preencha e-mail e senha!"; return;
+            }
+
+            document.getElementById('btn-entrar').innerText = "Verificando...";
+
+            signInWithEmailAndPassword(auth, email, senha)
+                .then((userCredential) => {
+                    const user = userCredential.user;
+
+                    // Puxa o nome do jogador lá do Banco de Dados
+                    get(ref(db, 'jogadores/' + user.uid)).then((snapshot) => {
+                        if (snapshot.exists()) {
+                            let dados = snapshot.val();
+                            localStorage.setItem("chaoticJogadorAtual", dados.nome);
+                        } else {
+                            localStorage.setItem("chaoticJogadorAtual", "Jogador");
+                        }
+                        localStorage.setItem("chaoticUID", user.uid);
+                        window.location.href = "scanner.html";
+                    });
+                })
+                .catch((error) => {
+                    document.getElementById('btn-entrar').innerText = "Entrar";
+                    if(error.code === "auth/invalid-credential") erroMsg.innerText = "E-mail ou senha incorretos!";
+                    else erroMsg.innerText = "Erro de acesso.";
+                });
+        };
+    </script>
+</body>
+</html>

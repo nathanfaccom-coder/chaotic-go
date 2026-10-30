@@ -1,0 +1,1750 @@
+/* =========================================
+   1. CONFIGURAÇÕES GERAIS E TELA TRAVADA
+   ========================================= */
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: #000; /* Fundo preto puro e chumbado */
+    color: white; 
+    font-family: Arial, sans-serif; 
+    text-align: center; 
+    
+    /* REGRAS DE BLINDAGEM (Trava o Scroll e o Zoom) */
+    overflow: hidden; 
+    overscroll-behavior: none; 
+    user-select: none; 
+    -webkit-user-select: none;
+    touch-action: pan-x pan-y; 
+}
+
+#logo-abertura { 
+    width: 60%; 
+    max-width: 300px; 
+    height: auto; 
+    display: block; 
+    margin: 20vh auto 20px auto; 
+    transition: transform 0.3s; 
+}
+
+#logo-abertura:hover { transform: scale(1.1); }
+
+#logo-login { 
+    width: 150px; 
+    margin-top: 20px; 
+    margin-bottom: 40px; 
+}
+
+/* =========================================
+   2. TELA DE LOGIN, CADASTRO E MODAIS
+   ========================================= */
+.caixa-botoes { 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    gap: 15px; 
+}
+
+.botao-padrao, #btn-entrar, #btn-cadastrar { 
+    background-color: #4CAF50; 
+    color: white; 
+    border: none; 
+    padding: 15px; 
+    width: 250px; 
+    font-size: 18px; 
+    font-weight: bold; 
+    border-radius: 8px; 
+    cursor: pointer; 
+    transition: background-color 0.3s, transform 0.3s; 
+    box-sizing: border-box; 
+}
+
+#btn-entrar, #btn-cadastrar { width: 100%; }
+
+.botao-padrao:hover, #btn-entrar:hover, #btn-cadastrar:hover { 
+    background-color: #45a049; 
+    transform: scale(1.02); 
+}
+
+.botao-admin { 
+    background-color: #8b0000; 
+    color: white; 
+    border: none; 
+    padding: 15px; 
+    width: 250px; 
+    font-size: 18px; 
+    font-weight: bold; 
+    border-radius: 8px; 
+    cursor: pointer; 
+    margin-top: 20px; 
+    transition: background-color 0.3s, transform 0.3s; 
+}
+
+.botao-admin:hover { 
+    background-color: #ff0000; 
+    transform: scale(1.02); 
+}
+
+.modal-oculto { 
+    display: none; 
+    position: fixed; 
+    top: 0; left: 0; width: 100%; height: 100%; 
+    background-color: rgba(0, 0, 0, 0.7); 
+    backdrop-filter: blur(5px); 
+    justify-content: center; 
+    align-items: center; 
+    z-index: 1000; 
+}
+
+.modal-conteudo { 
+    background-color: #1a1a1a; 
+    padding: 40px 30px; 
+    border-radius: 15px; 
+    border: 1px solid #333; 
+    box-shadow: 0px 15px 35px rgba(0, 0, 0, 0.8); 
+    display: flex; 
+    flex-direction: column; 
+    gap: 20px; 
+    width: 320px; 
+}
+
+.modal-conteudo h2 { 
+    color: #ffffff; 
+    margin-top: 0; 
+    margin-bottom: 10px; 
+    font-size: 26px; 
+    letter-spacing: 1px; 
+}
+
+.modal-conteudo input { 
+    padding: 15px; 
+    border-radius: 8px; 
+    border: 1px solid #444; 
+    background-color: #252525; 
+    color: white; 
+    font-size: 16px; 
+    width: 100%; 
+    box-sizing: border-box; 
+    transition: border-color 0.3s, box-shadow 0.3s; 
+}
+
+.modal-conteudo input:focus { 
+    border-color: #4CAF50; 
+    box-shadow: 0 0 8px rgba(76, 175, 80, 0.3); 
+    outline: none; 
+}
+
+.botao-voltar { 
+    background-color: #8b0000; 
+    color: white; 
+    border: none; 
+    padding: 15px; 
+    width: 100%; 
+    box-sizing: border-box; 
+    font-size: 18px; 
+    font-weight: bold; 
+    border-radius: 8px; 
+    cursor: pointer; 
+    transition: background-color 0.3s, transform 0.3s; 
+}
+
+.botao-voltar:hover { 
+    background-color: #ff0000; 
+    color: white; 
+    transform: scale(1.02); 
+}
+
+/* =========================================
+   3. ESTRUTURA DO SCANNER
+   ========================================= */
+.fundo-scanner { 
+    background-color: transparent; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    height: 100vh; 
+    margin: 0; 
+}
+
+.carcaca-scanner { 
+    background-color: #ba1818; 
+    width: 100%; 
+    max-width: 400px; 
+    height: auto; 
+    min-height: 85vh; 
+    border-radius: 15px 15px 60px 60px; 
+    border: 5px solid #000; 
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.4), 0px 15px 30px rgba(0,0,0,0.9); 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    padding: 25px 15px 15px 15px; 
+    box-sizing: border-box; 
+    margin: 0 auto; 
+    position: relative; 
+}
+
+.logo-scanner { 
+    width: 55px; 
+    margin-bottom: 15px; 
+    border-radius: 50%; 
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.6); 
+}
+
+.tela-digital { 
+    background-color: #081108; 
+    width: 100%; 
+    height: 60vh; 
+    min-height: 350px; 
+    border-radius: 10px 10px 25px 25px; 
+    border: 6px solid #111; 
+    box-shadow: inset 0px 0px 30px rgba(0,0,0,0.9); 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    color: #4CAF50; 
+    font-family: 'Courier New', Courier, monospace; 
+    text-align: center; 
+    overflow: hidden; 
+    position: relative; 
+} 
+
+/* =========================================
+   4. BOTÕES FÍSICOS E D-PAD
+   ========================================= */
+.painel-botoes { 
+    margin-top: 15px; 
+    background-color: #3d0c0c; 
+    border: 3px solid #b3b3b3; 
+    border-radius: 12px; 
+    padding: 8px; 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    gap: 0px; 
+    width: 140px; 
+}
+
+.linha-botoes { display: flex; justify-content: center; }
+.linha-meio { align-items: center; }
+
+.btn-direcional { 
+    background-color: #4CAF50; 
+    color: #000; 
+    border: 2px solid #111; 
+    width: 35px; 
+    height: 35px; 
+    font-size: 14px; 
+    cursor: pointer; 
+    box-shadow: 0px 3px 0px #1b5e20; 
+    transition: transform 0.1s, box-shadow 0.1s; 
+}
+
+#btn-cima { border-radius: 10px 10px 0 0; }
+#btn-baixo { border-radius: 0 0 10px 10px; }
+#btn-esq { border-radius: 10px 0 0 10px; }
+#btn-dir { border-radius: 0 10px 10px 0; }
+
+.btn-direcional:active { 
+    transform: translateY(3px); 
+    box-shadow: 0px 0px 0px #1b5e20; 
+}
+
+.btn-escanear { 
+    background-color: #e53935; 
+    color: white; 
+    font-weight: bold; 
+    font-size: 10px; 
+    border: 2px solid #111; 
+    border-radius: 50%; 
+    width: 45px; 
+    height: 45px; 
+    cursor: pointer; 
+    box-shadow: 0px 3px 0px #8e0000; 
+    margin: 0 3px; 
+    transition: transform 0.1s, box-shadow 0.1s, background-color 0.3s; 
+}
+
+.btn-escanear:active { 
+    transform: translateY(3px); 
+    box-shadow: 0px 0px 0px #8e0000; 
+    background-color: #ff5252; 
+}
+
+/* =========================================
+   5. MENU DE APPS E GRADE
+   ========================================= */
+.menu-grade { 
+    display: grid; 
+    grid-template-columns: repeat(3, 1fr); 
+    gap: 15px; 
+    padding: 10px; 
+    width: 100%; 
+    justify-items: center; 
+}
+
+.app-icone { 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    justify-content: center; 
+    width: 65px; 
+    height: 65px; 
+    background-color: #0d2a0d; 
+    border: 2px solid #1b5e20; 
+    border-radius: 12px; 
+    cursor: pointer; 
+    transition: transform 0.2s, background-color 0.2s, box-shadow 0.2s; 
+}
+
+.app-icone:hover { 
+    transform: scale(1.1); 
+    background-color: #1b5e20; 
+    box-shadow: 0 0 12px #4CAF50; 
+}
+
+.app-selecionado { 
+    transform: scale(1.1); 
+    background-color: #1b5e20; 
+    box-shadow: 0 0 15px #4CAF50, inset 0 0 10px #4CAF50; 
+    border-color: #4CAF50; 
+}
+
+.icone-emoji { font-size: 24px; margin-bottom: 5px; }
+
+.app-texto { 
+    font-size: 9px; 
+    color: #4CAF50; 
+    font-weight: bold; 
+    font-family: Arial, sans-serif; 
+    letter-spacing: 1px; 
+}
+
+/* =========================================
+   6. LOCAIS, CARROSSEL E MENSAGENS
+   ========================================= */
+#tela-locais { 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    justify-content: center; 
+    width: 100%; 
+    height: 100%; 
+}
+
+.titulo-tela { 
+    font-size: 12px; 
+    font-weight: bold; 
+    margin-top: 0; 
+    margin-bottom: 5px; 
+    letter-spacing: 1px; 
+}
+
+.mensagem-sistema { 
+    color: #ffcc00; 
+    font-size: 9px; 
+    font-weight: bold; 
+    min-height: 25px; 
+    width: 80%; 
+    opacity: 0; 
+    transition: opacity 0.3s; 
+}
+
+.mensagem-sistema.mostrar { opacity: 1; }
+
+.container-carrossel { 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    gap: 10px; 
+    width: 100%; 
+    margin-top: 5px; 
+}
+
+.seta-carrossel { 
+    background: none; 
+    border: none; 
+    color: #4CAF50; 
+    font-size: 22px; 
+    cursor: pointer; 
+    transition: transform 0.2s, color 0.2s; 
+    padding: 0 5px; 
+}
+
+.seta-carrossel:hover { color: #fff; transform: scale(1.2); }
+
+.carrossel-cartas { display: flex; justify-content: center; }
+
+.carta-local-real { 
+    width: 180px; 
+    height: 125px; 
+    border: 3px solid #555; 
+    border-radius: 8px; 
+    cursor: pointer; 
+    transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s; 
+    overflow: hidden; 
+}
+
+.carta-local-real img { 
+    width: 100%; 
+    height: 100%; 
+    object-fit: cover; 
+    display: block; 
+}
+
+.carta-local-real:hover { 
+    transform: scale(1.05) translateY(-5px); 
+    border-color: #4CAF50; 
+    box-shadow: 0px 5px 15px rgba(76, 175, 80, 0.4); 
+}
+
+.btn-voltar-pequeno { 
+    margin-top: 15px; 
+    background-color: transparent; 
+    color: #ff5252; 
+    border: 1px solid #ff5252; 
+    padding: 5px 15px; 
+    font-size: 10px; 
+    border-radius: 5px; 
+    cursor: pointer; 
+}
+
+.btn-voltar-pequeno:hover { 
+    background-color: #ff5252; 
+    color: white; 
+}
+
+/* =========================================
+   7. INSPEÇÃO, ZOOM E DNA (STATS)
+   ========================================= */
+#tela-detalhe-carta { 
+    width: 100%; 
+    height: 100%; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    background-color: #020502; 
+}
+
+.container-carta-inspecao {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#imagem-detalhe { 
+    max-width: 95%; 
+    max-height: 95%; 
+    border-radius: 10px; 
+    border: 2px solid #4CAF50; 
+    object-fit: contain; 
+    box-shadow: 0 0 20px rgba(76, 175, 80, 0.3); 
+}
+
+.camada-stats {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+}
+
+/* =========================================================
+   CALIBRAÇÃO 4.0 - PIXELS DO DIRETOR (COMPUTADORES / PC)
+   ========================================================= */
+.stat {
+    position: absolute;
+    color: black;
+    font-weight: bold;
+    font-family: 'Arial Black', sans-serif;
+    font-size: 11px; 
+    text-shadow: 1px 1px 0px white;
+    width: 50px;
+    text-align: center;
+}
+
+/* Coloque aqui os números que ficam perfeitos no seu PC */
+#stat-coragem    { top: 64%; left: 15.1%; } 
+#stat-poder      { top: 70.2%; left: 15.1%; } 
+#stat-sabedoria  { top: 76.1%; left: 15.1%; } 
+#stat-velocidade { top: 82.7%; left: 15.1%; } 
+#stat-energia    { top: 87.7%; left: 69.5%; font-size: 20px; width: 60px; }
+
+
+/* =========================================================
+   CALIBRAÇÃO MOBILE (CELULARES - TELAS MENORES QUE 768px)
+   ========================================================= */
+@media (max-width: 768px) {
+    .stat {
+        /* Se precisar diminuir um pouco a fonte no celular, mude aqui: */
+        font-size: 19px; 
+    }
+
+    /* Coloque aqui os números que ficam perfeitos na tela do seu celular */
+    #stat-coragem    { top: 63.2%; left: 7.3%; } 
+    #stat-poder      { top: 69.1%; left: 7.3%; } 
+    #stat-sabedoria  { top: 74.7%; left: 7.3%; } 
+    #stat-velocidade { top: 81%; left: 7.3%; } 
+    #stat-energia    { top: 86.5%; left: 77.5%; font-size: 30px; }
+}
+
+
+/* =========================================
+   8. RADAR E MAPA
+   ========================================= */
+.painel-acao-viagem { 
+    margin-top: 25px; 
+    display: flex; 
+    gap: 15px; 
+    width: 100%; 
+    justify-content: center; 
+    align-items: center; 
+}
+
+.botao-viajar { 
+    background-color: #4CAF50; 
+    color: #000; 
+    font-weight: bold; 
+    font-size: 14px; 
+    padding: 12px 20px; 
+    border: 2px solid #1b5e20; 
+    border-radius: 8px; 
+    cursor: pointer; 
+    box-shadow: 0 5px 0 #1b5e20; 
+    transition: transform 0.1s, box-shadow 0.1s; 
+}
+
+.botao-viajar:active { 
+    transform: translateY(5px); 
+    box-shadow: 0 0 0 #1b5e20; 
+}
+
+.botao-voltar-viagem { 
+    background-color: #e53935; 
+    color: white; 
+    font-weight: bold; 
+    font-size: 14px; 
+    padding: 12px 20px; 
+    border: 2px solid #8e0000; 
+    border-radius: 8px; 
+    cursor: pointer; 
+    box-shadow: 0 5px 0 #8e0000; 
+    transition: transform 0.1s, box-shadow 0.1s; 
+}
+
+.botao-voltar-viagem:active { 
+    transform: translateY(5px); 
+    box-shadow: 0 0 0 #8e0000; 
+}
+
+#tela-mapa { 
+    width: 100%; 
+    height: 100%; 
+    display: flex; 
+    flex-direction: column; 
+    justify-content: center; 
+    align-items: center; 
+    position: relative; 
+}
+
+@keyframes piscar { 
+    0% { opacity: 1; text-shadow: 0 0 5px #4CAF50; } 
+    50% { opacity: 0.4; text-shadow: none; } 
+    100% { opacity: 1; text-shadow: 0 0 5px #4CAF50; } 
+}
+
+.texto-carregando { 
+    font-size: 14px; 
+    animation: piscar 1.5s infinite; 
+    color: #4CAF50; 
+    font-weight: bold; 
+    padding: 20px; 
+    z-index: 10; 
+}
+
+#meu-mapa { width: 100%; height: 100%; display: none; z-index: 1; }
+
+.btn-radar {
+    position: absolute;
+    bottom: 15px;
+    z-index: 1000;
+    background-color: #111;
+    border-color: #4CAF50;
+    color: #4CAF50;
+    font-weight: bold;
+}
+
+.btn-radar:hover { background-color: #4CAF50; color: #000; }
+
+/* =========================================
+   9. ARENA DO MINI-GAME E MONSTRO NA CENA
+   ========================================= */
+#tela-minigame { 
+    width: 100%; 
+    height: 100%; 
+    position: relative; 
+    display: none; 
+}
+
+#fundo-cena-minigame { 
+    width: 100%; 
+    height: 100%; 
+    object-fit: cover; 
+    position: absolute; 
+    top: 0; left: 0; 
+    z-index: 1;
+    filter: brightness(0.6) sepia(0.3) hue-rotate(80deg); 
+}
+
+/* O NOVO: Visual do monstro na cena de combate */
+#monstro-cena {
+    position: absolute;
+    bottom: 10%;
+    left: 50%;
+    transform: translateX(-50%);
+    height: 50%;
+    z-index: 2;
+    pointer-events: none;
+    filter: drop-shadow(0 0 15px rgba(0,0,0,0.8));
+}
+
+#interface-minigame { position: relative; z-index: 3; width: 100%; height: 100%; }
+
+#timer-barra { 
+    width: 80%; height: 10px; 
+    background: #002200; 
+    border: 2px solid #4CAF50; 
+    margin: 15px auto 5px; 
+    border-radius: 5px; 
+}
+
+#timer-progresso { 
+    width: 100%; height: 100%; 
+    background: #4CAF50; 
+    transition: width 0.1s linear; 
+}
+
+/* O ALVO FIXO (Para garantir a precisão matemática) */
+.alvo-circulo {
+    position: absolute; 
+    width: 45px; /* Tamanho fixado */
+    height: 45px; /* Tamanho fixado */
+    border: 3px solid rgba(255, 255, 255, 0.8);
+    border-radius: 50%; 
+    background: rgba(255, 255, 255, 0.1);
+    transform: translate(-50%, -50%);
+    z-index: 4; /* Na frente do monstro */
+}
+
+.alvo-circulo.atingido { 
+    border-color: #4CAF50; 
+    background: rgba(76, 175, 80, 0.5); 
+    box-shadow: 0 0 15px #4CAF50; 
+}
+
+#mira-vermelha {
+    position: absolute; 
+    width: 25px; 
+    height: 25px;
+    background: radial-gradient(circle, #ff0000 30%, transparent 70%);
+    border: 2px solid #ff5555; 
+    border-radius: 50%;
+    transform: translate(-50%, -50%); 
+    z-index: 10; /* Sempre no topo de tudo */
+    transition: top 0.3s ease-in-out, left 0.3s ease-in-out; 
+}
+
+/* =========================================
+   10. TELA DE PERFIL DO JOGADOR
+   ========================================= */
+#tela-perfil {
+    width: 100%;
+    height: 100%;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    overflow-y: auto;
+    padding-bottom: 20px;
+    box-sizing: border-box;
+}
+
+.perfil-info {
+    background: #112211;
+    border: 1px solid #4CAF50;
+    border-radius: 10px;
+    padding: 10px;
+    width: 80%;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.avatar-perfil {
+    font-size: 35px;
+    background-color: #000;
+    border: 2px solid #4CAF50;
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    line-height: 60px;
+    margin-bottom: 5px;
+    cursor: pointer;
+    background-size: cover;
+    background-position: center;
+    transition: transform 0.2s;
+}
+
+.avatar-perfil:hover { transform: scale(1.1); border-color: #fff; }
+
+.nome-editavel {
+    margin: 5px 0; color: white; font-size: 16px; cursor: pointer; transition: color 0.2s;
+}
+.nome-editavel:hover { color: #4CAF50; }
+
+.perfil-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    width: 85%;
+}
+
+.stat-box {
+    background: #000;
+    border: 1px solid #4CAF50;
+    border-radius: 8px;
+    padding: 8px;
+    font-size: 8px;
+    color: #4CAF50;
+    text-transform: uppercase;
+}
+
+.stat-box span {
+    display: block; font-size: 14px; color: white; font-weight: bold; margin-top: 2px;
+}
+
+/* =========================================
+   11. TELA SOCIAL E TROCAS
+   ========================================= */
+#tela-social {
+    width: 100%; height: 100%; display: none; flex-direction: column; align-items: center; position: relative; overflow-y: auto; padding-bottom: 20px; box-sizing: border-box;
+}
+
+.amigo-item {
+    background: #112211; border: 1px solid #4CAF50; border-radius: 8px; padding: 10px; display: flex; justify-content: space-between; align-items: center; width: 90%; margin-bottom: 8px; box-sizing: border-box;
+}
+
+.amigo-info { display: flex; align-items: center; gap: 10px; }
+.amigo-avatar { font-size: 20px; width: 35px; height: 35px; background: #000; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid #4CAF50; }
+.amigo-nome { color: white; font-size: 11px; font-weight: bold; }
+.amigo-id { color: #4CAF50; font-size: 9px; }
+
+.btn-trocar {
+    background: #4CAF50; color: #000; border: none; padding: 6px 12px; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 10px; transition: transform 0.2s;
+}
+.btn-trocar:hover { transform: scale(1.1); background: #fff; }
+
+.slot-troca {
+    width: 65px; height: 90px; border-radius: 5px; display: flex; align-items: center; justify-content: center; background: #111; margin: 0 auto;
+}
+/* =========================================
+   12. OFICINA DE DECKS (TABULEIRO)
+   ========================================= */
+.tabuleiro-glow {
+    background: linear-gradient(135deg, #1f4f59 0%, #112d33 100%);
+    border: 3px solid #00ffff;
+    border-radius: 15px;
+    box-shadow: 0 0 15px #00ffff, inset 0 0 20px rgba(0,255,255,0.2);
+    width: 100%;
+    flex: 1;
+    display: flex;
+    padding: 10px;
+    box-sizing: border-box;
+    position: relative;
+}
+
+/* Áreas divididas */
+.area-pilhas { display: flex; flex-direction: column; gap: 20px; justify-content: center; width: 75px; align-items: center; }
+.area-formacao { display: flex; flex-direction: column; gap: 10px; align-items: center; justify-content: center; flex: 1; }
+.area-mugics { display: flex; flex-direction: column; gap: 3px; align-items: center; justify-content: center; width: 40px; }
+
+/* Pilhas 3D (Ataques e Locais) */
+.pilha-cartas {
+    width: 60px;
+    height: 85px;
+    background: #111;
+    border-radius: 5px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 9px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: -2px 2px 0 #222, -4px 4px 0 #444, -6px 6px 0 #666;
+    border: 2px solid #555;
+    transition: transform 0.2s;
+}
+.pilha-cartas:hover { transform: translate(2px, -2px); }
+.slot-local { border-color: #4CAF50; color: #4CAF50; }
+.slot-ataque { border-color: #ff5555; color: #ff5555; }
+.contador-cartas { font-size: 14px; margin-top: 5px; color: white; }
+
+/* Linhas 3-2-1 e Combo Criatura/Equipamento */
+.linha-formacao { display: flex; justify-content: center; gap: 10px; width: 100%; }
+.combo-slot { position: relative; width: 50px; height: 50px; cursor: pointer; }
+
+.slot-criatura {
+    width: 100%;
+    height: 100%;
+    background: #0a1515;
+    border: 2px solid #00ffff;
+    border-radius: 8px;
+    box-shadow: inset 0 0 10px rgba(0,255,255,0.2);
+    position: absolute;
+    top: 0; left: 0;
+    z-index: 2;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.2s;
+}
+.slot-criatura:hover { transform: scale(1.1); border-color: #fff; }
+
+.slot-equipamento {
+    width: 80%;
+    height: 80%;
+    background: #331111;
+    border: 2px solid #ffaa00;
+    border-radius: 5px;
+    position: absolute;
+    bottom: -8px;
+    right: -8px;
+    z-index: 1;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.8);
+}
+
+/* =========================================
+   MUGICS - HEPTÁGONOS ORIGINAIS COM BORDA NEON
+   ========================================= */
+.slot-mugic-heptagono {
+    position: relative; 
+    width: 26px;  /* ⬅️ Diminuímos de 30px para 26px! O tamanho perfeito. */
+    height: 26px; 
+    background: #00ffff; /* A cor Neon da borda */
+    clip-path: polygon(50% 0%, 90% 20%, 100% 60%, 75% 100%, 25% 100%, 0% 60%, 10% 20%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0; 
+    transition: transform 0.2s;
+}
+
+.slot-mugic-heptagono:hover {
+    transform: scale(1.1);
+    background: #fff; 
+}
+
+/* O "buraco" escuro do meio onde a carta entra */
+.slot-mugic-heptagono::after {
+    content: '';
+    position: absolute;
+    width: 22px; /* ⬅️ Exatamente 4 pixels menor que 26px (mantendo os 2px de borda) */
+    height: 22px; 
+    background: #050a0f; 
+    clip-path: polygon(50% 0%, 90% 20%, 100% 60%, 75% 100%, 25% 100%, 0% 60%, 10% 20%);
+    top: 50%; 
+    left: 50%; 
+    transform: translate(-50%, -50%); 
+}
+/* =========================================
+   13. CLASSES AUXILIARES (LÓGICA)
+   ========================================= */
+.escondido {
+    display: none !important; /* Faz o elemento sumir do tabuleiro sem quebrar o layout */
+}
+
+/* Botão de Ajuda "?" (Círculo Neon) */
+.btn-help-decks {
+    width: 30px;
+    height: 30px;
+    border: 2px solid #00ffff;
+    border-radius: 50%;
+    color: #00ffff;
+    background: transparent;
+    font-size: 18px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+    transition: background 0.2s, box-shadow 0.2s;
+    user-select: none;
+}
+
+.btn-help-decks:hover {
+    background: rgba(0, 255, 255, 0.2);
+    box-shadow: 0 0 15px #00ffff;
+}
+
+/* Botão Fechar do Modal (×) */
+.btn-close-livro {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 24px;
+    color: #ff5555;
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.2s;
+}
+
+.btn-close-livro:hover {
+    color: #fff;
+}
+
+/* --- O Livro Animado (Encaixado Perfeitamente no Visor) --- */
+.livro {
+    width: 90%; 
+    height: 75%; /* 💡 Reduzi um pouco a altura para as setas caberem embaixo! */
+    max-width: 320px; 
+    max-height: 450px; 
+    background: #111; 
+    border: 2px solid #00ffff; 
+    border-radius: 10px;
+    perspective: 1500px; 
+    overflow: hidden; 
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.3); 
+    position: relative; /* 💡 Tirei a flutuação! Agora as setas aparecem! */
+    z-index: 10; 
+}
+
+/* As Páginas do Livro */
+.pagina {
+    position: absolute;
+    width: calc(100% - 4px); /* Espaço para as bordas neon (2px de cada lado) */
+    height: calc(100% - 4px); /* Espaço para as bordas neon (2px em cima/baixo) */
+    background: #0a0f0a; /* Fundo escuro original */
+    padding: 15px; /* Padding reduzido original */
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    backface-visibility: hidden; /* Esconde a parte de trás da página original */
+    transition: transform 0.6s; /* Tempo da animação original */
+    transform-origin: left center; /* Eixo de rotação original */
+    opacity: 0; /* Começa invisível original */
+    z-index: 1; /* Começa em z-index baixo original */
+    
+    /* 👇 Centralização Milimétrica na .livro (Matemática Infallível) 👇 */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%); /* Garante o encaixe perfeito no meio */
+}
+
+/* Página Ativa (vísivel, de pé e centralizada) */
+.pagina-ativa {
+    opacity: 1;
+    z-index: 10;
+    transform: translate(-50%, -50%) rotateY(0deg); /* Posição normal, mantendo a centralização */
+}
+
+/* Página Anterior (girada para trás e centralizada) */
+.pagina-anterior {
+    transform: translate(-50%, -50%) rotateY(-180deg); /* Gira 180 graus, mantendo a centralização */
+}
+
+/* Estilização do Conteúdo do Livro */
+.livro h3, .livro h4 { color: #00ffff; margin-bottom: 10px; text-shadow: 0 0 5px #00ffff; text-align: center;}
+.livro h3 { font-size: 20px; text-transform: uppercase; }
+.livro p { color: #fff; font-size: 12px; margin-bottom: 15px; text-align: center; }
+.livro ul { color: #4CAF50; font-size: 11px; margin-top: 10px; padding-left: 15px; text-align: left; list-style-type: decimal; }
+.livro li { margin-bottom: 5px; line-height: 1.3;}
+.livro strong { color: #fff; }
+
+/* Navegação do Livro (Setas) */
+.navegacao-livro {
+    display: flex;
+    gap: 30px;
+    margin-top: 20px;
+    margin-bottom: 10px;
+}
+
+.seta-livro {
+    background: transparent;
+    border: none;
+    color: #4CAF50;
+    font-size: 24px;
+    cursor: pointer;
+    transition: color 0.2s;
+    user-select: none;
+}
+
+.seta-livro:hover {
+    color: #00ffff;
+}
+
+
+/* ========================================= */
+/* ⚔️ TABULEIRO OFICIAL DO DROME (6x6) ⚔️ */
+/* ========================================= */
+
+.arena-drome-container {
+    width: 100%;
+    height: 100%;
+    background: #2b2b2b; /* fundo mais fiel */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 10px;
+    box-sizing: border-box;
+}
+
+.metade-tabuleiro {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    height: 42%; /* mais espaço pro campo */
+}
+
+/* 🔥 Vira TODO o lado do oponente */
+.lado-oponente {
+    transform: rotate(180deg);
+}
+
+/* 🔥 MAS corrige as cartas do oponente para ficarem legíveis */
+.lado-oponente .slot-carta-batalha {
+    transform: rotate(180deg);
+}
+
+/* 🔥 CARTAS DO JOGADOR (ficam viradas para o oponente) */
+.virada-180 {
+    transform: rotate(180deg);
+}
+
+/* Zonas Laterais (Decks e Mugics) */
+.zona-lateral {
+    width: 22%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+}
+
+
+.box-deck.ataque { border-color: #ff5555; }
+
+.coluna-mugics {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 6px;
+    background: rgba(0,255,255,0.08);
+    border-radius: 10px;
+}
+
+.hex-mugic::after {
+    content: '';
+    width: 20px;
+    height: 20px;
+    background: #0a0a0a;
+    clip-path: polygon(50% 0%, 90% 20%, 100% 60%, 75% 100%, 25% 100%, 0% 60%, 10% 20%);
+}
+
+.box-deck {
+    width: 65px;
+    height: 90px;
+    border: 2px solid #ccc;
+    background: #111;
+    color: #fff;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    border-radius: 6px;
+}
+
+.hex-mugic {
+    width: 26px;
+    height: 26px;
+    background: #00ffff;
+    clip-path: polygon(50% 0%, 90% 20%, 100% 60%, 75% 100%, 25% 100%, 0% 60%, 10% 20%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 10px #00ffff;
+}
+
+/* Zona Central (Pirâmide Centralizada) */
+.zona-central.centralizada {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 2px; /* Cartas quase coladas */
+}
+
+.linha-formacao-batalha {
+    display: flex;
+    justify-content: center;
+    gap: 2px; /* Cartas quase coladas */
+}
+
+.slot-carta-batalha {
+    width: 80px;  /* Diminuímos a largura de 88px */
+    height: 100px; /* Diminuímos a altura de 110px */
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    overflow: visible;
+}
+
+/* Área da Mão de Cartas */
+.mao-jogador {
+    height: 16%;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    align-items: flex-end;
+    border-top: 2px solid #444;
+    padding-top: 8px;
+}
+
+.carta-mao {
+    width: 65px;
+    height: 90px;
+    background: #000;
+    border: 2px solid #ff5555;
+    border-radius: 6px;
+    background-size: cover;
+    background-position: center;
+    cursor: pointer; 
+    position: relative; 
+    z-index: 100; 
+    transition: transform 0.2s, box-shadow 0.2s; 
+}
+.carta-mao:hover, .carta-mao:active {
+    transform: translateY(-10px);
+    box-shadow: 0 5px 15px rgba(255, 85, 85, 0.6);
+}
+
+
+/* =========================================
+   14. ESTILOS DA MINI-CARTA (DROME PRO 2.0 - CORRIGIDO)
+   ========================================= */
+.mini-card-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+}
+
+/* Corpo da Carta (Cinza Padrão Vazio) */
+.mini-card-body {
+    background: #2a2a2a;
+    border: 1px solid #777;
+    border-radius: 5px;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 2px;
+    box-sizing: border-box;
+    position: relative;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+/* Classes de COR da TRIBO nas BORDAS */
+.mini-card-body.tribo-azul { border-color: #29b6f6; box-shadow: 0 0 5px rgba(41,182,246,0.5); }
+.mini-card-body.tribo-vermelho { border-color: #ef5350; box-shadow: 0 0 5px rgba(239,83,80,0.5); }
+.mini-card-body.tribo-amarelo { border-color: #ffee58; box-shadow: 0 0 5px rgba(255,238,88,0.5); }
+.mini-card-body.tribo-verde { border-color: #66bb6a; box-shadow: 0 0 5px rgba(102,187,106,0.5); }
+.mini-card-body.tribo-ciano { border-color: #00bcd4; box-shadow: 0 0 5px rgba(0,188,212,0.5); }
+.mini-card-body.tribo-cinza { border-color: #9e9e9e; box-shadow: 0 0 5px rgba(158,158,158,0.5); }
+
+/* Foco na Arte (Estilo Decks) */
+.mini-top-row {
+    flex: 1;
+    width: 100%;
+    overflow: hidden;
+    margin-bottom: 2px;
+    display: flex; /* Garante que a imagem não vai sumir/encolher */
+}
+
+/* Foco da Arte Ajustado (Tira o nome do topo) */
+.mini-art {
+    width: 100%;
+    height: 100%;
+    border: 1px solid #555;
+    border-radius: 3px;
+    background-size: 150%; /* Zoom extra pra esconder o nome */
+    background-position: center 35%; /* Empurra a imagem focando no rosto */
+    background-color: #333;
+}
+
+/* Barra de HP Horizontal Calibrada */
+.mini-hp-row {
+    width: 100%;
+    height: 10px; 
+    border: 1px solid #777;
+    border-radius: 10px;
+    background: #111;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 2px;
+    box-sizing: border-box;
+}
+.mini-hp-fill {
+    height: 100%;
+    width: 0%; 
+    transition: width 0.3s, background-color 0.3s;
+}
+.mini-hp-text {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    color: #fff;
+    font-size: 8px;
+    font-weight: bold;
+    text-shadow: 1px 1px 1px #000, -1px -1px 1px #000;
+}
+
+/* Área dos Status (Fundo Branco) */
+.mini-stats-container {
+    background: #fff;
+    border-radius: 3px;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+/* Atributos (C,P,S,V) FORÇADOS A FICAR NA HORIZONTAL */
+.mini-stats-band {
+    display: flex !important;
+    flex-direction: row !important; /* Salva-vidas: Impede de ficar vertical */
+    justify-content: space-around;
+    align-items: center;
+    padding: 2px;
+    border-bottom: 1px dotted #ccc;
+    width: 100%;
+    box-sizing: border-box;
+}
+.mini-stat-item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 1px;
+    line-height: 1;
+}
+.mini-stat-item span { font-size: 6px; }
+.mini-stat-item b { font-size: 7px; color: #000; font-family: 'Arial Black', sans-serif;}
+
+/* Banda de Elementos (Sempre mostra os 4, com efeito de ativo/inativo) */
+.mini-elements-band {
+    display: flex !important;
+    flex-direction: row !important; /* Força na horizontal */
+    justify-content: center;
+    gap: 3px;
+    padding: 2px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Slot Base do Elemento (Visual Padrão Inativo) */
+.mini-el { 
+    width: 12px; height: 12px; 
+    border-radius: 50%; 
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; /* Aumentado para melhor visualização mobile */
+    line-height: 1;
+    box-sizing: border-box;
+    transition: all 0.2s;
+    
+    /* Configuração do "Slot Vazio" */
+    background: rgba(255, 255, 255, 0.05); /* Fundo sutil */
+    border: 1px solid rgba(255, 255, 255, 0.1); /* Borda quase invisível */
+    color: rgba(255, 255, 255, 0.3); /* Emoji apagado */
+    filter: grayscale(100%); /* Força tudo a ficar cinza */
+}
+
+/* Classes para os Slots ATIVOS (Coloridos e com Glow) */
+.mini-el.ativo {
+    filter: grayscale(0%);
+    color: rgba(255, 255, 255, 1);
+    background: #111; /* Fundo escuro para dar contraste ao emoji */
+}
+
+.mini-el.ativo.fogo { border-color: #ff3333; box-shadow: 0 0 4px #ff3333; }
+.mini-el.ativo.ar { border-color: #fff; box-shadow: 0 0 4px #fff; }
+.mini-el.ativo.terra { border-color: #4caf50; box-shadow: 0 0 4px #4caf50; }
+.mini-el.ativo.agua { border-color: #03a9f4; box-shadow: 0 0 4px #03a9f4; }
+
+/* =========================================
+   15. SISTEMA DE CONTADOR INTELIGENTE
+   ========================================= */
+
+/* Botão de Fichas mais fino e elegante */
+.btn-total-fichas {
+    width: 90%;
+    background: #1a1a1a;
+    border: 2px solid #555;
+    color: #4CAF50;
+    border-radius: 6px;
+    padding: 4px; /* Mais fino */
+    cursor: pointer;
+    font-size: 9px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    transition: background 0.2s, border-color 0.2s;
+    box-sizing: border-box;
+    margin: 0 auto;
+}
+
+.total-number {
+    font-size: 14px;
+    font-family: 'Arial Black', sans-serif;
+    color: #fff;
+}
+
+
+/* =========================================
+   15. SISTEMA DE CONTADOR INTELIGENTE (DROME)
+   ========================================= */
+
+/* O Botão do Contador Inteligente */
+.btn-total-fichas {
+    width: 100%;
+    background: #1a1a1a;
+    border: 2px solid #555;
+    color: #4CAF50;
+    border-radius: 8px;
+    padding: 8px;
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background 0.2s, border-color 0.2s;
+    box-sizing: border-box;
+}
+
+.btn-total-fichas:hover {
+    background: #2a2a2a;
+    border-color: #4CAF50;
+}
+
+.mini-contador-heptagono {
+    width: 14px; height: 14px;
+    background: #fff;
+    clip-path: polygon(50% 0%, 90% 20%, 100% 60%, 75% 100%, 25% 100%, 0% 60%, 10% 20%);
+    box-shadow: 0 0 2px #000;
+}
+
+.total-number {
+    font-size: 16px;
+    font-family: 'Arial Black', sans-serif;
+    color: #fff;
+}
+
+/* O Modal de Detalhes (Filtro e Conteúdo) */
+.modal-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 10, 15, 0.95);
+    z-index: 500;
+    justify-content: center; align-items: center;
+    backdrop-filter: blur(5px);
+    border-radius: 10px;
+    padding: 20px; box-sizing: border-box;
+    display: flex; /* Começa visível para teste */
+}
+
+.modal-content-fichas {
+    background: #111;
+    border: 2px solid #4CAF50;
+    border-radius: 10px;
+    width: 90%; max-width: 320px;
+    max-height: 80%;
+    padding: 15px; box-sizing: border-box;
+    overflow-y: auto;
+    position: relative;
+}
+
+.modal-content-fichas h3 { color: #4CAF50; text-align: center; margin-top: 0; margin-bottom: 15px; font-size: 16px; text-transform: uppercase; }
+
+.fechar-modal-fichas { position: absolute; top: 8px; right: 12px; font-size: 20px; color: #ff5555; cursor: pointer; }
+
+/* Item na lista do modal */
+.criatura-fichas-item {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 5px;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.criatura-fichas-item.sem-fichas { border-color: #555; opacity: 0.6; }
+
+.criatura-fichas-art { width: 30px; height: 30px; border-radius: 5px; background-size: cover; background-position: center; border: 1px solid #777; }
+
+.criatura-fichas-info { flex: 1; text-align: left; }
+.criatura-fichas-nome { color: #fff; font-size: 12px; font-weight: bold; }
+.criatura-fichas-tribo { color: #4CAF50; font-size: 10px; }
+
+.criatura-fichas-valor { font-size: 20px; font-family: 'Arial Black', sans-serif; color: #4CAF50; }
+.criatura-fichas-item.sem-fichas .criatura-fichas-valor { color: #999; }
+
+/* =========================================
+   16. TELA DE ENTRADA DO DROME
+   ========================================= */
+
+/* Botões de escolha (Online / Amigo / Modo) */
+.btn-entrada-drome {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    background: #0d1a0d;
+    border: 2px solid #1b5e20;
+    border-radius: 12px;
+    padding: 15px;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, transform 0.1s, box-shadow 0.2s;
+    text-align: left;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.btn-entrada-drome:active {
+    transform: scale(0.97);
+}
+
+.btn-entrada-drome.online:hover,
+.btn-entrada-drome.online:active {
+    background: #0d2a1a;
+    border-color: #4CAF50;
+    box-shadow: 0 0 12px rgba(76,175,80,0.3);
+}
+
+.btn-entrada-drome.amigo:hover,
+.btn-entrada-drome.amigo:active {
+    background: #1a1a0d;
+    border-color: #ffd700;
+    box-shadow: 0 0 12px rgba(255,215,0,0.3);
+}
+
+.btn-entrada-drome.amigo {
+    border-color: #ffd700;
+}
+
+.btn-entrada-drome.modo:hover,
+.btn-entrada-drome.modo:active {
+    background: #1a2a1a;
+    border-color: #4CAF50;
+    box-shadow: 0 0 12px rgba(76,175,80,0.3);
+}
+
+/* Cards de Deck na escolha */
+.card-deck-drome {
+    display: flex;
+    align-items: center;
+    background: #0d1a0d;
+    border: 2px solid #1b5e20;
+    border-radius: 10px;
+    padding: 12px 15px;
+    cursor: pointer;
+    transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.card-deck-drome:hover {
+    background: #112211;
+    box-shadow: 0 0 10px rgba(76,175,80,0.2);
+}
+
+.card-deck-drome:active {
+    transform: scale(0.98);
+}
+
+.card-deck-drome.selecionado {
+    background: #112211;
+    box-shadow: 0 0 15px rgba(76,175,80,0.4), inset 0 0 10px rgba(76,175,80,0.1);
+}
+
+.card-deck-drome.vazio {
+    cursor: not-allowed;
+    background: #0a0a0a;
+    border-color: #222;
+}
+
+.card-deck-drome.vazio:hover {
+    box-shadow: none;
+    background: #0a0a0a;
+}
+
+/* Botão Entrar no Drome */
+#btn-jogar-drome:active {
+    transform: translateY(5px);
+    box-shadow: 0 0 0 #1b5e20 !important;
+}
+
+/* Chaotic GO: controles de conta dentro do Perfil + responsividade mobile. */
+.modal-conteudo {
+    width: min(360px, calc(100vw - 32px));
+    max-height: calc(100dvh - 32px);
+    box-sizing: border-box;
+    overflow-y: auto;
+    padding: 22px 18px;
+    gap: 12px;
+}
+.modal-conteudo .botao-padrao,
+.modal-conteudo .botao-voltar {
+    display: block;
+    width: 100%;
+    flex: 0 0 auto;
+    min-height: 48px;
+    margin: 0;
+    padding: 12px 10px;
+    font-size: clamp(15px, 4vw, 18px);
+    line-height: 1.3;
+    box-sizing: border-box;
+}
+.modal-conteudo input {
+    width: 100%;
+    min-width: 0;
+}
+.fundo-scanner {
+    width: 100%;
+    min-height: 100dvh;
+    height: auto;
+    box-sizing: border-box;
+    overflow-x: hidden;
+    padding: 12px 8px;
+}
+.carcaca-scanner {
+    flex: 0 1 400px;
+    min-width: 0;
+    margin-left: auto;
+    margin-right: auto;
+}
+.conta-perfil {
+    width: 85%;
+    max-width: 340px;
+    box-sizing: border-box;
+    background: #0a170d;
+    border: 1px solid #286b35;
+    border-radius: 10px;
+    padding: 12px;
+    margin: 16px auto 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 9px;
+}
+.conta-perfil h4 {
+    font-size: 11px;
+    color: #91e59c;
+    margin: 0;
+    letter-spacing: .6px;
+}
+#cloud-status {
+    margin: 0 0 2px;
+    color: #d4edd4;
+    font-size: 11px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+.botao-conta {
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 42px;
+    background: #1d5326;
+    color: white;
+    border: 1px solid #4caf50;
+    border-radius: 7px;
+    padding: 10px 8px;
+    font-size: 11px;
+    font-weight: bold;
+    cursor: pointer;
+}
+.botao-conta[hidden], .cloud-alert[hidden], #btn-alert-logout[hidden] {
+    display: none;
+}
+.botao-conta-sair {
+    background: #5d1717;
+    border-color: #ed5555;
+}
+.botao-conta:disabled {opacity: .5;cursor: wait;}
+.cloud-alert {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    z-index: 300;
+    background: rgba(6, 24, 7, .96);
+    color: #fff;
+    border: 1px solid #4caf50;
+    border-radius: 8px;
+    padding: 8px;
+    font-size: 11px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+.cloud-alert.erro { border-color: #ee6666; background: rgba(49, 8, 8, .97); }
+#btn-alert-logout {
+    margin: 8px auto 0;
+    border: 1px solid #f77;
+    background: #711;
+    color: #fff;
+    border-radius: 6px;
+    padding: 7px;
+}
+@media (max-width: 480px) {
+    .fundo-scanner { align-items: flex-start; }
+    .carcaca-scanner { padding: 18px 10px 12px; }
+    .tela-digital { height: min(60dvh, 510px); min-height: 340px; }
+    .conta-perfil { width: 90%; }
+}
+
+
+/* DROME: teste de lobby por convite, isolado do tabuleiro de batalha. */
+.lobby-test {
+    width: min(94%, 380px);
+    margin: 10px auto 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    color: #fff;
+    box-sizing: border-box;
+    font-family: monospace;
+    font-size: 11px;
+}
+.lobby-test h3 { margin: 0; color: #5fe48e; font-size: 15px; }
+.lobby-test p { margin: 0; line-height: 1.5; overflow-wrap: anywhere; }
+.lobby-test > div { display: flex; flex-direction: column; gap: 8px; }
+.lobby-test [hidden] { display: none !important; }
+.lobby-test label { color: #d8f6dd; }
+.lobby-test input,.lobby-test select,.lobby-test button {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 39px;
+    padding: 8px;
+    border-radius: 7px;
+    font: inherit;
+}
+.lobby-test input,.lobby-test select {
+    background: #050f0b;
+    color: white;
+    border: 1px solid #5aad6e;
+}
+.lobby-test button {
+    background: #1e6438;
+    color: white;
+    border: 1px solid #59c77b;
+    cursor: pointer;
+}
+.lobby-test button:disabled { opacity: .5; cursor: wait; }
+.lobby-test .lobby-danger { background: #672121; border-color: #d65b5b; }
+.lobby-test .lobby-outline { background: #101010; border-color: #b2b2b2; }
+#lobby-current { background: #102619; border: 1px solid #387c4e; padding: 12px; border-radius: 8px; }
+#lobby-room-code { font-size: 18px; letter-spacing: 2px; color: #d0ffdd; }
+
+
+/* DROME: fase de sincronização, sem combate ou recompensas. */
+#lobby-turns {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    padding: 12px;
+    margin-top: 10px;
+    border-radius: 9px;
+    border: 1px solid #40967c;
+    background: #071d22;
+}
+#lobby-turns > strong { color: #94f7dd; font-size: 12px; }
+#lobby-turns p { font-size: 11px; line-height: 1.5; color: #e4f6f1; }
+#lobby-turn-count { font-size: 17px; color: #b8f5b8; }
+#lobby-turns [hidden] { display: none !important; }
+
+/* DROME: visualização somente-leitura do histórico registrado no servidor. */
+.lobby-mini-board {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto minmax(0,1fr);
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0;
+}
+.lobby-board-slot {
+  min-width: 0;
+  padding: 12px 5px;
+  border: 2px solid #315b43;
+  border-radius: 7px;
+  background: #0b3521;
+  color: #e9fff0;
+  text-align: center;
+  font-size: 10px;
+  line-height: 1.3;
+}
+.lobby-board-versus { font-weight: 800; color: #9ff4bf; }
+.lobby-history-label { color: #a8ecc8 !important; font-weight: bold; }
+.lobby-events {
+  white-space: pre-line;
+  border-left: 2px solid #49a779;
+  background: #101b17;
+  border-radius: 5px;
+  padding: 8px 10px;
+  color: #f0fff3 !important;
+  font-size: 10px !important;
+  max-height: 125px;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}
+
+/* DROME — protótipo de declarações: não altera o combate original. */
+.lobby-combat {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  border: 1px solid #6590ca;
+  border-radius: 9px;
+  padding: 12px;
+  background: #0c1a32;
+}
+.lobby-combat[hidden] { display: none !important; }
+.lobby-combat > strong {color:#bbd7ff;font-size:11px;}
+.lobby-card-sides {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid #34628a;
+  border-radius: 6px;
+  padding: 8px;
+  color: white;
+  font-size: 11px;
+}
+.lobby-combat label {color:#d8e8ff;}
+.lobby-combat #lobby-combat-history {max-height:150px;}

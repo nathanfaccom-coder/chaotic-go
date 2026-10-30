@@ -8,8 +8,8 @@
     <link rel="manifest" href="manifest.json">
     <script>
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js')
-          .then(() => console.log("Scanner pronto para operar offline!"))
+        navigator.serviceWorker.register('sw.js?v=release-1', { updateViaCache: 'none' })
+          .then(() => console.log("Atualização do scanner instalada"))
           .catch(err => console.log("Erro no sinal do Service Worker:", err));
       }
     </script>

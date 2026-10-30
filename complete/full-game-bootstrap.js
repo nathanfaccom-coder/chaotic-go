@@ -24,14 +24,15 @@
     if(!user)return;
     window.ChaoticAuthUser=user;
     localStorage.setItem("chaoticUID",user.id); // legado: compatibilidade com entrada-drome
-    const bridge=await import("./supabase-game-bridge.js?v=full-2");
-    await bridge.migratePreviousTest();
+    const bridge=await import("./supabase-game-bridge.js?v=release-1");
+    try { await bridge.migratePreviousTest(); }
+    catch (e) { console.warn("Importação automática não concluída; dados anteriores preservados:",e); }
     // O jogo completo utiliza rotinas que dependem do antigo Firebase para multiplayer;
     // apenas os dados privados do jogador e decks são migrados nesta etapa.
     importer.hidden=true;
-    await import("./script.js?v=full-2");
-    await import("./batalha.js?v=full-2");
-    await import("./chaotic-lobby.js?v=full-6");
-    inform("Conta conectada. Prévia de Decks, turnos e escolhas de cartas disponível.");
+    await import("./script.js?v=release-1");
+    await import("./batalha.js?v=release-1");
+    await import("./chaotic-lobby.js?v=release-1");
+    inform("Conta conectada. Jogo completo e progresso disponíveis; online em migração.");
   }catch(e){console.error(e);inform("Falha na inicialização: "+e.message,true);}
 })();

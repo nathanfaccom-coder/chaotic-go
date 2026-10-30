@@ -52,6 +52,12 @@ test('save and load a deck', async ()=>{
   await bridge.set(path('decks/6x6_1'),{nome:'Meu Deck',modo:'6x6'});
   assert.equal((await bridge.get(path('decks/6x6_1'))).val().nome,'Meu Deck');
 });
+test('Original Decks slot naming is preserved',async ()=>{
+  await bridge.set(path('decks/6x6_slot_1'),{nome:'Original 6x6',modo:'6x6'});
+  const all=(await bridge.get(path('decks'))).val();
+  assert.equal(all['6x6_slot_1'].nome,'Original 6x6');
+  await bridge.remove(path('decks/6x6_slot_1')); // Avoid polluting subsequent test fixture.
+});
 test('Drome lists multiple slots by mode',async ()=>{
   await bridge.set(path('decks/1x1_2'),{nome:'Duelo',modo:'1x1'});
   const group=(await bridge.get(path('decks'))).val();

@@ -42,7 +42,7 @@ export async function get(reference) {
     const decks = Object.create(null);
     for (const row of data || []) {
       const slot = row.node_path.slice("decks/".length);
-      if (/^(?:6x6|3x3|1x1)_[123]$/.test(slot)) decks[slot] = row.data;
+      if (/^(?:6x6|3x3|1x1)_(?:slot_)?[123]$/.test(slot)) decks[slot] = row.data;
     }
     return snapshot(Object.keys(decks).length ? decks : null);
   }
@@ -104,6 +104,10 @@ export function installDbCompat() {
   window._dbUpdate = (path,value) => update(ref(db,path),value);
   window._dbRemove = path => remove(ref(db,path));
   window._dbOn = (path,cb) => onValue(ref(db,path),cb);
+  window._dbOff = path => {
+    try { const key=keyOf(path); watchers.delete(key); }
+    catch (_error) { /* caminhos multiplayer legados não têm assinatura ativa */ }
+  };
 }
 // Recupera progresso do teste anterior, sem sobrescrever dados já existentes.
 export async function migratePreviousTest() {
