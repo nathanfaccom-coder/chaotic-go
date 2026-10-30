@@ -1908,3 +1908,93 @@ test("Burst 1x1 queues real defender equipment for LIFO inspection without prema
   assert.equal(matches.get(id).current_player,guestId,
     "After the defender passes, turn can progress despite unresolved test-only equipment");
 });
+
+for (const scenario of [
+  {name:"Anel Precioso",effect:"precious_ring_hp",hp:50,max:75,wis:70},
+  {name:"Bastão da Sabedoria",effect:"wisdom_staff",hp:65,max:75,wis:110},
+  {name:"Bomba de Fogo",effect:"fire_bomb_hp",hp:70,max:80,wis:70}
+]) {
+test("Burst equipment "+scenario.name+" changes ONLY server training ledger",async()=>{
+  const hostId="equip-"+scenario.effect+"-host";
+  const guestId="equip-"+scenario.effect+"-guest";
+  const host=browser(hostId),guest=browser(guestId);
+  host("lobby-select-mode").value="1x1";
+  await host("lobby-create-btn").onclick();
+  const room=[...rooms.values()].at(-1),id=room.id;
+  guest("lobby-input-code").value=room.code;
+  await guest("lobby-join-btn").onclick();
+  await host("lobby-refresh").onclick();
+  await host("lobby-turn-start").onclick();
+  host("lobby-combat-kind").value="creature";
+  host("lobby-combat-deck").value="1";host("lobby-combat-slot").value="6";
+  await host("lobby-combat-submit").onclick();
+  await host("lobby-hex-place").onclick();
+  await host("lobby-loadout-capture").onclick();
+  await host("lobby-turn-pass").onclick();
+  await guest("lobby-turn-refresh").onclick();
+  guest("lobby-combat-kind").value="creature";
+  guest("lobby-combat-deck").value="1";guest("lobby-combat-slot").value="6";
+  await guest("lobby-combat-submit").onclick();
+  await guest("lobby-hex-place").onclick();
+  await guest("lobby-loadout-capture").onclick();
+  const own=loadouts.get(id+"/"+guestId);
+  own.equipment_name=scenario.name;
+  const wallet={lobby_id:id,actor_id:guestId,
+    creature_instance_id:own.card_instance_id,
+    hp_max:75,hp_remaining:65,projected_hits:0,location_id:501};
+  hpWallets.set(id+"/"+guestId,wallet);
+  hpWallets.set(id+"/"+hostId,{...wallet,actor_id:hostId,
+    creature_instance_id:loadouts.get(id+"/"+hostId).card_instance_id});
+  await guest("lobby-turn-pass").onclick();
+  await host("lobby-turn-refresh").onclick();
+  await host("lobby-hand-prepare").onclick();
+  host("lobby-combat-kind").value="attack";
+  host("lobby-combat-deck").value="1";host("lobby-combat-slot").value="1";
+  await host("lobby-combat-submit").onclick();
+  await host("lobby-clash-open").onclick();
+  await host("lobby-attack-instance-capture").onclick();
+  await host("lobby-burst-open").onclick();
+  await host("lobby-hand-spend").onclick();
+  await guest("lobby-turn-refresh").onclick();
+  await guest("lobby-burst-queue-equipment").onclick();
+  assert.equal(host("lobby-burst-equipment-effect-apply").hidden,true,
+    "Cannot apply before opponent passes and server plan exists");
+  assert.ok((await makeClient(hostId).rpc("chaotic_apply_preview_burst_equipment_effect",{
+    p_lobby_id:id,p_expected_turn:3})).error);
+  await guest("lobby-burst-pass").onclick();
+  await host("lobby-turn-refresh").onclick();
+  assert.equal(host("lobby-burst-equipment-effect-apply").hidden,true,
+    "Cannot apply before order inspection is prepared");
+  await host("lobby-burst-order-prepare").onclick();
+  assert.equal(host("lobby-burst-equipment-effect-apply").hidden,false);
+  assert.ok((await makeClient(guestId).rpc("chaotic_apply_preview_burst_equipment_effect",{
+    p_lobby_id:id,p_expected_turn:3})).error,
+    "Defender cannot execute from other player's turn");
+  await host("lobby-burst-equipment-effect-apply").onclick();
+  const ev=burstEquipmentEffects.get(id+"/3");
+  assert.equal(ev.effect_code,scenario.effect);
+  assert.equal(ev.hp_before,65);
+  assert.equal(ev.hp_after,scenario.hp);
+  assert.equal(ev.hp_max_after,scenario.max);
+  assert.equal(ev.wisdom_after,scenario.wis);
+  assert.equal(wallet.hp_remaining,scenario.hp);
+  assert.equal(wallet.hp_max,scenario.max);
+  assert.equal(ev.applied_to_official_match,false);
+  assert.equal(ev.official_hp_changed,false);
+  assert.equal(ev.final_damage_verified,false);
+  assert.equal(own.stats.e,65,"Frozen DNA original remains unchanged");
+  assert.equal(own.stats.s,70,"Frozen wisdom DNA original remains unchanged");
+  assert.equal(equipmentReveals.has(id+"/"+guestId),false,
+    "Training effects never reveal actual equipment");
+  assert.equal(host("lobby-burst-equipment-effect-apply").hidden,true);
+  assert.ok((await makeClient(hostId).rpc("chaotic_apply_preview_burst_equipment_effect",{
+    p_lobby_id:id,p_expected_turn:3})).error,"Effect cannot be replayed");
+  assert.equal(host("lobby-individual-damage-calculate").hidden,true,
+    "Equipment is still not fully resolved for final attack damage");
+  await guest("lobby-turn-refresh").onclick();
+  assert.match(guest("lobby-burst-equipment-effects-history").textContent,
+    /EFEITO APLICADO SOMENTE AO TREINAMENTO/);
+  assert.equal(matches.get(id).current_player,hostId);
+  assert.equal(matches.get(id).turn_no,3);
+});
+}
