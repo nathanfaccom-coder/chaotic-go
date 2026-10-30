@@ -33,6 +33,13 @@ begin
  exception when others then failed:=true;
  end;
  if not failed then raise exception 'Unsupported location attribute accepted';end if;
+ failed:=false;
+ begin
+  perform public.chaotic_preview_initiative_compare(
+    '{"v":50}'::jsonb,'{"v":70}'::jsonb,null);
+ exception when others then failed:=true;
+ end;
+ if not failed then raise exception 'Null location attribute accepted';end if;
  if not (select relrowsecurity from pg_class
   where oid='public.chaotic_preview_initiatives'::regclass) then
   raise exception 'Initiative RLS disabled';end if;
