@@ -2052,6 +2052,82 @@ test("Arpa Mágica grants +1 TRAINING token once after equipment reveal; origina
   assert.equal(mugicTrainingWallets.get(id+"/"+actor).bonus_tokens,1);
 });
 
+test("3x3 Alakazaz transfers a token only to the same player's ally, once per turn",async()=>{
+  const owner="ally3-host",opponent="ally3-guest";
+  const host=browser(owner),guest=browser(opponent);
+  host("lobby-select-mode").value="3x3";
+  await host("lobby-create-btn").onclick();
+  const code=host("lobby-room-code").textContent;
+  const room=[...rooms.values()].find(x=>x.code===code);
+  const id=room.id;
+  guest("lobby-input-code").value=code;
+  await guest("lobby-join-btn").onclick();
+  await host("lobby-refresh").onclick();
+  await host("lobby-turn-start").onclick();
+  const deckA=[null,null,null,
+    {id:"allied-alakazaz-1",name:"Alakazaz"},
+    {id:"allied-vidal-2",name:"Vidal"},
+    {id:"allied-lion-3",name:"Lion"}];
+  const deckB=[null,null,null,
+    {id:"enemy-frador-1",name:"Frador"},
+    {id:"enemy-lion-2",name:"Lion"},
+    {id:"enemy-vidal-3",name:"Vidal"}];
+  decks3x3.set(owner+"/1",deckA);
+  decks3x3.set(opponent+"/1",deckB);
+  assert.equal(host("lobby-3x3-prepare").hidden,false);
+  assert.ok((await makeClient(opponent).rpc("chaotic_prepare_preview_3x3_allies",{
+    p_lobby_id:id,p_expected_turn:1,p_deck_slot:1})).error,
+    "Other player cannot capture cards outside their own turn");
+  await host("lobby-3x3-prepare").onclick();
+  assert.equal(host("lobby-3x3-prepare").hidden,true);
+  assert.equal(allies3x3.get(id+"/"+owner+"/4").creature_name,"Alakazaz");
+  assert.equal(allies3x3.get(id+"/"+owner+"/4").starting_tokens,5);
+  assert.equal(allies3x3.get(id+"/"+owner+"/5").creature_name,"Vidal");
+  assert.equal(allies3x3.get(id+"/"+owner+"/5").remaining_tokens,2);
+  assert.ok((await makeClient(owner).rpc("chaotic_prepare_preview_3x3_allies",{
+    p_lobby_id:id,p_expected_turn:1,p_deck_slot:1})).error,
+    "Capturing twice cannot reset the token balances");
+  assert.ok((await makeClient(owner).rpc("chaotic_transfer_preview_alakazaz_token",{
+    p_lobby_id:id,p_expected_turn:1,p_receiver_position:4})).error,
+    "Alakazaz must not donate to himself");
+  assert.ok((await makeClient(owner).rpc("chaotic_transfer_preview_alakazaz_token",{
+    p_lobby_id:id,p_expected_turn:1,p_receiver_position:3})).error,
+    "Nonexistent or opponent board slots cannot receive tokens");
+  assert.ok((await makeClient(opponent).rpc("chaotic_transfer_preview_alakazaz_token",{
+    p_lobby_id:id,p_expected_turn:1,p_receiver_position:5})).error,
+    "Opponent cannot spend allied tokens");
+  host("lobby-3x3-receiver").value="5";
+  assert.equal(host("lobby-3x3-transfer").hidden,false);
+  await host("lobby-3x3-transfer").onclick();
+  const event=transfers3x3.get(id+"/1/"+owner);
+  assert.equal(event?.donor_before,5);
+  assert.equal(event?.donor_after,4);
+  assert.equal(event?.receiver_before,2);
+  assert.equal(event?.receiver_after,3);
+  assert.equal(event.official_tokens_changed,false);
+  assert.equal(event.original_card_consumed,false);
+  assert.equal(allies3x3.get(id+"/"+owner+"/4").remaining_tokens,4);
+  assert.equal(allies3x3.get(id+"/"+owner+"/5").remaining_tokens,3);
+  assert.equal(allies3x3.get(id+"/"+owner+"/5").received_tokens,1);
+  assert.equal(host("lobby-3x3-transfer").hidden,true);
+  assert.match(host("lobby-3x3-transfer-history").textContent,/Alakazaz c4/);
+  assert.ok((await makeClient(owner).rpc("chaotic_transfer_preview_alakazaz_token",{
+    p_lobby_id:id,p_expected_turn:1,p_receiver_position:6})).error,
+    "Replay on same turn must fail even with another target");
+  await host("lobby-turn-pass").onclick();
+  await guest("lobby-turn-refresh").onclick();
+  assert.equal(guest("lobby-3x3-prepare").hidden,false);
+  await guest("lobby-3x3-prepare").onclick();
+  assert.equal(allies3x3.get(id+"/"+opponent+"/4").creature_name,"Frador");
+  assert.equal(allies3x3.get(id+"/"+owner+"/4").remaining_tokens,4,
+    "Opponent's snapshot cannot reset our saved training tokens");
+  assert.equal(guest("lobby-3x3-transfer").hidden,true,
+    "Non-Alakazaz player cannot send allied tokens");
+  assert.ok((await makeClient(opponent).rpc("chaotic_transfer_preview_alakazaz_token",{
+    p_lobby_id:id,p_expected_turn:2,p_receiver_position:5})).error);
+  assert.equal(transfers3x3.get(id+"/1/"+owner).official_match_modified,false);
+});
+
 test("Lion, Vidal and Xamã spend exactly one TRAINING token and update only hypothetical HP",async()=>{
   const cases=[
     {name:"Lion",gain:10,hostHp:20,max:30,target:"self",startTokens:1,expectedHp:30,expectedMax:40},
