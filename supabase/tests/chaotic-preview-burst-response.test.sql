@@ -39,6 +39,11 @@ begin
  if position('win.defender_id <> actor' in pass_def)=0 and
   position('win.defender_id<>actor' in pass_def)=0 then
   raise exception 'Defender-only response guard absent';end if;
+ if position('status = ''awaiting_defender''' in
+    pg_get_functiondef('public.chaotic_calculate_individual_preview(uuid,integer)'::regprocedure))=0
+   and position('status=''awaiting_defender''' in
+    pg_get_functiondef('public.chaotic_calculate_individual_preview(uuid,integer)'::regprocedure))=0
+ then raise exception 'Missing preview damage guard for pending Burst';end if;
  if position('burst_defender_passed_preview_only' in audit_def)=0 or
   position('burst_window_not_opened' in audit_def)=0 or
   position('burst_defender_response_pending' in audit_def)=0 then
