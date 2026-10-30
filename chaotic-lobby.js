@@ -232,7 +232,7 @@
     if(!log)return;
     if(!room||!match){individualDamage=[];log.textContent="Nenhuma simulação individual.";return;}
     const {data,error}=await api.from("chaotic_preview_individual_damage")
-      .select("turn_no,attacker_id,attack_name,attacker_name,defender_name,defender_energy_initial,base_damage,elemental_bonus,attribute_bonus,equipment_bonus,attack_cost,cost_status,immunity_reason,attacker_equipment_revealed,defender_equipment_revealed,preview_subtotal,preview_energy_remaining,calculation_status")
+      .select("turn_no,attacker_id,attack_name,attacker_name,defender_name,defender_energy_initial,base_damage,elemental_bonus,attribute_bonus,equipment_bonus,attack_cost,cost_status,immunity_reason,attacker_equipment_revealed,defender_equipment_revealed,location_id,location_elemental_bonus,location_damage_delta,location_energy_bonus,preview_subtotal,preview_energy_remaining,calculation_status")
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(12);
     if(error)throw new Error(error.message);
     individualDamage=data||[];
@@ -243,18 +243,28 @@
           ?" ponto(s) debitado(s) SOMENTE na mão e no saldo de teste."
           :" ponto(s) — saldo e mão ainda NÃO verificados.");
       const detail=x.immunity_reason?" · Imunidade: "+x.immunity_reason+".":"";
+      const locationText=x.location_id
+        ?" · Local: "+({501:"Cidade de Kiru",502:"O Túnel da Tempestade",
+          503:"A Barragem de Magma"}[x.location_id]||"desconhecido")+
+          " (elemento +"+(x.location_elemental_bonus??0)+
+          "; dano "+((x.location_damage_delta??0)>=0?"+":"")+
+          (x.location_damage_delta??0)+
+          "; energia +"+(x.location_energy_bonus??0)+")."
+        :" · Sem Local ativo na prévia.";
       if(x.calculation_status!=="partial_estimate")
         return "T"+x.turn_no+" · "+who+": "+x.attack_name+
           " exige resolução adicional de efeito/equipamento."+
           " Base "+x.base_damage+"; dano total e energia restante NÃO simulados."+
-          detail+cost;
+          locationText+detail+cost;
       return "T"+x.turn_no+" · "+who+" · "+x.attacker_name+" usou "+x.attack_name+
         " contra "+x.defender_name+": "+x.base_damage+" base + "+
         x.elemental_bonus+" elemento + "+x.attribute_bonus+" atributo + "+
-        (x.equipment_bonus??0)+" equipamento = "+x.preview_subtotal+
+        (x.equipment_bonus??0)+" equipamento + "+(x.location_elemental_bonus??0)+
+        " aura de Fogo + "+(x.location_damage_delta??0)+
+        " terreno = "+x.preview_subtotal+
         " dano parcial. Energia individual inicial "+
         x.defender_energy_initial+" → "+x.preview_energy_remaining+
-        " (SIMULAÇÃO: HP real inalterado)."+detail+cost;
+        " (SIMULAÇÃO: HP real inalterado)."+locationText+detail+cost;
     }).join("\n"):"Nenhuma simulação individual.";
     updateClashUI();
   }
@@ -818,7 +828,7 @@
       '</section>',
       '<section id="lobby-individual-preview" class="lobby-combat">',
       '<strong>🧬 PRÉVIA COM DNA INDIVIDUAL — 1x1</strong>',
-      '<p>Simula dano com DNA e equipamentos após validar a carta na mão e gastar pontos SOMENTE no servidor de teste. A batalha oficial, HP, economia e recompensas permanecem inalterados.</p>',
+      '<p>Simula dano com DNA, equipamento revelado e efeitos dos três Locais originais após validar o gasto SOMENTE no servidor de teste. Bônus de Kiru é somado à energia indicada. HP oficial, economia e recompensas não mudam.</p>',
       '<button id="lobby-individual-damage-calculate" type="button" hidden>Simular dano com DNA no servidor</button>',
       '<p id="lobby-individual-damage-history" class="lobby-events" aria-live="polite">Nenhuma simulação individual.</p>',
       '</section>',
