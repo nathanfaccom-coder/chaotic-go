@@ -1211,9 +1211,11 @@
         "T"+x.turn_no+" · "+x.attack_name+" (catálogo "+x.catalog_attack_id+
         "; dano-base "+x.base_damage+"; custo previsto "+x.attack_cost+
         ") · HP defensor "+x.defender_hp_before+" → "+x.defender_hp_projected+
-        " SOMENTE SE dano-base fosse aplicado. Carta NÃO consumida, "+
-        "custo NÃO pago, elementos/defesas/Burst NÃO resolvidos, "+
-        "HP de treino e HP oficial INTACTOS.").join("\n")
+        " SOMENTE SE dano-base fosse aplicado. "+
+        (attackSpends3x3.some(p=>p.turn_no===x.turn_no)
+          ?"Pontos debitados e carta utilizada APENAS no TREINAMENTO. "
+          :"Pontos ainda não debitados e carta ainda na mão experimental. ")+
+        "Elementos/defesas/Burst NÃO resolvidos, HP de treino e HP oficial INTACTOS.").join("\n")
       :"Nenhum ataque 3x3 conferido. Dano e custo oficiais não são executados.";
     $("lobby-3x3-contact-history").textContent=contacts3x3.length
       ?contacts3x3.slice().sort((a,b)=>a.turn_no-b.turn_no).map(x=>
@@ -1221,7 +1223,7 @@
         ": c"+x.attacker_slot+" (hex "+x.attacker_hex+
         ", HP "+x.attacker_hp_at_contact+") confronta c"+x.defender_slot+
         " (hex "+x.defender_hex+", HP "+x.defender_hp_at_contact+"). "+
-        "Contato registrado; ataque ainda NÃO validado; sem dano ou vitória.").join("\n")
+        "Contato registrado. Validação, pagamento e dano são etapas separadas; sem HP ou vitória oficial.").join("\n")
       :"Nenhum encontro 3x3 registrado.";
     $("lobby-3x3-move-history").textContent=moves3x3.length
       ?moves3x3.slice().sort((a,b)=>a.turn_no-b.turn_no).map(x=>
