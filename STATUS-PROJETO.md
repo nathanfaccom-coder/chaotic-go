@@ -1,20 +1,20 @@
 # Chaotic GO — Status de conclusão e pendências (30/10/2026)
 
-Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 73% (incerteza aproximada ±10 pontos percentuais).**
+Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 74% (incerteza aproximada ±10 pontos percentuais).**
 
 ## Critérios ponderados
 
 | Área | Peso | Avaliação funcional | Contribuição |
 |---|---:|---:|---:|
 | Motor legado, scanner, cartas, imagens, áudios e interfaces preservados | 25% | 90% | 22,5 p.p. |
-| Contas, migração de coleção, Decks e persistência privada Supabase | 15% | 82% | 12,3 p.p. |
+| Contas, migração de coleção, Decks e persistência privada Supabase | 15% | 88% | 13,2 p.p. |
 | Salas privadas, sincronização e protocolo de turnos | 10% | 85% | 8,5 p.p. |
 | PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 90% | 22,5 p.p. |
 | Economia, amigos, trocas, recompensas e progressão integradas | 15% | 25% | 3,75 p.p. |
 | Testes ponta a ponta, dois dispositivos, mobile, segurança e publicação | 10% | 35% | 3,5 p.p. |
-| **Estimativa total** | **100%** | | **73 p.p.** |
+| **Estimativa total** | **100%** | | **74 p.p.** |
 
-Números estimados para planejamento, não verificação automática de 73% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
+Números estimados para planejamento, não verificação automática de 74% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
 
 ## Entregas já implementadas ou disponíveis
 - Jogo completo e recursos originais publicados no site; backup de branches anteriores.
@@ -285,3 +285,14 @@ Números estimados para planejamento, não verificação automática de 73% das 
 - Validação SQL transacional `supabase/tests/chaotic-preview-3x3-individual-movement.test.sql` aprovada, incluindo RLS, privilégios, identidade da criatura, adjacência, ocupação, prevenção de replay e ausência de efeitos oficiais. Suite Node **45 testes aprovados**, com cenário simulado de duas contas que rejeita movimento de adversário, movimento fora da vez, salto, hexágono ocupado e segunda movimentação no turno.
 - **Ainda prioritário:** origem real/verificável das cartas, movimento oficial 3x3 respeitando fases do jogo original, ataques e HP por alvo, confrontos entre jogadores, vitória, premiações, segurança RLS e teste ponta a ponta em dois celulares. Não há ainda prova de funcionamento real ao vivo.
 - **Estimativa geral: 73% (±10 p.p.; total ponderado arredondado de 73,05)**, +1 p.p. arredondado em integração e persistência das cartas em posições sincronizadas — não é percentual de testes funcionais do jogo inteiro nem conclusão do PvP.
+
+
+## Versão 0.1.36 — seleção validada de atacante e defensor no 3x3 (30/10/2026)
+- Implementada a **etapa de contato entre duas criaturas**, em sala de treinamento 3x3. A RPC `chaotic_open_preview_3x3_contact` exige que ambos os participantes já tenham três criaturas nos tabuleiros independentes, verificadas contra suas respectivas posições de formação c4/c5/c6 e HP individual positivo.
+- A regra de contato é reaproveitada da versão existente do DROME em `supabase/chaotic-preview-clashes.sql`: **hexágonos 4 ou 5 no lado de cada jogador**. O jogador da vez escolhe uma criatura própria (atacante) e uma do adversário (defensor), e o servidor confirma quem é o dono de cada uma. Contato é uma conferência de adjacência **e não uma batalha resolvida**.
+- Nova tabela `chaotic_preview_3x3_contact_intents` registra uma única declaração por sala e turno, com IDs originais das duas criaturas, posições, respectivos HP de treinamento no momento do encontro, e marca `contact_status='awaiting_validated_attack_preview'`. Toda ação de dano, escolha de carta de ataque, dano oficial ou HP oficial continua **desativada e declarada como não executada** no próprio banco.
+- O procedimento de movimento `chaotic_move_preview_3x3_unit` foi preservado e reforçado para **proibir mover após registrar um contato** nesse turno, evitando invalidar a fotografia da posição do atacante. Travamentos SQL, checagem do turno ativo, autenticação, RLS para os dois participantes e restrição contra duplicação impedem declarações fraudulentas ou repetidas.
+- O DROME recebeu seleção de atacante e defensor por slot original, botão de registro do contato, histórico com posicionamento e HP de cada participante, além da sincronização Realtime. As imagens e IDs de todas as cartas, Decks, coleção e as mecânicas anteriores não foram modificados.
+- Teste SQL de RLS, funções, permissão de escrita, geometria 3x3, HP e exclusão de efeitos oficiais aprovado em `supabase/tests/chaotic-preview-3x3-contact-intents.test.sql`. A suíte Node continua com **45 testes automatizados** e o cenário de dois jogadores simula contato em sentidos alternados, rejeição de contato a distância, bloqueio de duplicação e de movimento após contato, além da preservação de HP e posição de formação.
+- **Não há ainda** validação da carta de ataque no 3x3, aplicação de dano, efeitos elementais, habilidades de reação, fila Burst completa, eliminação, vitória/derrota, ou PvP comprovado com duas contas em dispositivos reais. Esta versão não altera o estado de combate oficial, apenas registra contato preparatório.
+- **Conclusão geral estimada 74% (±10 p.p.)**, principalmente pela persistência sincronizada e verificação de identidade entre criaturas de dois jogadores. A taxa não é percentual de testes cobrindo o produto inteiro. Publicação no GitHub Pages não foi verificada diretamente, e avisos de segurança Supabase continuam pendentes.
