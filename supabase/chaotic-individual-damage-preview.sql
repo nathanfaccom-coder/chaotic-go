@@ -74,11 +74,11 @@ begin
   -- A criatura pode ter o selo (Max) sem alterar seus elementos de origem.
   select count(*) into ccount from public.chaotic_preview_card_reference c
     where c.kind='creature'
-      and c.card_name=pg_catalog.regexp_replace(p_attacker_name,' \\(Max\\)$','');
+      and c.card_name=pg_catalog.regexp_replace(p_attacker_name,' [(]Max[)]$','');
   if ccount<>1 then raise exception 'Elementos da criatura não identificados no catálogo'; end if;
   select * into creature from public.chaotic_preview_card_reference c
     where c.kind='creature'
-      and c.card_name=pg_catalog.regexp_replace(p_attacker_name,' \\(Max\\)$','');
+      and c.card_name=pg_catalog.regexp_replace(p_attacker_name,' [(]Max[)]$','');
   elems:=coalesce(creature.creature_elements,'[]'::jsonb);
   if jsonb_typeof(elems)<>'array' then raise exception 'Elementos da criatura inválidos'; end if;
 
@@ -116,7 +116,7 @@ begin
     raise exception 'Valores de dano incompatíveis com o catálogo'; end if;
   -- Original special rules rely on dice or graveyard; do NOT show a misleading total.
   special:=attack.card_id in ('104','113','114');
-  subtotal:=case when special then null else pg_catalog.greatest(0,base+bonus_elem+bonus_attr) end;
+  subtotal:=case when special then null else greatest(0,base+bonus_elem+bonus_attr) end;
   return pg_catalog.jsonb_build_object(
     'status',case when special then 'special_resolution_required' else 'partial_estimate' end,
     'base',base,'elemental',bonus_elem,'attribute',bonus_attr,'subtotal',subtotal);
@@ -202,7 +202,7 @@ begin
     defender.card_instance_id,attacker.creature_name,defender.creature_name,
     energy,(components->>'base')::integer,(components->>'elemental')::integer,
     (components->>'attribute')::integer,subtotal,
-    case when subtotal is null then null else pg_catalog.greatest(0,energy-subtotal) end,
+    case when subtotal is null then null else greatest(0,energy-subtotal) end,
     status,'Simulação sem dano real: usa atributos de DNA congelados, elementos base do catálogo; não valida custos de jogo, mão, equipamento revelado, imunidades, local, habilidades, efeitos, dado, XP nem vitória.'
   ) returning * into result;
   return result;
