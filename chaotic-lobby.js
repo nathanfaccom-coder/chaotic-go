@@ -402,7 +402,7 @@
     if(!$("lobby-attack-instance-panel"))return;
     if(!room||!match){attackInstances=[];updateAttackInstanceUI();return;}
     const {data,error}=await api.from("chaotic_preview_attack_instances")
-      .select("turn_no,actor_id,attack_instance_id,catalog_attack_id,attack_name,base_damage,attack_cost")
+      .select("turn_no,actor_id,card_slot,deck_slot,attack_instance_id,catalog_attack_id,attack_name,base_damage,attack_cost")
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(24);
     if(error)throw new Error(error.message);
     attackInstances=data||[];
