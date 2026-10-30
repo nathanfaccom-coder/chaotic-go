@@ -30,3 +30,11 @@ O service worker de lançamento não armazena telas autenticadas nem JavaScript 
 - Salas DROME, turnos e eventos também recebem notificações em tempo real; a consulta a cada seis segundos permanece de reserva.
 - As batalhas oficiais, trocas e recompensas **não** estão habilitadas: a sincronização transporta estado, mas não valida todas as regras antigas.
 - Os testes automatizados simularam atualizações de duas sessões, filtragem por conta, mudanças de decks e liberação da conexão ao sair.
+
+## Tabuleiro compartilhado de teste (fase de movimentação)
+- A nova tabela `chaotic_preview_board` registra a posição de **uma criatura por jogador** e transmite mudanças via Supabase Realtime somente aos participantes autorizados.
+- O posicionamento exige uma criatura declarada de um deck salvo; os hexágonos válidos são c6 no 1x1, c4–c6 no 3x3 e c1–c6 no 6x6.
+- O servidor permite movimentação apenas entre vizinhos do próprio lado, uma vez por turno, e rejeita comandos fora da vez e turnos nulos.
+- A prévia visual tem botões **Posicionar minha criatura** e **Mover para a casa escolhida**, além das duas áreas de hexágonos.
+- Nenhuma carta, estatística, dano ou recompensa foi alterada. O tabuleiro oficial de combate ainda não recebe esses comandos; a integração com o motor completo permanece pendente.
+- Testes automatizados e uma transação de verificação no Supabase validaram os bloqueios. Ainda não houve teste com duas contas reais.
