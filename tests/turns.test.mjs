@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map(),burstOrderPlans=new Map(),burstPriority=new Map(),burstPriorityPasses=new Map(),burstMugicIntents=new Map(),burstMugicCounterplans=new Map(),mugicTrainingWallets=new Map(),mugicTrainingSettlements=new Map(),trainingAbilityEvents=new Map(),harpTrainingEvents=new Map(),allies3x3=new Map(),transfers3x3=new Map(),decks3x3=new Map(),hp3x3=new Map(),burstEquipmentResponses=new Map(),burstEquipmentEffects=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map(),burstOrderPlans=new Map(),burstPriority=new Map(),burstPriorityPasses=new Map(),burstMugicIntents=new Map(),burstMugicCounterplans=new Map(),mugicTrainingWallets=new Map(),mugicTrainingSettlements=new Map(),trainingAbilityEvents=new Map(),harpTrainingEvents=new Map(),allies3x3=new Map(),transfers3x3=new Map(),decks3x3=new Map(),hp3x3=new Map(),boardPositions3x3=new Map(),moveEvents3x3=new Map(),burstEquipmentResponses=new Map(),burstEquipmentEffects=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -67,6 +67,50 @@ function makeClient(actor) {
         return {data:{status:"hp_3x3_training_seeded",count:3,
           official_match_modified:false,location_bonuses_applied:false,
           damage_applied:false},error:null};
+      }
+      if(name==="chaotic_prepare_preview_3x3_board"){
+        const m=matches.get(room.id);
+        const own=[...allies3x3.values()].filter(x=>x.lobby_id===room.id&&x.actor_id===actor);
+        const hps=own.map(x=>hp3x3.get(room.id+"/"+actor+"/"+x.position));
+        const already=[...boardPositions3x3.values()].some(x=>x.lobby_id===room.id&&x.actor_id===actor);
+        if(!m||m.status!=="active"||m.turn_no!==args.p_expected_turn
+          ||m.current_player!==actor||room.mode!=="3x3"||room.status!=="ready"
+          ||![m.host_id,m.guest_id].includes(actor)||own.length!==3||already
+          ||hps.some((x,i)=>!x||x.creature_instance_id!==own[i].creature_instance_id
+            ||x.hp_remaining<=0))
+          return {data:null,error:{message:"Cannot seed missing, dead or already positioned 3x3 creatures"}};
+        for(const x of own)boardPositions3x3.set(room.id+"/"+actor+"/"+x.position,{
+          lobby_id:room.id,actor_id:actor,formation_slot:x.position,
+          creature_instance_id:x.creature_instance_id,hex_position:x.position,
+          moved_turn:0,official_position_changed:false,official_match_modified:false
+        });
+        return {data:{status:"3x3_board_preview_prepared",hexes_per_player:6,
+          creatures:3,official_match_modified:false},error:null};
+      }
+      if(name==="chaotic_move_preview_3x3_unit"){
+        const m=matches.get(room.id),key=room.id+"/"+args.p_expected_turn+"/"+actor;
+        const own=[...boardPositions3x3.values()].filter(x=>x.lobby_id===room.id&&x.actor_id===actor);
+        const b=boardPositions3x3.get(room.id+"/"+actor+"/"+args.p_formation_slot);
+        const hp=hp3x3.get(room.id+"/"+actor+"/"+args.p_formation_slot);
+        const neighbors={1:[2,4],2:[1,3,4,5],3:[2,5],
+          4:[1,2,5,6],5:[2,3,4,6],6:[4,5]};
+        if(!m||m.status!=="active"||m.turn_no!==args.p_expected_turn
+          ||m.current_player!==actor||room.mode!=="3x3"||room.status!=="ready"
+          ||![m.host_id,m.guest_id].includes(actor)||own.length!==3||!b
+          ||!Number.isInteger(args.p_target_hex)||args.p_target_hex<1||args.p_target_hex>6
+          ||b.moved_turn===m.turn_no||moveEvents3x3.has(key)
+          ||!hp||hp.creature_instance_id!==b.creature_instance_id||hp.hp_remaining<=0
+          ||!neighbors[b.hex_position]?.includes(args.p_target_hex)
+          ||own.some(x=>x.hex_position===args.p_target_hex)
+          ||clashes.has(room.id+"/"+m.turn_no)||burstWindows.has(room.id+"/"+m.turn_no))
+          return {data:null,error:{message:"Illegal 3x3 movement, replay or occupied ally hex"}};
+        const event={lobby_id:room.id,turn_no:m.turn_no,actor_id:actor,
+          formation_slot:b.formation_slot,creature_instance_id:b.creature_instance_id,
+          from_hex:b.hex_position,to_hex:args.p_target_hex,
+          official_position_changed:false,official_match_modified:false,damage_applied:false};
+        b.hex_position=args.p_target_hex;b.moved_turn=m.turn_no;
+        moveEvents3x3.set(key,event);
+        return {data:{...event},error:null};
       }
       if(name==="chaotic_transfer_preview_alakazaz_token"){
         const m=matches.get(room.id);
@@ -1007,7 +1051,7 @@ function makeClient(actor) {
       throw Error(name);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits","chaotic_preview_burst_windows","chaotic_preview_burst_priority","chaotic_preview_burst_priority_passes","chaotic_preview_burst_mugic_intents","chaotic_preview_burst_mugic_counterplans","chaotic_preview_mugic_token_wallets","chaotic_preview_mugic_token_settlements","chaotic_preview_ability_heal_events","chaotic_preview_harp_token_events","chaotic_preview_3x3_allies","chaotic_preview_3x3_hp_wallets","chaotic_preview_3x3_token_transfers","chaotic_preview_burst_order_plans","chaotic_preview_burst_equipment_responses","chaotic_preview_burst_equipment_effects"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits","chaotic_preview_burst_windows","chaotic_preview_burst_priority","chaotic_preview_burst_priority_passes","chaotic_preview_burst_mugic_intents","chaotic_preview_burst_mugic_counterplans","chaotic_preview_mugic_token_wallets","chaotic_preview_mugic_token_settlements","chaotic_preview_ability_heal_events","chaotic_preview_harp_token_events","chaotic_preview_3x3_allies","chaotic_preview_3x3_hp_wallets","chaotic_preview_3x3_board_positions","chaotic_preview_3x3_move_events","chaotic_preview_3x3_token_transfers","chaotic_preview_burst_order_plans","chaotic_preview_burst_equipment_responses","chaotic_preview_burst_equipment_effects"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
         then(resolve,reject) {
           const room=rooms.get(this.id);
@@ -1079,6 +1123,10 @@ function makeClient(actor) {
                                               ?[...allies3x3.values()].filter(x=>x.lobby_id===this.id)
                                               :table==="chaotic_preview_3x3_hp_wallets"
                                               ?[...hp3x3.values()].filter(x=>x.lobby_id===this.id)
+                                              :table==="chaotic_preview_3x3_board_positions"
+                                              ?[...boardPositions3x3.values()].filter(x=>x.lobby_id===this.id)
+                                              :table==="chaotic_preview_3x3_move_events"
+                                              ?[...moveEvents3x3.values()].filter(x=>x.lobby_id===this.id)
                                               :table==="chaotic_preview_3x3_token_transfers"
                                               ?[...transfers3x3.values()].filter(x=>x.lobby_id===this.id)
                                               :table==="chaotic_preview_burst_order_plans"
