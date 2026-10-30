@@ -396,6 +396,8 @@ function makeClient(actor) {
         const result={lobby_id:room.id,turn_no:match.turn_no,attacker_id:actor,
           defender_id:clash.defender_id,attack_instance_id:attack.attack_instance_id,
           catalog_attack_id:attack.catalog_attack_id,attack_name:attack.attack_name,
+          attacker_instance_id:attacker.card_instance_id,
+          defender_instance_id:defender.card_instance_id,
           attacker_name:attacker.creature_name,defender_name:defender.creature_name,
           defender_energy_initial:defender.stats.e+locationEnergy,base_damage:attack.base_damage,
           elemental_bonus:0,attribute_bonus:0,equipment_bonus:0,
