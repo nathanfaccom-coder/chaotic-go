@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Chaotic GO - Abertura</title> 
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js?v=release-1', { updateViaCache: 'none' })
+          .then(() => console.log("Atualização do scanner instalada"))
+          .catch(err => console.log("Erro no sinal do Service Worker:", err));
+      }
+    </script>
+</head>
+<body>
+    
+    <div id="painel-instalacao" style="display: none; position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #111; border: 2px solid #4CAF50; padding: 15px; border-radius: 10px; z-index: 10000; text-align: center; width: 85%; max-width: 400px; box-shadow: 0 0 15px #4CAF50; font-family: monospace;">
+        <p style="color: white; font-size: 14px; margin-top: 0; margin-bottom: 15px;">Deseja instalar o Scanner no seu terminal para acesso rápido offline?</p>
+        <button id="btn-instalar" style="background: #4CAF50; color: black; border: none; padding: 8px 15px; font-weight: bold; border-radius: 5px; cursor: pointer; margin-right: 10px;">INSTALAR</button>
+        <button id="btn-fechar-install" style="background: #ff5555; color: white; border: none; padding: 8px 15px; font-weight: bold; border-radius: 5px; cursor: pointer;">AGORA NÃO</button>
+    </div>
+    
+    <a href="login-completo.html">
+        <img src="logo.png" alt="Logotipo Chaotic GO" id="logo-abertura">
+    </a>
+
+    <p class="creditos">DESENVOLVIDO POR NATHAN REIS</p>
+    <p class="versao">VERSÃO 0.1.7</p>
+
+    <script>
+        let deferredPrompt;
+        const painelInstalacao = document.getElementById('painel-instalacao');
+        const btnInstalar = document.getElementById('btn-instalar');
+        const btnFecharInstall = document.getElementById('btn-fechar-install');
+
+        // Escuta o evento do navegador avisando que o site pode virar App
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault(); // Impede o aviso padrão feio do navegador
+            deferredPrompt = e; // Salva o evento para usarmos depois
+            painelInstalacao.style.display = 'block'; // Mostra o nosso painel customizado
+        });
+
+        // O que acontece quando clica em INSTALAR
+        btnInstalar.addEventListener('click', async () => {
+            painelInstalacao.style.display = 'none'; // Esconde o nosso painel
+            if (deferredPrompt) {
+                deferredPrompt.prompt(); // Dispara o instalador do celular
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log(`Escolha da instalação: ${outcome}`);
+                deferredPrompt = null; // Limpa a memória
+            }
+        });
+
+        // O que acontece quando clica em AGORA NÃO
+        btnFecharInstall.addEventListener('click', () => {
+            painelInstalacao.style.display = 'none'; // Apenas esconde o aviso
+        });
+    </script>
+</body>
+</html>

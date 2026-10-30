@@ -8,8 +8,8 @@
     <link rel="manifest" href="manifest.json">
     <script>
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js')
-          .then(() => console.log("Scanner pronto para operar offline!"))
+        navigator.serviceWorker.register('sw.js?v=release-1', { updateViaCache: 'none' })
+          .then(() => console.log("Atualização do scanner instalada"))
           .catch(err => console.log("Erro no sinal do Service Worker:", err));
       }
     </script>
@@ -22,12 +22,12 @@
         <button id="btn-fechar-install" style="background: #ff5555; color: white; border: none; padding: 8px 15px; font-weight: bold; border-radius: 5px; cursor: pointer;">AGORA NÃO</button>
     </div>
     
-    <a href="login.html">
+    <a href="login-completo.html">
         <img src="logo.png" alt="Logotipo Chaotic GO" id="logo-abertura">
     </a>
 
     <p class="creditos">DESENVOLVIDO POR NATHAN REIS</p>
-    <p class="versao">VERSÃO 0.0.1</p>
+    <p class="versao">VERSÃO 0.1.7</p>
 
     <script>
         let deferredPrompt;

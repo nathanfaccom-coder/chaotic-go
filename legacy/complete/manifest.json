@@ -1,0 +1,16 @@
+{
+  "name": "Chaotic GO Scanner",
+  "short_name": "ChaoticGO",
+  "description": "Scanner de Criaturas Chaotic em Tempo Real",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#ff0000",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Chaotic GO - Login</title> 
+    <link rel="stylesheet" href="style.css?v=20261030.2">
+    <style>
+        /* Garantindo que as modais funcionem caso o CSS não tenha isso */
+        .modal-oculto { display: none; }
+        .modal-ativo { display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-conteudo { background: #111; border: 2px solid #4CAF50; padding: 20px; border-radius: 10px; text-align: center; }
+    </style>
+</head>
+<body>
+
+    <img src="logo.png" alt="Logotipo Chaotic GO Pequeno" id="logo-login" style="max-width: 200px; margin: 20px auto; display: block;">
+
+    <div class="caixa-botoes" style="text-align: center;">
+        <button class="botao-padrao" id="btn-abrir-login">Fazer Login</button>
+        <button class="botao-padrao" id="btn-abrir-cadastro">Criar Conta</button>
+        <button class="botao-admin" style="margin-top: 10px;">Painel Admin</button>
+    </div>
+
+    <div id="modal-login" class="modal-oculto">
+        <div class="modal-conteudo">
+            <h2 style="color: white;">Acessar Scanner</h2>
+            
+            <input type="email" id="usuario" placeholder="E-mail" autocomplete="email" style="display: block; width: 100%; margin: 10px auto; padding: 10px;">
+            <input type="password" id="senha" placeholder="Senha" autocomplete="current-password" style="display: block; width: 100%; margin: 10px auto; padding: 10px;">
+            
+            <button class="botao-padrao" id="btn-entrar" style="margin-top: 10px;">Entrar</button>
+            <button class="botao-padrao" id="btn-recuperar-senha" type="button">Esqueci minha senha</button>
+            <button class="botao-voltar" id="btn-fechar-login" style="margin-top: 10px; background: red; color: white;">Voltar</button>
+        </div>
+    </div>
+
+    <div id="modal-cadastro" class="modal-oculto">
+        <div class="modal-conteudo">
+            <h2 style="color: white;">Nova Conta</h2>
+            
+            <input type="email" id="novo-email" placeholder="Seu E-mail" style="display: block; width: 100%; margin: 10px auto; padding: 10px;">
+            <input type="text" id="novo-usuario" placeholder="Nome de Usuário" style="display: block; width: 100%; margin: 10px auto; padding: 10px;">
+            <input type="password" id="nova-senha" placeholder="Crie uma Senha (mín. 8 caracteres)" autocomplete="new-password" style="display: block; width: 100%; margin: 10px auto; padding: 10px;">
+            
+            <button class="botao-padrao" id="btn-cadastrar" style="margin-top: 10px;">Cadastrar</button>
+            <button class="botao-voltar" id="btn-fechar-cadastro" style="margin-top: 10px; background: red; color: white;">Voltar</button>
+        </div>
+    </div>
+    
+    <p id="auth-feedback" role="status" style="color:#fff;text-align:center;max-width:350px;margin:20px auto"></p>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.0/dist/umd/supabase.js"></script>
+<script src="supabase-config.js?v=20261030.2"></script>
+<script src="auth-client.js?v=20261030.2"></script>
+<script src="login-auth.js?v=full-3"></script>
+</body>
+</html>
+
