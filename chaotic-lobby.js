@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [], mugicTrainingWallets = [], mugicTrainingSettlements = [], trainingAbilityEvents = [], harpTrainingEvents = [], allies3x3 = [], transfers3x3 = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [], mugicTrainingWallets = [], mugicTrainingSettlements = [], trainingAbilityEvents = [], harpTrainingEvents = [], allies3x3 = [], transfers3x3 = [], hp3x3 = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -1110,6 +1110,8 @@
     const priorTransfer=transfers3x3.some(x=>x.turn_no===match?.turn_no
       &&x.actor_id===userId);
     $("lobby-3x3-prepare").hidden=!(myTurn&&own.length===0);
+    const ownHP=hp3x3.filter(x=>x.actor_id===userId);
+    $("lobby-3x3-hp-prepare").hidden=!(myTurn&&own.length===3&&ownHP.length===0);
     const options=$("lobby-3x3-receiver");
     // Values are fixed board positions; names and card IDs are never interpolated into HTML.
     const allowed=own.filter(x=>x.position!==donor?.position);
@@ -1130,6 +1132,14 @@
         " · "+x.remaining_tokens+" fichas de treino"+
         (x.creature_name==="Alakazaz"?" (pode doar)":"")).join("\n")
       :"Nenhuma formação 3x3 congelada.";
+    $("lobby-3x3-hp-history").textContent=hp3x3.length
+      ?hp3x3.slice().sort((a,b)=>a.actor_id===b.actor_id?
+        a.position-b.position:a.actor_id.localeCompare(b.actor_id)).map(x=>
+        (x.actor_id===userId?"Sua criatura":"Criatura adversária")+
+        " · c"+x.position+" · "+x.creature_name+
+        " · HP de treino "+x.hp_remaining+"/"+x.hp_max+
+        " · 0 ataques aplicados · nenhuma alteração no HP oficial.").join("\n")
+      :"HP não preparado. Cada jogador deve iniciar suas três criaturas separadamente.";
     $("lobby-3x3-transfer-history").textContent=transfers3x3.length
       ?transfers3x3.slice().sort((a,b)=>a.turn_no-b.turn_no).map(x=>
         "T"+x.turn_no+" · "+(x.actor_id===userId?"Você":"Adversário")+
@@ -1142,13 +1152,18 @@
   async function refresh3x3Allies(){
     if(!$("lobby-3x3-allies-panel"))return;
     if(!room||!match||room.mode!=="3x3"){
-      allies3x3=[];transfers3x3=[];update3x3UI();return;
+      allies3x3=[];transfers3x3=[];hp3x3=[];update3x3UI();return;
     }
     const units=await api.from("chaotic_preview_3x3_allies")
       .select("actor_id,position,deck_slot,creature_instance_id,creature_name,starting_tokens,remaining_tokens,received_tokens")
       .eq("lobby_id",room.id).limit(6);
     if(units.error)throw new Error(units.error.message);
     allies3x3=units.data||[];
+    const hpResult=await api.from("chaotic_preview_3x3_hp_wallets")
+      .select("actor_id,position,creature_instance_id,creature_name,hp_initial,hp_max,hp_remaining,initialized_turn,damage_events,official_match_modified")
+      .eq("lobby_id",room.id).limit(6);
+    if(hpResult.error)throw new Error(hpResult.error.message);
+    hp3x3=hpResult.data||[];
     const history=await api.from("chaotic_preview_3x3_token_transfers")
       .select("actor_id,turn_no,donor_position,receiver_position,donor_before,donor_after,receiver_before,receiver_after")
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(50);
@@ -1286,6 +1301,9 @@
           event:"*",schema:"public",table:"chaotic_preview_3x3_allies",filter:"lobby_id=eq."+lobbyId
         },sync)
         .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_3x3_hp_wallets",filter:"lobby_id=eq."+lobbyId
+        },sync)
+        .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_3x3_token_transfers",filter:"lobby_id=eq."+lobbyId
         },sync)
         .on("postgres_changes",{
@@ -1309,7 +1327,7 @@
     }, 6000);
   }
   function show() {
-    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = []; burstEquipmentResponses = []; burstEquipmentEffects = []; burstPriority = []; burstPriorityPasses = []; burstMugicIntents = []; burstMugicCounterplans = []; mugicTrainingWallets = []; mugicTrainingSettlements = []; trainingAbilityEvents = []; harpTrainingEvents = []; allies3x3 = []; transfers3x3 = [];
+    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = []; burstEquipmentResponses = []; burstEquipmentEffects = []; burstPriority = []; burstPriorityPasses = []; burstMugicIntents = []; burstMugicCounterplans = []; mugicTrainingWallets = []; mugicTrainingSettlements = []; trainingAbilityEvents = []; harpTrainingEvents = []; allies3x3 = []; transfers3x3 = []; hp3x3 = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -1481,12 +1499,15 @@
       '<p id="lobby-harp-token-history" class="lobby-events" aria-live="polite">Nenhuma Arpa usada no treinamento.</p>',
       '</section>',
       '<section id="lobby-3x3-allies-panel" class="lobby-combat" hidden>',
-      '<strong>🛡️ Formação 3x3 — treinamento separado (0.1.33)</strong>',
+      '<strong>🛡️ Formação 3x3 — treinamento separado (0.1.34)</strong>',
       '<p>Congele as 3 criaturas originais do Deck 3x3 escolhido, posições c4-c6. Somente depois, Alakazaz pode transferir 1 ficha de seu próprio saldo para outra criatura aliada, uma vez por turno. Nenhum saldo/carta do combate oficial é alterado.</p>',
       '<label for="lobby-3x3-deck">Deck 3x3 salvo</label>',
       '<select id="lobby-3x3-deck"><option value="1">Deck 1</option><option value="2">Deck 2</option><option value="3">Deck 3</option></select>',
       '<button id="lobby-3x3-prepare" type="button" hidden>Preparar minhas três criaturas</button>',
       '<p id="lobby-3x3-allies-history" class="lobby-events" aria-live="polite">Formação ainda não preparada.</p>',
+      '<p>Depois de congelar c4–c6, prepare os três valores de HP individuais a partir do DNA salvo no álbum. Sem ataque, movimento, derrota ou bônus de Local nesta etapa.</p>',
+      '<button id="lobby-3x3-hp-prepare" type="button" hidden>Preparar HP das três criaturas (teste)</button>',
+      '<p id="lobby-3x3-hp-history" class="lobby-events" aria-live="polite">HP de treino ainda não preparado.</p>',
       '<label for="lobby-3x3-receiver">Aliado que receberá 1 ficha:</label>',
       '<select id="lobby-3x3-receiver"></select>',
       '<button id="lobby-3x3-transfer" type="button" hidden>Alakazaz: transferir 1 ficha</button>',
@@ -1789,6 +1810,15 @@
       });
       await refresh3x3Allies();
       note("Formação congelada: "+result.count+" criaturas no Deck 3x3, somente no treinamento.");
+    });
+    $("lobby-3x3-hp-prepare").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="3x3")return;
+      const result=await rpc("chaotic_prepare_preview_3x3_hp",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refresh3x3Allies();
+      note("HP inicializado individualmente em "+result.count+
+        " criaturas c4–c6. Nenhum dano, HP oficial ou bônus de Local aplicado.");
     });
     $("lobby-3x3-transfer").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3")return;
