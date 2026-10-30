@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -108,6 +108,10 @@
     $("lobby-modifiers-calculate").hidden=!(myTurn&&clashToCalculate &&
       baseDamage.some(x=>x.turn_no===match.turn_no) &&
       !modifiers.some(x=>x.turn_no===match.turn_no));
+    $("lobby-dice-roll").hidden=!(myTurn && clashToCalculate &&
+      modifiers.some(x=>x.turn_no===match.turn_no && x.formula_status==="roll_or_special_required"
+        && x.attack_card_id==="104") &&
+      !dice.some(x=>x.turn_no===match.turn_no));
     const label=$("lobby-clash-status");
     label.textContent=already?"Confronto deste turno registrado. Dano ainda não é aplicado."
       :!myTurn?"Aguarde a sua vez para declarar um confronto."
@@ -126,6 +130,24 @@
     label.textContent=record
       ?record.nome+" · Energia base "+(record.statsMax?.energia??"—")+" · "+(record.tribo||"")
       :unit?"Carta #"+unit.card_id+" · c"+unit.position:"Sem criatura posicionada";
+  }
+  async function refreshDice(){
+    const log=$("lobby-dice-history");
+    if(!log)return;
+    if(!room||!match){dice=[];log.textContent="Nenhum dado rolado.";return;}
+    const {data,error}=await api.from("chaotic_preview_dice")
+      .select("turn_no,actor_id,attack_id,die_faces,rolled_value,original_base,multiplied_base")
+      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(12);
+    if(error)throw new Error(error.message);
+    dice=data||[];
+    log.textContent=dice.length?dice.slice().reverse().map(x=>{
+      const who=x.actor_id===room.host_id?"Anfitrião":"Convidado";
+      return "Turno "+x.turn_no+" · "+who+" 🎲 "+x.rolled_value+
+        " de "+x.die_faces+" · dano base "+x.original_base+
+        " × "+x.rolled_value+" = "+x.multiplied_base+
+        " (antes dos demais efeitos; HP inalterado).";
+    }).join("\n"):"Nenhum dado rolado.";
+    updateClashUI();
   }
   async function refreshModifiers(){
     const log=$("lobby-modifiers-history");
@@ -302,6 +324,7 @@
     await refreshClashes();
     await refreshBaseDamage();
     await refreshModifiers();
+    await refreshDice();
   }
   function updateRoomUI() {
     if (!$("lobby-create")) return;
@@ -363,6 +386,9 @@
         .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_modifiers",filter:"lobby_id=eq."+lobbyId
         },sync)
+        .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_dice",filter:"lobby_id=eq."+lobbyId
+        },sync)
         .subscribe(status=>{
           if(status==="CHANNEL_ERROR"||status==="TIMED_OUT")
             console.warn("DROME: canal em tempo real temporariamente indisponível; consultas periódicas seguem ativas.");
@@ -375,7 +401,7 @@
     }, 6000);
   }
   function show() {
-    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = [];
+    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -461,6 +487,8 @@
       '<p id="lobby-damage-history" class="lobby-events" aria-live="polite">Nenhum cálculo.</p>',
       '<button id="lobby-modifiers-calculate" type="button" hidden>Conferir bônus elementais e atributos</button>',
       '<p id="lobby-modifiers-history" class="lobby-events" aria-live="polite">Nenhuma conferência de bônus.</p>',
+      '<button id="lobby-dice-roll" type="button" hidden>🎲 Rolar dado do Fogo Primordial (servidor)</button>',
+      '<p id="lobby-dice-history" class="lobby-events" aria-live="polite">Nenhum dado rolado.</p>',
       '<p class="lobby-history-label">Confrontos registrados</p>',
       '<p id="lobby-clash-history" class="lobby-events" aria-live="polite">Nenhum confronto registrado.</p>',
       '</section>',
@@ -529,6 +557,15 @@
       });
       await refreshBoard();
       note("Movimento aceito pelo servidor. A criatura mudou de posição.");
+    });
+    $("lobby-dice-roll").onclick = () => action(async()=>{
+      if(!room || !match || match.status!=="active" || match.current_player!==userId)return;
+      const outcome=await rpc("chaotic_roll_preview_die",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refreshDice();
+      note("Dado autorizado pelo servidor: "+outcome.rolled_value+
+        ". Valor único registrado para os dois jogadores, sem alterar energia.");
     });
     $("lobby-modifiers-calculate").onclick = () => action(async()=>{
       if(!room||!match||match.status!=="active"||match.current_player!==userId)return;
