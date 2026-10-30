@@ -2322,8 +2322,16 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
     {id:"enemy-frador-1",name:"Frador",energy:55},
     {id:"enemy-lion-2",name:"Lion",energy:40},
     {id:"enemy-vidal-3",name:"Vidal",energy:32}];
-  deckA.attacks=[{id:"attack-host-101",name:"Ácido Gástrico",quantity:1,danoBase:10,custo:3}];
-  deckB.attacks=[{id:"attack-guest-104",name:"Fogo Primordial 2.0",quantity:1,danoBase:5,custo:2}];
+  deckA.attacks=[
+    {id:"attack-host-101",name:"Ácido Gástrico",quantity:1,danoBase:10,custo:3},
+    {id:"attack-host-104",name:"Fogo Primordial 2.0",quantity:1,danoBase:5,custo:2},
+    {id:"attack-host-102",name:"Mão Negra",quantity:1,danoBase:0,custo:0}
+  ];
+  deckB.attacks=[
+    {id:"attack-guest-104",name:"Fogo Primordial 2.0",quantity:1,danoBase:5,custo:2},
+    {id:"attack-guest-101",name:"Ácido Gástrico",quantity:1,danoBase:10,custo:3},
+    {id:"attack-guest-102",name:"Mão Negra",quantity:1,danoBase:0,custo:0}
+  ];
   decks3x3.set(owner+"/1",deckA);
   decks3x3.set(opponent+"/1",deckB);
   assert.equal(host("lobby-3x3-prepare").hidden,false);
@@ -2337,6 +2345,19 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
   assert.equal(allies3x3.get(id+"/"+owner+"/4").starting_tokens,5);
   assert.equal(allies3x3.get(id+"/"+owner+"/5").creature_name,"Vidal");
   assert.equal(allies3x3.get(id+"/"+owner+"/5").remaining_tokens,2);
+  assert.equal(host("lobby-3x3-hand-prepare").hidden,false);
+  assert.ok((await makeClient(opponent).rpc("chaotic_prepare_preview_3x3_hand",{
+    p_lobby_id:id,p_expected_turn:1})).error,
+    "Opponent cannot prepare a private hand on someone else's turn");
+  await host("lobby-3x3-hand-prepare").onclick();
+  assert.equal(hand3x3Wallets.get(id+"/"+owner).total_cards,3);
+  assert.equal(hand3x3Wallets.get(id+"/"+owner).spent_points,0);
+  assert.equal([...hand3x3Cards.values()].filter(x=>x.actor_id===owner&&x.card_state==="hand").length,3);
+  assert.equal(host("lobby-3x3-hand-prepare").hidden,true,
+    "Private hand cannot be re-shuffled to select a new set of cards");
+  assert.ok((await makeClient(owner).rpc("chaotic_prepare_preview_3x3_hand",{
+    p_lobby_id:id,p_expected_turn:1})).error,
+    "Second hand preparation must be rejected on server");
   assert.equal(host("lobby-3x3-hp-prepare").hidden,false);
   assert.ok((await makeClient(opponent).rpc("chaotic_prepare_preview_3x3_hp",{
     p_lobby_id:id,p_expected_turn:1})).error,
@@ -2434,6 +2455,8 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
   assert.equal(guest("lobby-3x3-prepare").hidden,false);
   guest("lobby-3x3-deck").value="1";
   await guest("lobby-3x3-prepare").onclick();
+  await guest("lobby-3x3-hand-prepare").onclick();
+  assert.equal(hand3x3Wallets.get(id+"/"+opponent).prepared_turn,2);
   assert.equal(guest("lobby-3x3-hp-prepare").hidden,false);
   await guest("lobby-3x3-hp-prepare").onclick();
   assert.equal(guest("lobby-3x3-hp-prepare").hidden,true);
@@ -2513,6 +2536,31 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
   assert.equal(guestAttack.attack_in_hand_verified,false);
   assert.equal(guestAttack.training_hp_changed,false);
   assert.equal(guestAttack.official_hp_changed,false);
+  assert.equal(guest("lobby-3x3-cost-check").hidden,false);
+  const guestCard=hand3x3Cards.get(id+"/"+opponent+"/1");
+  guestCard.card_state="deck";
+  assert.ok((await makeClient(opponent).rpc("chaotic_inspect_preview_3x3_hand_cost",{
+    p_lobby_id:id,p_expected_turn:2})).error,
+    "Attack that is not in owner's hand cannot pass the cost inspection");
+  guestCard.card_state="hand";
+  assert.ok((await makeClient(owner).rpc("chaotic_inspect_preview_3x3_hand_cost",{
+    p_lobby_id:id,p_expected_turn:2})).error,
+    "Opponent cannot inspect or spend another player's attack");
+  await guest("lobby-3x3-cost-check").onclick();
+  const guestCost=costChecks3x3.get(id+"/2");
+  assert.equal(guestCost.hand_verified,true);
+  assert.equal(guestCost.can_afford,true);
+  assert.equal(guestCost.attack_cost,2);
+  assert.equal(guestCost.points_available,3);
+  assert.equal(guestCost.points_after_if_paid,1);
+  assert.equal(guestCost.actual_attack_cost_paid,false);
+  assert.equal(guestCost.original_card_consumed,false);
+  assert.equal(hand3x3Wallets.get(id+"/"+opponent).spent_points,0);
+  assert.equal(hand3x3Cards.get(id+"/"+opponent+"/1").card_state,"hand");
+  assert.match(guest("lobby-3x3-cost-history").textContent,/Nenhum ponto gasto/);
+  assert.ok((await makeClient(opponent).rpc("chaotic_inspect_preview_3x3_hand_cost",{
+    p_lobby_id:id,p_expected_turn:2})).error,
+    "Cost inspection must be idempotent / reject a second event");
   assert.equal(hp3x3.get(id+"/"+owner+"/5").hp_remaining,35,
     "Only damage projection is saved; no training HP is changed");
   assert.match(guest("lobby-3x3-attack-history").textContent,/SOMENTE SE dano-base/);
@@ -2526,6 +2574,13 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
     "A second contact cannot be recorded in the same player turn");
   await guest("lobby-turn-pass").onclick();
   await host("lobby-turn-refresh").onclick();
+  assert.equal(host("lobby-3x3-hand-sync").hidden,false);
+  assert.ok((await makeClient(opponent).rpc("chaotic_sync_preview_3x3_hand",{
+    p_lobby_id:id,p_expected_turn:3})).error,
+    "Guest cannot draw from host's hand on host's turn");
+  await host("lobby-3x3-hand-sync").onclick();
+  assert.equal(hand3x3Wallets.get(id+"/"+owner).last_draw_turn,3);
+  assert.equal(host("lobby-3x3-hand-sync").hidden,true);
   host("lobby-3x3-contact-attacker").value="5";
   host("lobby-3x3-contact-defender").value="4";
   assert.equal(host("lobby-3x3-move").hidden,false,
@@ -2545,6 +2600,14 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
   assert.equal(hostAttack?.defender_hp_projected,45);
   assert.equal(hostAttack?.projected_hp_loss,10);
   assert.equal(hostAttack?.calculation_scope,"base_only_unresolved");
+  await host("lobby-3x3-cost-check").onclick();
+  const hostCost=costChecks3x3.get(id+"/3");
+  assert.equal(hostCost?.hand_verified,true);
+  assert.equal(hostCost?.points_available,4);
+  assert.equal(hostCost?.attack_cost,3);
+  assert.equal(hostCost?.points_after_if_paid,1);
+  assert.equal(hostCost?.actual_attack_cost_paid,false);
+  assert.equal(hostCost?.training_hp_changed,false);
   assert.equal(hp3x3.get(id+"/"+opponent+"/4").hp_remaining,55);
   assert.equal(host("lobby-3x3-move").hidden,true,
     "Contact freezes further movement on its own turn");
