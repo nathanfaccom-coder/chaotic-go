@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map(),burstOrderPlans=new Map(),burstEquipmentResponses=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map(),burstOrderPlans=new Map(),burstEquipmentResponses=new Map(),burstEquipmentEffects=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -297,7 +297,10 @@ function makeClient(actor) {
           ||clash?.defender_id!==actor||clash?.defender_card!==unit?.card_instance_id
           ||!unit?.equipment_instance_id||!unit?.equipment_name
           ||equipmentReveals.has(room.id+"/"+actor)
-          ||burstEquipmentResponses.has(key)||burstOrderPlans.has(key))
+          ||burstEquipmentResponses.has(key)||burstOrderPlans.has(key)
+          ||[...burstEquipmentEffects.values()].some(x=>
+            x.lobby_id===room.id&&x.defender_id===actor
+            &&x.equipment_instance_id===unit.equipment_instance_id))
           return {data:null,error:{message:"Revelação de equipamento indisponível"}};
         const queued={lobby_id:room.id,turn_no:m.turn_no,defender_id:actor,
           creature_instance_id:unit.card_instance_id,
@@ -309,6 +312,53 @@ function makeClient(actor) {
           official_match_modified:false};
         burstEquipmentResponses.set(key,queued);
         return {data:{...queued},error:null};
+      }
+      if(name==="chaotic_apply_preview_burst_equipment_effect"){
+        const m=matches.get(room.id),key=room.id+"/"+args.p_expected_turn;
+        const win=burstWindows.get(key),q=burstEquipmentResponses.get(key);
+        const plan=burstOrderPlans.get(key);
+        const unit=loadouts.get(room.id+"/"+q?.defender_id);
+        const wallet=hpWallets.get(room.id+"/"+q?.defender_id);
+        const name=(q?.equipment_name||"").toLowerCase();
+        const effects={
+          "anel precioso":"precious_ring_hp",
+          "bastão da sabedoria":"wisdom_staff",
+          "bastao da sabedoria":"wisdom_staff",
+          "bomba de fogo":"fire_bomb_hp"
+        };
+        if(room.mode!=="1x1"||room.status!=="ready"||!m||m.status!=="active"
+          ||m.turn_no!==args.p_expected_turn||m.current_player!==actor
+          ||win?.attacker_id!==actor||win.status!=="defender_passed"
+          ||q?.defender_id!==win.defender_id
+          ||plan?.attacker_id!==actor||plan.inspection_step_count!==2
+          ||plan.inspection_steps[0].stage!=="inspect_queued_equipment_reveal"
+          ||plan.inspection_steps[1].stage!=="inspect_attack"
+          ||unit?.card_instance_id!==q.creature_instance_id
+          ||unit?.equipment_instance_id!==q.equipment_instance_id
+          ||unit?.equipment_name!==q.equipment_name
+          ||wallet?.creature_instance_id!==q.creature_instance_id
+          ||!effects[name]||burstEquipmentEffects.has(key)
+          ||equipmentReveals.has(room.id+"/"+q.defender_id)
+          ||[...burstEquipmentEffects.values()].some(x=>
+            x.lobby_id===room.id&&x.defender_id===q.defender_id
+            &&x.equipment_instance_id===q.equipment_instance_id))
+          return {data:null,error:{message:"Efeito de treinamento indisponível"}};
+        const before=wallet.hp_remaining,max=wallet.hp_max,wis=unit.stats.s;
+        const after=effects[name]==="precious_ring_hp"?Math.max(0,before-15)
+          :effects[name]==="fire_bomb_hp"?before+5:before;
+        const afterMax=max+(effects[name]==="fire_bomb_hp"?5:0);
+        const afterWis=wis+(effects[name]==="wisdom_staff"?40:0);
+        wallet.hp_remaining=after;wallet.hp_max=afterMax;
+        const entry={lobby_id:room.id,turn_no:m.turn_no,attacker_id:actor,
+          defender_id:q.defender_id,creature_instance_id:q.creature_instance_id,
+          equipment_instance_id:q.equipment_instance_id,equipment_name:q.equipment_name,
+          effect_code:effects[name],hp_before:before,hp_after:after,
+          hp_max_before:max,hp_max_after:afterMax,wisdom_before:wis,
+          wisdom_after:afterWis,resolution_status:"training_ledger_applied",
+          applied_to_training_ledger:true,applied_to_official_match:false,
+          official_hp_changed:false,final_damage_verified:false};
+        burstEquipmentEffects.set(key,entry);
+        return {data:{...entry},error:null};
       }
       if(name==="chaotic_prepare_preview_burst_order"){
         const m=matches.get(room.id),key=room.id+"/"+args.p_expected_turn;
@@ -640,7 +690,7 @@ function makeClient(actor) {
       throw Error(name);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits","chaotic_preview_burst_windows","chaotic_preview_burst_order_plans","chaotic_preview_burst_equipment_responses"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits","chaotic_preview_burst_windows","chaotic_preview_burst_order_plans","chaotic_preview_burst_equipment_responses","chaotic_preview_burst_equipment_effects"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
         then(resolve,reject) {
           const room=rooms.get(this.id);
@@ -695,6 +745,8 @@ function makeClient(actor) {
                                               ?[...burstOrderPlans.values()].filter(x=>x.lobby_id===this.id)
                                               :table==="chaotic_preview_burst_equipment_responses"
                                                 ?[...burstEquipmentResponses.values()].filter(x=>x.lobby_id===this.id)
+                                                :table==="chaotic_preview_burst_equipment_effects"
+                                                  ?[...burstEquipmentEffects.values()].filter(x=>x.lobby_id===this.id)
                         :(journals.get(this.id)||[])):[];
           return Promise.resolve({data:[...events].reverse().slice(0,size),error:null});
         },
