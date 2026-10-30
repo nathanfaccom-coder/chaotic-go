@@ -69,3 +69,12 @@ O service worker de lançamento não armazena telas autenticadas nem JavaScript 
 - A multiplicação `danoBase × valorDoDado` reproduz essa etapa do `batalha.js`, mas os demais efeitos permanecem pendentes. **Não altera HP nem determina vencedor.**
 - A API anônima e escrita direta estão proibidas; leitura somente com RLS de participantes. Há teste automático emulado e checagens negativas no banco, mas ainda faltam duas contas reais para teste completo.
 - Uma estimativa geral com critérios ponderados está em `STATUS-PROJETO.md` (**53% de prontidão estimada para versão completa**).
+
+## Ficha individual e equipamento do 1x1 (etapa de integração)
+- A versão original de Decks salva o **ID único da carta capturada** (ex.: número gerado no scanner), diferente do ID do modelo no catálogo. A antiga prévia baseada apenas em IDs de catálogo não representa fielmente cartas reais.
+- `chaotic_preview_loadouts` permite registrar, uma vez por jogador e por partida privada **1x1**, os atributos **c, p, s, v, e** da criatura individual do álbum, junto do equipamento efetivamente selecionado no Decks.
+- `chaotic_capture_preview_loadout` confere autenticacão, turno, modo, deck salvo, seleção no c6, posição no tabuleiro, existência única no álbum e tipo das cartas. O equipamento segue a regra de slot/fallback do motor legado.
+- A tabela possui RLS para os dois participantes, sem INSERT/UPDATE direto; um segundo registro pelo mesmo jogador é recusado.
+- O botão **Preparar ficha da minha criatura** e as duas fichas aparecem em DROME → Sala privada (teste), com sincronização Realtime.
+- **Não aplica dano/efeitos ou recompensas** e **não prova posse antifraude**: a coleção atual é gravável pelo próprio jogador. Antes de ativar PvP competitivo, será necessário criar emissão/transação autoritativa para cartas capturadas e resolver os IDs de instância dos ataques ao catálogo.
+- A avaliação de prontidão do projeto continua 53%: mais uma dependência foi atendida, mas o combate completo ainda não foi habilitado nem validado em dois dispositivos.

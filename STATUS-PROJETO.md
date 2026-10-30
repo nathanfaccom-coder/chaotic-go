@@ -39,3 +39,8 @@ Números estimados para planejamento, não verificação automática de 53% das 
 - P1: estabilização, UX mobile, testes cruzados e preparação de lançamento.
 
 **Limite:** as tabelas `chaotic_preview_*` são experimentais. Resultados desses cálculos **não modificam pontos de vida, partidas oficiais, moedas, XP, cartas ou vitórias**. Evite usar suas prévias para premiar partidas.
+
+## Integração individual 1x1 — progresso recente
+- Captura de atributos das cartas realmente salvas no álbum, e não apenas dos valores-padrão do catálogo, com equipamento e trava de escrita no servidor.
+- **Próximo bloqueio crítico:** resolver a identidade das instâncias de ataques e verificar a procedência do álbum de forma independente da escrita do navegador; em seguida, calcular o dano com atributos reais e todas as imunidades/efeitos.
+- A estimativa ponderada permanece em **53%** até existir um marco funcional maior, como uma partida 1x1 completa e testada.
