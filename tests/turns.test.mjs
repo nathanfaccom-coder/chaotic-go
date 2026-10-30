@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map(),burstOrderPlans=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -286,6 +286,35 @@ function makeClient(actor) {
         win.defender_response="acknowledge_air_immunity";
         win.defensive_immunity_source=isRex?"rex_air":"vacuum_amulet_air";
         return {data:{...win},error:null};
+      }
+      if(name==="chaotic_prepare_preview_burst_order"){
+        const m=matches.get(room.id),key=room.id+"/"+args.p_expected_turn;
+        const win=burstWindows.get(key),clash=clashes.get(key),attack=attackInstances.get(key);
+        if(room.mode!=="1x1"||room.status!=="ready"||!m||m.status!=="active"
+          ||m.turn_no!==args.p_expected_turn||m.current_player!==actor
+          ||win?.attacker_id!==actor
+          ||!["defender_passed","defender_immunity_noted"].includes(win?.status)
+          ||clash?.attacker_id!==actor||clash?.defender_id!==win.defender_id
+          ||clash?.attack_card!==win.attack_instance_id
+          ||attack?.actor_id!==actor||attack?.attack_instance_id!==win.attack_instance_id
+          ||burstOrderPlans.has(key))
+          return {data:null,error:{message:"Sequência Burst não autorizada"}};
+        const steps=win.status==="defender_immunity_noted"
+          ?[{order:1,stage:"inspect_passive_air_immunity",actor:"defender",
+              source:win.defensive_immunity_source,executed:false},
+            {order:2,stage:"inspect_attack",actor:"attacker",
+              source:"declared_attack",executed:false}]
+          :[{order:1,stage:"inspect_attack",actor:"attacker",
+              source:"declared_attack",executed:false}];
+        const entry={lobby_id:room.id,turn_no:m.turn_no,
+          defender_response:win.defender_response,
+          defensive_immunity_source:win.defensive_immunity_source||null,
+          inspection_steps:steps,inspection_step_count:steps.length,
+          preparation_status:"prepared_not_executed",
+          burst_stack_executed:false,final_damage_verified:false,
+          official_match_modified:false};
+        burstOrderPlans.set(key,entry);
+        return {data:{...entry},error:null};
       }
       if(name==="chaotic_audit_preview_damage"){
         const m=matches.get(room.id),k=room.id+"/"+args.p_expected_turn;
@@ -579,7 +608,7 @@ function makeClient(actor) {
       throw Error(name);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits","chaotic_preview_burst_windows"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits","chaotic_preview_burst_windows","chaotic_preview_burst_order_plans"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
         then(resolve,reject) {
           const room=rooms.get(this.id);
@@ -630,6 +659,8 @@ function makeClient(actor) {
                                           ?[...resolutionAudits.values()].filter(x=>x.lobby_id===this.id)
                                           :table==="chaotic_preview_burst_windows"
                                             ?[...burstWindows.values()].filter(x=>x.lobby_id===this.id)
+                                            :table==="chaotic_preview_burst_order_plans"
+                                              ?[...burstOrderPlans.values()].filter(x=>x.lobby_id===this.id)
                         :(journals.get(this.id)||[])):[];
           return Promise.resolve({data:[...events].reverse().slice(0,size),error:null});
         },
@@ -1562,6 +1593,8 @@ test("1x1 Burst defender may pass during attacker's turn but cannot resolve dama
   assert.equal(host("lobby-burst-open").hidden,false);
   await host("lobby-burst-open").onclick();
   assert.equal(burstWindows.get(id+"/3").status,"awaiting_defender");
+  assert.ok((await makeClient("burst-host").rpc("chaotic_prepare_preview_burst_order",{
+    p_lobby_id:id,p_expected_turn:3})).error,"Cannot plan before defender responded");
   assert.equal(host("lobby-turn-pass").hidden,true,
     "Attacker cannot pass while defender is deciding");
   assert.ok((await makeClient("burst-host").rpc("chaotic_pass_turn",{
@@ -1595,6 +1628,18 @@ test("1x1 Burst defender may pass during attacker's turn but cannot resolve dama
     p_lobby_id:id,p_expected_turn:3})).error,"Pass is one-time");
   await host("lobby-turn-refresh").onclick();
   assert.match(host("lobby-burst-history").textContent,/PASSAR/);
+  assert.equal(host("lobby-burst-order-prepare").hidden,false);
+  assert.ok((await makeClient("burst-guest").rpc("chaotic_prepare_preview_burst_order",{
+    p_lobby_id:id,p_expected_turn:3})).error,"Defender cannot forge attacker plan");
+  await host("lobby-burst-order-prepare").onclick();
+  const plan=burstOrderPlans.get(id+"/3");
+  assert.equal(plan.inspection_step_count,1,"PASS is not a counter-card");
+  assert.equal(plan.inspection_steps[0].stage,"inspect_attack");
+  assert.equal(plan.burst_stack_executed,false);
+  assert.equal(plan.final_damage_verified,false);
+  assert.match(host("lobby-burst-order-history").textContent,/PASSAR/);
+  assert.ok((await makeClient("burst-host").rpc("chaotic_prepare_preview_burst_order",{
+    p_lobby_id:id,p_expected_turn:3})).error,"Cannot recapture sequence");
   assert.equal(host("lobby-turn-pass").hidden,false);
   assert.equal(host("lobby-individual-damage-calculate").hidden,false);
   await host("lobby-individual-damage-calculate").onclick();
@@ -1672,6 +1717,19 @@ test("Burst 1x1 validates "+defenseKind+" immunity to Ar without changing offici
     p_lobby_id:id,p_expected_turn:3})).error,"Cannot acknowledge twice");
   await host("lobby-turn-refresh").onclick();
   assert.match(host("lobby-burst-history").textContent,/imunidade a Ar/);
+  assert.equal(host("lobby-burst-order-prepare").hidden,false);
+  await host("lobby-burst-order-prepare").onclick();
+  const plan=burstOrderPlans.get(id+"/3");
+  assert.equal(plan.inspection_step_count,2);
+  assert.equal(plan.inspection_steps[0].stage,"inspect_passive_air_immunity");
+  assert.equal(plan.inspection_steps[0].source,
+    defenseKind==="rex"?"rex_air":"vacuum_amulet_air");
+  assert.equal(plan.inspection_steps[1].stage,"inspect_attack");
+  assert.equal(plan.inspection_steps.every(x=>x.executed===false),true);
+  assert.equal(plan.burst_stack_executed,false);
+  assert.match(host("lobby-burst-order-history").textContent,/não é contra-ataque/);
+  await guest("lobby-turn-refresh").onclick();
+  assert.match(guest("lobby-burst-order-history").textContent,/conferir a carta atacante/);
   assert.equal(host("lobby-individual-damage-calculate").hidden,false);
   await host("lobby-individual-damage-calculate").onclick();
   const damage=individualDamage.get(id+"/3");
