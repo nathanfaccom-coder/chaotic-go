@@ -158,9 +158,11 @@
     clashes=data||[];
     log.textContent=clashes.length?clashes.slice().reverse().map(e=>{
       const side=e.attacker_id===room.host_id?"Anfitrião":"Convidado";
-      const attack=(window.ChaoticOriginalCards?.attacks||[])
-        .find(c=>String(c.id)===String(e.attack_card));
-      return "Turno "+e.turn_no+" · "+side+": "+(attack?.nome||"Ataque #"+e.attack_card)
+      const attackMatches=(window.ChaoticOriginalCards?.attacks||[])
+        .filter(c=>String(c.id)===String(e.attack_card));
+      const attackLabel=attackMatches.length===1?attackMatches[0].nome:
+        attackMatches.length>1?"Ataque #"+e.attack_card+" (ID duplicado)":"Ataque #"+e.attack_card;
+      return "Turno "+e.turn_no+" · "+side+": "+attackLabel
         +" (c"+e.attacker_position+" contra c"+e.defender_position+") · resolução pendente";
     }).join("\n"):"Nenhum confronto registrado.";
     updateClashUI();
