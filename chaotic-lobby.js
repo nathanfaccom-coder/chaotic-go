@@ -287,6 +287,10 @@
     if(error)throw new Error(error.message);
     loadouts=data||[];
     updateLoadoutUI();
+    showOfficialCard("host",board.find(x=>x.actor_id===room.host_id));
+    showOfficialCard("guest",board.find(x=>x.actor_id===room.guest_id));
+    updateAttackInstanceUI();
+    updateClashUI();
   }
   function updateAttackInstanceUI(){
     const panel=$("lobby-attack-instance-panel");
