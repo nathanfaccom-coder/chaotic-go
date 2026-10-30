@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -151,6 +151,11 @@
     $("lobby-burst-mugic-create").hidden=!canDeclareMugic;
     $("lobby-burst-mugic-reject").hidden=!canDeclareMugic;
     $("lobby-burst-mugic-cancel").hidden=!ownPendingMugic;
+    $("lobby-burst-mugic-counterplan").hidden=!(
+      myTurn&&priorityClosed&&ownPendingMugic
+      &&ownMugic.catalog_mugic_id==="301"
+      &&!burstMugicCounterplans.some(x=>x.turn_no===match.turn_no)
+      &&!activePlan);
     $("lobby-burst-priority-open").hidden=!(room.mode==="1x1"&&myTurn
       &&activeBurst&&["defender_passed","defender_immunity_noted"].includes(activeBurst.status)
       &&!activePriority&&!activePlan
@@ -429,6 +434,29 @@
       ).join("\n")
       :"Nenhuma sequência de inspeção preparada.";
     updateMatchUI();
+    updateClashUI();
+  }
+  async function refreshBurstMugicCounterplans(){
+    const panel=$("lobby-burst-mugic-counter-preview");
+    if(!panel)return;
+    panel.hidden=!room||!match||room.mode!=="1x1";
+    if(panel.hidden){burstMugicCounterplans=[];return;}
+    const {data,error}=await api.from("chaotic_preview_burst_mugic_counterplans")
+      .select("turn_no,attacker_id,defender_id,required_creation_tokens,required_rejection_tokens,inspection_status,inspection_steps,hypothetical_creation_negated,token_balance_verified,effect_executed")
+      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(20);
+    if(error)throw new Error(error.message);
+    burstMugicCounterplans=data||[];
+    $("lobby-burst-mugic-counter-history").textContent=burstMugicCounterplans.length
+      ?burstMugicCounterplans.slice().reverse().map(x=>
+        "T"+x.turn_no+" · INSPEÇÃO LIFO: "+
+        (x.inspection_steps||[]).map(y=>y.reverse_order+"º "+y.name).join(" → ")+
+        ". Rejeição poderia anular Criação SOMENTE SE fichas e regras forem confirmadas."+
+        " Custos previstos: Criação "+x.required_creation_tokens+
+        ", Rejeição "+x.required_rejection_tokens+
+        " fichas. Fichas NÃO verificadas nem debitadas; nenhum efeito executado."+
+        " Cancele as intenções de ambos os jogadores para retomar o fluxo de treinamento."
+      ).join("\n")
+      :"Nenhuma contraposição entre Mugics preparada.";
     updateClashUI();
   }
   async function refreshBurstMugicIntents(){
@@ -951,6 +979,7 @@
     await refreshBurstWindows();
     await refreshBurstPriority();
     await refreshBurstMugicIntents();
+    await refreshBurstMugicCounterplans();
     await refreshBurstEquipmentResponses();
     await refreshBurstOrderPlans();
     await refreshBurstEquipmentEffects();
@@ -1068,6 +1097,9 @@
           event:"*",schema:"public",table:"chaotic_preview_burst_mugic_intents",filter:"lobby_id=eq."+lobbyId
         },sync)
         .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_burst_mugic_counterplans",filter:"lobby_id=eq."+lobbyId
+        },sync)
+        .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_burst_order_plans",filter:"lobby_id=eq."+lobbyId
         },sync)
         .on("postgres_changes",{
@@ -1088,7 +1120,7 @@
     }, 6000);
   }
   function show() {
-    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = []; burstEquipmentResponses = []; burstEquipmentEffects = []; burstPriority = []; burstPriorityPasses = []; burstMugicIntents = [];
+    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = []; burstEquipmentResponses = []; burstEquipmentEffects = []; burstPriority = []; burstPriorityPasses = []; burstMugicIntents = []; burstMugicCounterplans = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -1228,12 +1260,18 @@
       '<button id="lobby-burst-priority-pass" type="button" hidden>Passar minha prioridade agora</button>',
       '<p id="lobby-burst-priority-history" class="lobby-events" aria-live="polite">Nenhuma rodada de prioridade aberta.</p>',
       '<section id="lobby-burst-mugic-preview" class="lobby-combat" hidden>',
-      '<strong>🎵 Mugics — intenção experimental (0.1.28)</strong>',
+      '<strong>🎵 Mugics — inspeção experimental (0.1.29)</strong>',
       '<p>Durante SUA prioridade, declare uma Mugic já presente no Deck 1x1 e no álbum. Isto NÃO conjura, consome fichas ou revela a carta ao adversário. Enquanto pendente, o dano e o próximo turno ficam bloqueados; cancele para continuar o treinamento.</p>',
       '<button id="lobby-burst-mugic-create" type="button" hidden>Declarar Canção da Criação (prévia)</button>',
       '<button id="lobby-burst-mugic-reject" type="button" hidden>Declarar Canção da Rejeição (prévia)</button>',
       '<button id="lobby-burst-mugic-cancel" type="button" hidden>Cancelar minha intenção Mugic</button>',
       '<p id="lobby-burst-mugic-history" class="lobby-events" aria-live="polite">Nenhuma intenção Mugic registrada.</p>',
+      '<section id="lobby-burst-mugic-counter-preview" class="lobby-combat" hidden>',
+      '<strong>🔁 Canção da Rejeição × Canção da Criação — revisão LIFO</strong>',
+      '<p>Após o atacante declarar Criação e o defensor declarar Rejeição, e ambos passarem prioridade, o atacante pode conferir uma ordem hipotética de contraposição. É necessário cancelar ambas as intenções para continuar o turno de treino. Custos/fichas não são pagos.</p>',
+      '<button id="lobby-burst-mugic-counterplan" type="button" hidden>Simular contraposição Mugic (sem aplicar)</button>',
+      '<p id="lobby-burst-mugic-counter-history" class="lobby-events" aria-live="polite">Nenhum contra-plano preparado.</p>',
+      '</section>',
       '</section>',
       '</section>',
       '<section id="lobby-burst-order-preview" hidden>',
@@ -1520,6 +1558,14 @@
           "Ainda não foi conjurada, não gasta fichas e bloqueia dano até cancelar.");
       });
     }
+    $("lobby-burst-mugic-counterplan").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="1x1"||match.current_player!==userId)return;
+      const result=await rpc("chaotic_prepare_preview_mugic_counterplan",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refreshBurstMugicCounterplans();
+      note("Ordem LIFO conferida: Rejeição → Criação. Sem validar saldo de fichas, sem conjurar, sem cancelar de verdade nem alterar HP.");
+    });
     $("lobby-burst-mugic-cancel").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="1x1")return;
       await rpc("chaotic_cancel_preview_burst_mugic",{
