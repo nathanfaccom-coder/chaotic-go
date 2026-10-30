@@ -79,7 +79,7 @@ function makeClient(actor) {
           !unit||unit.position!==6||loadouts.has(key))
           return {data:null,error:{message:"Ficha não autorizada"}};
         const snapshot={lobby_id:room.id,actor_id:actor,position:6,
-          card_instance_id:unit.card_id,creature_name:"Criatura original",
+          card_instance_id:unit.card_id,creature_name:"Criatura original",tribe:"Azul",
           stats:{c:65,p:55,s:70,v:45,e:65},
           equipment_instance_id:"201",equipment_name:"Equipamento original"};
         loadouts.set(key,snapshot);
@@ -254,17 +254,26 @@ function makeClient(actor) {
             &&x.spent_turn===args.p_expected_turn))
           return {data:null,error:{message:"Prévia individual negada"}};
         const special=attack.catalog_attack_id==="104";
-        const total=special?null:attack.base_damage;
+        const location=locations.get(room.id);
+        const locId=location?.catalog_location_id||null;
+        const locationEnergy=locId===501&&defender.tribe==="Azul"?10:0;
+        const hasWind=attack.catalog_attack_id==="110";
+        const hasWater=attack.catalog_attack_id==="101";
+        const locationDelta=locId===502?(hasWind?5:0)-(hasWater?5:0):0;
+        const magmaElemental=locId===503&&attack.catalog_attack_id==="101"?5:0;
+        const total=special?null:Math.max(0,attack.base_damage+locationDelta+magmaElemental);
         const result={lobby_id:room.id,turn_no:match.turn_no,attacker_id:actor,
           defender_id:clash.defender_id,attack_name:attack.attack_name,
           attacker_name:attacker.creature_name,defender_name:defender.creature_name,
-          defender_energy_initial:defender.stats.e,base_damage:attack.base_damage,
+          defender_energy_initial:defender.stats.e+locationEnergy,base_damage:attack.base_damage,
           elemental_bonus:0,attribute_bonus:0,equipment_bonus:0,
+          location_id:locId,location_damage_delta:locationDelta,
+          location_elemental_bonus:magmaElemental,location_energy_bonus:locationEnergy,
           attack_cost:attack.attack_cost,cost_status:"test_spent",
           attacker_equipment_revealed:equipmentReveals.has(room.id+"/"+actor),
           defender_equipment_revealed:equipmentReveals.has(room.id+"/"+clash.defender_id),
           preview_subtotal:total,
-          preview_energy_remaining:total===null?null:Math.max(0,defender.stats.e-total),
+          preview_energy_remaining:total===null?null:Math.max(0,defender.stats.e+locationEnergy-total),
           calculation_status:special?"special_resolution_required":"partial_estimate"};
         individualDamage.set(key,result);
         return {data:{...result},error:null};
@@ -1129,4 +1138,56 @@ test("1x1 original Deck Local selects Wisdom or Power without mutating turns",as
  await guest("lobby-turn-refresh").onclick();
  assert.match(guest("lobby-location-history").textContent,/Túnel da Tempestade/);
  assert.match(guest("lobby-initiative-history").textContent,/Poder/);
+});
+
+test("1x1 Kiru location preview adds Blue energy without changing saved DNA or the turn",async()=>{
+  const host=browser("location-kiru-host"),guest=browser("location-kiru-guest");
+  host("lobby-select-mode").value="1x1";
+  await host("lobby-create-btn").onclick();
+  const code=host("lobby-room-code").textContent;
+  const id=[...rooms.values()].find(x=>x.code===code).id;
+  guest("lobby-input-code").value=code;
+  await guest("lobby-join-btn").onclick();
+  await host("lobby-refresh").onclick();
+  await host("lobby-turn-start").onclick();
+  host("lobby-combat-kind").value="creature";
+  host("lobby-combat-deck").value="1";
+  host("lobby-combat-slot").value="6";
+  await host("lobby-combat-submit").onclick();
+  await host("lobby-hex-place").onclick();
+  await host("lobby-loadout-capture").onclick();
+  await host("lobby-hand-prepare").onclick();
+  await host("lobby-turn-pass").onclick();
+  await guest("lobby-turn-refresh").onclick();
+  guest("lobby-combat-kind").value="creature";
+  guest("lobby-combat-deck").value="1";
+  guest("lobby-combat-slot").value="6";
+  await guest("lobby-combat-submit").onclick();
+  await guest("lobby-hex-place").onclick();
+  await guest("lobby-loadout-capture").onclick();
+  await guest("lobby-turn-pass").onclick();
+  await host("lobby-turn-refresh").onclick();
+  await host("lobby-hand-sync").onclick();
+  host("lobby-combat-kind").value="attack";
+  host("lobby-combat-deck").value="1";
+  host("lobby-combat-slot").value="1";
+  await host("lobby-combat-submit").onclick();
+  await host("lobby-clash-open").onclick();
+  await host("lobby-location-capture").onclick();
+  assert.equal(locations.get(id).catalog_location_id,501);
+  await host("lobby-attack-instance-capture").onclick();
+  await host("lobby-hand-spend").onclick();
+  await host("lobby-individual-damage-calculate").onclick();
+  const damage=individualDamage.get(id+"/3");
+  assert.equal(damage.location_id,501);
+  assert.equal(damage.location_energy_bonus,10);
+  assert.equal(damage.defender_energy_initial,75);
+  assert.equal(damage.preview_energy_remaining,70);
+  assert.match(host("lobby-individual-damage-history").textContent,/Cidade de Kiru/);
+  assert.match(host("lobby-individual-damage-history").textContent,/energia \+10/);
+  assert.match(host("lobby-individual-damage-history").textContent,/75 → 70/);
+  assert.equal(loadouts.get(id+"/location-kiru-guest").stats.e,65);
+  assert.equal(matches.get(id).current_player,"location-kiru-host");
+  await guest("lobby-turn-refresh").onclick();
+  assert.match(guest("lobby-individual-damage-history").textContent,/Cidade de Kiru/);
 });
