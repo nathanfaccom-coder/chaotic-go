@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -51,6 +51,7 @@
         ? "Sua vez de agir. Turno " + match.turn_no + "."
         : "Aguardando a vez do outro jogador. Turno " + match.turn_no + ".");
     $("lobby-turn-count").textContent = match ? String(match.turn_no) : "—";
+    updateBoardUI();
     const combatPanel = $("lobby-combat");
     if (combatPanel) {
       combatPanel.hidden = !match;
@@ -73,6 +74,55 @@
     $("lobby-turn-start").hidden = !!match || room.host_id !== userId || room.status !== "ready";
     $("lobby-turn-pass").hidden = !active || match.current_player !== userId;
     $("lobby-turn-stop").hidden = !active;
+  }
+  function updateBoardUI() {
+    const box=$("lobby-hex-board");
+    if(!box) return;
+    box.hidden=!match;
+    if(!match || !room) return;
+    const mine=board.find(x=>x.actor_id===userId);
+    const chosen=declarations.find(x=>x.actor_id===userId && x.kind==="creature");
+    const active=match.status==="active" && room.status==="ready"
+      && new Date(room.expires_at).getTime()>Date.now();
+    const ownTurn=active && match.current_player===userId;
+    $("lobby-hex-place").hidden=!(ownTurn && chosen && !mine);
+    $("lobby-hex-move").hidden=!(ownTurn && mine && room.mode!=="1x1"
+      && mine.moved_turn!==match.turn_no);
+    $("lobby-hex-destination").hidden=room.mode==="1x1";
+    const hint=$("lobby-hex-message");
+    hint.textContent=!chosen
+      ?"Primeiro declare uma criatura de um slot do seu deck."
+      :!mine
+        ?"Posicione a criatura escolhida no slot correspondente (modo 1x1: c6; 3x3: c4–c6; 6x6: c1–c6)."
+        :room.mode==="1x1"
+          ?"No 1x1, c6 é o único hexágono de cada lado: não existe movimento para casa vazia."
+          :ownTurn
+            ?"Sua criatura está em c"+mine.position+". Você pode mover uma vez por turno para casa adjacente vazia."
+            :"Aguardando sua vez. Posição atual: c"+mine.position+".";
+    const positions=room.mode==="1x1"?[6]:room.mode==="3x3"?[4,5,6]:[1,2,3,4,5,6];
+    for(const side of ["host","guest"]) {
+      const actor=side==="host"?room.host_id:room.guest_id;
+      const unit=board.find(x=>x.actor_id===actor);
+      for(let n=1;n<=6;n++){
+        const hex=$("lobby-hex-"+side+"-"+n);
+        if(!hex)continue;
+        const enabled=positions.includes(n),occupied=!!unit && unit.position===n;
+        hex.hidden=!enabled;
+        hex.textContent="c"+n+(occupied?" · #"+unit.card_id:"");
+        hex.classList.toggle("ocupado",occupied);
+        hex.classList.toggle("sua-vez",occupied && active && actor===match.current_player);
+      }
+    }
+  }
+  async function refreshBoard(){
+    if(!$("lobby-hex-board"))return;
+    if(!room || !match){board=[];updateBoardUI();return;}
+    const {data,error}=await api.from("chaotic_preview_board")
+      .select("actor_id,card_id,position,moved_turn")
+      .eq("lobby_id",room.id);
+    if(error)throw new Error(error.message);
+    board=data||[];
+    updateBoardUI();
   }
   async function refreshDeclarations() {
     const log = $("lobby-combat-history");
@@ -126,6 +176,7 @@
     match = data; updateMatchUI();
     await refreshHistory();
     await refreshDeclarations();
+    await refreshBoard();
   }
   function updateRoomUI() {
     if (!$("lobby-create")) return;
@@ -175,6 +226,9 @@
         .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_combat_declarations",filter:"lobby_id=eq."+lobbyId
         },sync)
+        .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_board",filter:"lobby_id=eq."+lobbyId
+        },sync)
         .subscribe(status=>{
           if(status==="CHANNEL_ERROR"||status==="TIMED_OUT")
             console.warn("DROME: canal em tempo real temporariamente indisponível; consultas periódicas seguem ativas.");
@@ -187,7 +241,7 @@
     }, 6000);
   }
   function show() {
-    halt(); room = null; match = null; declarations = [];
+    halt(); room = null; match = null; declarations = []; board = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -237,6 +291,25 @@
       '<p class="lobby-history-label">Histórico das escolhas</p>',
       '<p id="lobby-combat-history" class="lobby-events" aria-live="polite">Nenhuma.</p>',
       '</section>',
+      '<section id="lobby-hex-board" class="lobby-hex-board" hidden>',
+      '<strong>🛡️ TABULEIRO COMPARTILHADO — MOVIMENTO DE TESTE</strong>',
+      '<p>Somente posição. Ataques, equipamentos e efeitos continuam no motor original.</p>',
+      '<p class="lobby-history-label">Área do anfitrião</p>',
+      '<div class="lobby-hex-row">',
+      ...[1,2,3,4,5,6].map(n=>'<span id="lobby-hex-host-'+n+'" class="lobby-hex">c'+n+'</span>'),
+      '</div>',
+      '<p class="lobby-history-label">Área do convidado</p>',
+      '<div class="lobby-hex-row">',
+      ...[1,2,3,4,5,6].map(n=>'<span id="lobby-hex-guest-'+n+'" class="lobby-hex">c'+n+'</span>'),
+      '</div>',
+      '<p id="lobby-hex-message" role="status"></p>',
+      '<button id="lobby-hex-place" type="button" hidden>Posicionar minha criatura</button>',
+      '<label for="lobby-hex-destination">Destino da movimentação</label>',
+      '<select id="lobby-hex-destination"><option value="1">c1</option><option value="2">c2</option>',
+      '<option value="3">c3</option><option value="4">c4</option>',
+      '<option value="5">c5</option><option value="6">c6</option></select>',
+      '<button id="lobby-hex-move" type="button" hidden>Mover para a casa escolhida</button>',
+      '</section>',
       '<p class="lobby-history-label">📜 Histórico de turnos</p>',
       '<p id="lobby-events" class="lobby-events" aria-live="polite">Aguardando início.</p>',
       '<button id="lobby-turn-start" type="button" hidden>Iniciar teste de turnos</button>',
@@ -275,6 +348,22 @@
     });
     $("lobby-refresh").onclick = () => action(refreshRoom);
     $("lobby-turn-refresh").onclick = () => action(refreshRoom);
+    $("lobby-hex-place").onclick = () => action(async()=>{
+      if(!room || !match || match.status!=="active" || match.current_player!==userId)return;
+      await rpc("chaotic_place_preview_creature",{p_lobby_id:room.id,p_expected_turn:match.turn_no});
+      await refreshBoard();
+      note("Criatura posicionada no tabuleiro de teste. Agora pode passar a vez.");
+    });
+    $("lobby-hex-move").onclick = () => action(async()=>{
+      if(!room || !match || match.status!=="active" || match.current_player!==userId)return;
+      const target=Number($("lobby-hex-destination").value);
+      if(!Number.isInteger(target) || target<1 || target>6)throw Error("Escolha um hexágono válido.");
+      await rpc("chaotic_move_preview_creature",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no,p_target_slot:target
+      });
+      await refreshBoard();
+      note("Movimento aceito pelo servidor. A criatura mudou de posição.");
+    });
     $("lobby-combat-submit").onclick = () => action(async()=>{
       if(!room || !match || match.status!=="active" || match.current_player!==userId) return;
       const kind=$("lobby-combat-kind").value;
