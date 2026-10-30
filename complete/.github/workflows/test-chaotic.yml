@@ -1,0 +1,26 @@
+name: Validar Decks e Supabase (Chaotic GO)
+on:
+  push:
+    branches:
+      - feature/chaotic-completo-supabase
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Testar isolamento e salvar/carregar Decks
+        run: node --test tests/bridge.test.mjs
+      - name: Verificar sintaxe dos módulos de jogo
+        run: |
+          node --check supabase-game-bridge.js
+          node --check full-game-bootstrap.js
+          node --check entrada-drome.js
+          node --check efeitos.js
+          node --check script.js
+          node --check batalha.js

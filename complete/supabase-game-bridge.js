@@ -33,6 +33,19 @@ function report(error) {
 }
 export async function get(reference) {
   const node = keyOf(reference);
+  // O editor salva "decks/6x6_1", "decks/1x1_2" etc. separadamente.
+  // A seleção do DROME consulta "decks" e espera um objeto indexado por slot.
+  if (node === "decks") {
+    const { data, error } = await client.from("chaotic_game_nodes")
+      .select("node_path,data").eq("user_id", ownerId).like("node_path", "decks/%");
+    if (error) { report(error); throw error; }
+    const decks = Object.create(null);
+    for (const row of data || []) {
+      const slot = row.node_path.slice("decks/".length);
+      if (/^(?:6x6|3x3|1x1)_[123]$/.test(slot)) decks[slot] = row.data;
+    }
+    return snapshot(Object.keys(decks).length ? decks : null);
+  }
   const {data,error} = await client.from("chaotic_game_nodes").select("data")
     .eq("user_id", ownerId).eq("node_path", node).maybeSingle();
   if (error) { report(error); throw error; }
