@@ -1629,3 +1629,46 @@ html, body {
     .tela-digital { height: min(60dvh, 510px); min-height: 340px; }
     .conta-perfil { width: 90%; }
 }
+
+
+/* DROME: teste de lobby por convite, isolado do tabuleiro de batalha. */
+.lobby-test {
+    width: min(94%, 380px);
+    margin: 10px auto 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    color: #fff;
+    box-sizing: border-box;
+    font-family: monospace;
+    font-size: 11px;
+}
+.lobby-test h3 { margin: 0; color: #5fe48e; font-size: 15px; }
+.lobby-test p { margin: 0; line-height: 1.5; overflow-wrap: anywhere; }
+.lobby-test > div { display: flex; flex-direction: column; gap: 8px; }
+.lobby-test [hidden] { display: none !important; }
+.lobby-test label { color: #d8f6dd; }
+.lobby-test input,.lobby-test select,.lobby-test button {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 39px;
+    padding: 8px;
+    border-radius: 7px;
+    font: inherit;
+}
+.lobby-test input,.lobby-test select {
+    background: #050f0b;
+    color: white;
+    border: 1px solid #5aad6e;
+}
+.lobby-test button {
+    background: #1e6438;
+    color: white;
+    border: 1px solid #59c77b;
+    cursor: pointer;
+}
+.lobby-test button:disabled { opacity: .5; cursor: wait; }
+.lobby-test .lobby-danger { background: #672121; border-color: #d65b5b; }
+.lobby-test .lobby-outline { background: #101010; border-color: #b2b2b2; }
+#lobby-current { background: #102619; border: 1px solid #387c4e; padding: 12px; border-radius: 8px; }
+#lobby-room-code { font-size: 18px; letter-spacing: 2px; color: #d0ffdd; }
