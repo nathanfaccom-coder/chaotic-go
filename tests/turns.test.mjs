@@ -105,17 +105,33 @@ function makeClient(actor) {
           !player||wallets.has(k))
           return {data:null,error:{message:"Mão inválida"}};
         wallets.set(k,{lobby_id:room.id,actor_id:actor,deck_slot:1,total_cards:20,
-          prepared_turn:match.turn_no,last_draw_turn:match.turn_no,spent_points:0});
+          prepared_turn:match.turn_no,last_draw_turn:match.turn_no,spent_points:0,
+          recycle_cycles:0});
         // Deterministic shuffled fixture: slots 3,1,4 are the opening hand,
         // slot 2 is the next drawn card. The DB uses gen_random_uuid().
         const permutation=[2,4,1,3,...Array.from({length:16},(_,i)=>i+5)];
         const cards=[...Array(20)].map((_,i)=>({
           lobby_id:room.id,actor_id:actor,card_slot:i+1,
-          draw_position:permutation[i],
-          attack_instance_id:String(105+i),
+          draw_position:permutation[i],draw_cycle:0,recycle_priority:null,
+          attack_instance_id:String(105+i),spent_reason:null,
           card_state:permutation[i]<=3?"hand":"deck",spent_turn:null}));
         hands.set(k,cards);
         return {data:{cards_in_hand:3,cards_in_deck:17,points:3},error:null};
+      }
+      if(name==="chaotic_discard_preview_attack"){
+        const match=matches.get(room.id),k=room.id+"/"+actor;
+        const wallet=wallets.get(k),cards=hands.get(k);
+        const slot=args.p_card_slot;
+        const card=cards?.find(x=>x.card_slot===slot);
+        if(!match||match.status!=="active"||match.current_player!==actor
+          ||match.turn_no!==args.p_expected_turn||!wallet
+          ||wallet.last_draw_turn!==args.p_expected_turn
+          ||!Number.isInteger(slot)||!card||card.card_state!=="hand"
+          ||attackInstances.get(room.id+"/"+args.p_expected_turn)?.attack_instance_id===card.attack_instance_id)
+          return {data:null,error:{message:"Descarte indisponível"}};
+        card.card_state="spent";card.spent_turn=match.turn_no;card.spent_reason="discard";
+        return {data:{discarded_slot:slot,attack_instance_id:card.attack_instance_id,
+          turn_no:match.turn_no},error:null};
       }
       if(name==="chaotic_sync_preview_hand"){
         const match=matches.get(room.id),k=room.id+"/"+actor,wallet=wallets.get(k);
@@ -123,15 +139,28 @@ function makeClient(actor) {
           match.turn_no!==args.p_expected_turn||(match.turn_no-wallet.prepared_turn)%2!==0)
           return {data:null,error:{message:"Sincronização inválida"}};
         const points=3+Math.floor((match.turn_no-wallet.prepared_turn)/2)-wallet.spent_points;
-        let drew=false;
+        let drew=false,recycled=false;
         if(wallet.last_draw_turn<match.turn_no){
           const list=hands.get(k),available=list.filter(x=>x.card_state==="hand");
+          if(available.length<5&&!list.some(x=>x.card_state==="deck")){
+            const spent=list.filter(x=>x.card_state==="spent");
+            if(spent.length){
+              wallet.recycle_cycles+=1;
+              spent.forEach((x,i)=>{
+                x.card_state="deck";x.spent_turn=null;x.spent_reason=null;
+                x.draw_cycle=wallet.recycle_cycles;x.recycle_priority=String(spent.length-i);
+              });
+              recycled=true;
+            }
+          }
           const next=list.filter(x=>x.card_state==="deck")
-            .sort((a,b)=>a.draw_position-b.draw_position)[0];
+            .sort((a,b)=>(a.draw_cycle-b.draw_cycle)||
+              String(a.recycle_priority??"").localeCompare(String(b.recycle_priority??""))||
+              (a.draw_position-b.draw_position))[0];
           if(next&&available.length<5){next.card_state="hand";drew=true;}
           wallet.last_draw_turn=match.turn_no;
         }
-        return {data:{available_points:points,drew_card:drew},error:null};
+        return {data:{available_points:points,drew_card:drew,recycled},error:null};
       }
       if(name==="chaotic_spend_preview_attack"){
         const match=matches.get(room.id),k=room.id+"/"+actor;
@@ -146,7 +175,7 @@ function makeClient(actor) {
           ||!card||card.attack_instance_id!==attack.attack_instance_id
           ||card.card_state!=="hand"||balance<attack.attack_cost)
           return {data:null,error:{message:"Custo ou mão inválida"}};
-        card.card_state="spent";card.spent_turn=match.turn_no;
+        card.card_state="spent";card.spent_turn=match.turn_no;card.spent_reason="attack";
         wallet.spent_points+=attack.attack_cost;
         return {data:{attack_name:attack.attack_name,spent_cost:attack.attack_cost,
           points_left:balance-attack.attack_cost},error:null};
@@ -179,7 +208,8 @@ function makeClient(actor) {
           defender.card_instance_id!==clash.defender_card||individualDamage.has(key)||
           !hands.get(room.id+"/"+actor)?.some(x=>x.card_slot===attack.card_slot
             &&x.attack_instance_id===attack.attack_instance_id
-            &&x.card_state==="spent"&&x.spent_turn===args.p_expected_turn))
+            &&x.card_state==="spent"&&x.spent_reason==="attack"
+            &&x.spent_turn===args.p_expected_turn))
           return {data:null,error:{message:"Prévia individual negada"}};
         const special=attack.catalog_attack_id==="104";
         const total=special?null:attack.base_damage;
@@ -858,8 +888,75 @@ test("1x1 server-owned resource hand rejects wrong actor, insufficient points an
  assert.equal(wallets.get(id+"/resource-host").spent_points,1);
  assert.equal(hands.get(id+"/resource-host")[0].card_state,"spent");
  assert.equal(hands.get(id+"/resource-host")[0].spent_turn,3);
+ assert.equal(hands.get(id+"/resource-host")[0].spent_reason,"attack");
  assert.match(host("lobby-attack-resource-summary").textContent,/pontos 3/);
  assert.ok((await makeClient("resource-host").rpc("chaotic_spend_preview_attack",{
    p_lobby_id:id,p_expected_turn:3})).error,"Card replay rejected");
  assert.equal(loadouts.get(id+"/resource-guest").stats.e,65);
+});
+
+
+test("1x1 test discard is private, one-time, and discarded cards reshuffle after draw deck empties",async()=>{
+  const host=browser("recycle-host"),guest=browser("recycle-guest");
+  host("lobby-select-mode").value="1x1";
+  await host("lobby-create-btn").onclick();
+  const code=host("lobby-room-code").textContent;
+  const id=[...rooms.values()].find(x=>x.code===code).id;
+  guest("lobby-input-code").value=code;
+  await guest("lobby-join-btn").onclick();
+  await host("lobby-refresh").onclick();
+  await host("lobby-turn-start").onclick();
+  host("lobby-combat-kind").value="creature";
+  host("lobby-combat-deck").value="1";
+  host("lobby-combat-slot").value="6";
+  await host("lobby-combat-submit").onclick();
+  await host("lobby-hex-place").onclick();
+  await host("lobby-loadout-capture").onclick();
+  await host("lobby-hand-prepare").onclick();
+  const first=hands.get(id+"/recycle-host").find(x=>x.card_slot===3);
+  assert.equal(first.card_state,"hand");
+  host("lobby-hand-discard-slot").value="3";
+  assert.equal(host("lobby-hand-discard").hidden,false);
+  await host("lobby-hand-discard").onclick();
+  assert.equal(first.card_state,"spent");
+  assert.equal(first.spent_reason,"discard");
+  assert.match(host("lobby-attack-resource-summary").textContent,/lixo 1/);
+  assert.equal(wallets.get(id+"/recycle-host").spent_points,0);
+  const outsider=await makeClient("recycle-guest").rpc("chaotic_discard_preview_attack",{
+    p_lobby_id:id,p_expected_turn:1,p_card_slot:3});
+  assert.ok(outsider.error);
+  const duplicate=await makeClient("recycle-host").rpc("chaotic_discard_preview_attack",{
+    p_lobby_id:id,p_expected_turn:1,p_card_slot:3});
+  assert.ok(duplicate.error);
+  const guestHand=await makeClient("recycle-guest").from("chaotic_preview_attack_hand")
+    .select("card_state").eq("lobby_id",id).order("draw_position",{ascending:true}).limit(20);
+  assert.equal(guestHand.data.length,0,"Opponent never sees private card IDs");
+  // Simulate a long test duel: all of the remaining pile was previously spent.
+  const cards=hands.get(id+"/recycle-host");
+  cards.filter(x=>x.card_state==="deck").forEach(x=>{
+    x.card_state="spent";x.spent_turn=1;x.spent_reason="attack";
+  });
+  await host("lobby-turn-pass").onclick();
+  await guest("lobby-turn-refresh").onclick();
+  await guest("lobby-turn-pass").onclick();
+  await host("lobby-turn-refresh").onclick();
+  assert.equal(host("lobby-hand-sync").hidden,false);
+  const result=await makeClient("recycle-host").rpc("chaotic_sync_preview_hand",{
+    p_lobby_id:id,p_expected_turn:3});
+  assert.equal(result.error,null);
+  assert.equal(result.data.recycled,true);
+  assert.equal(result.data.drew_card,true);
+  assert.equal(wallets.get(id+"/recycle-host").recycle_cycles,1);
+  assert.equal(cards.filter(x=>x.card_state==="hand").length,3);
+  assert.equal(cards.filter(x=>x.card_state==="spent").length,0);
+  assert.ok(cards.filter(x=>x.card_state==="deck").every(x=>x.spent_reason===null
+    &&x.spent_turn===null));
+  const after=await makeClient("recycle-host").from("chaotic_preview_attack_hand")
+    .select("card_state").eq("lobby_id",id).order("draw_position",{ascending:true}).limit(20);
+  assert.equal(after.data.length,3,"Only purchased cards are visible after reshuffle");
+  assert.equal(after.data.some(x=>x.card_state==="deck"),false);
+  const repeat=await makeClient("recycle-host").rpc("chaotic_sync_preview_hand",{
+    p_lobby_id:id,p_expected_turn:3});
+  assert.equal(repeat.data.drew_card,false,"No duplicate draw in same turn");
+  assert.equal(repeat.data.recycled,false);
 });
