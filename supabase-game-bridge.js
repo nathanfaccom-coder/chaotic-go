@@ -104,6 +104,10 @@ export function installDbCompat() {
   window._dbUpdate = (path,value) => update(ref(db,path),value);
   window._dbRemove = path => remove(ref(db,path));
   window._dbOn = (path,cb) => onValue(ref(db,path),cb);
+  window._dbOff = path => {
+    try { const key=keyOf(path); watchers.delete(key); }
+    catch (_error) { /* caminhos multiplayer legados não têm assinatura ativa */ }
+  };
 }
 // Recupera progresso do teste anterior, sem sobrescrever dados já existentes.
 export async function migratePreviousTest() {
