@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -105,6 +105,13 @@
     const adjacent=!!mine&&!!other&&contactBetweenSides(room.mode,mine.position,other.position);
     $("lobby-clash-open").hidden=!(myTurn&&attack&&adjacent&&!already);
     const clashToCalculate=clashes.find(x=>x.turn_no===match.turn_no && x.attacker_id===userId);
+    $("lobby-initiative-preview-calculate").hidden=!(room.mode==="1x1"
+      &&myTurn&&clashToCalculate
+      &&loadouts.some(x=>x.actor_id===clashToCalculate.attacker_id
+        &&x.card_instance_id===clashToCalculate.attacker_card)
+      &&loadouts.some(x=>x.actor_id===clashToCalculate.defender_id
+        &&x.card_instance_id===clashToCalculate.defender_card)
+      &&!initiatives.some(x=>x.turn_no===match.turn_no));
     $("lobby-damage-calculate").hidden=room.mode==="1x1" || !(myTurn&&clashToCalculate &&
       !baseDamage.some(x=>x.turn_no===match.turn_no));
     $("lobby-modifiers-calculate").hidden=room.mode==="1x1" || !(myTurn&&clashToCalculate &&
@@ -244,6 +251,27 @@
         x.defender_energy_initial+" → "+x.preview_energy_remaining+
         " (SIMULAÇÃO: HP real inalterado)."+detail+cost;
     }).join("\n"):"Nenhuma simulação individual.";
+    updateClashUI();
+  }
+  async function refreshInitiatives(){
+    const panel=$("lobby-initiative-preview");
+    if(!panel)return;
+    panel.hidden=!room||!match||room.mode!=="1x1";
+    if(panel.hidden){initiatives=[];return;}
+    const {data,error}=await api.from("chaotic_preview_initiatives")
+      .select("turn_no,attacker_id,defender_id,attacker_value,defender_value,winning_player,tie_favors_attacker,attribute_source")
+      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(12);
+    if(error)throw new Error(error.message);
+    initiatives=data||[];
+    $("lobby-initiative-history").textContent=initiatives.length
+      ?initiatives.slice().reverse().map(x=>
+        "T"+x.turn_no+": Velocidade atacante "+x.attacker_value+
+        " × defensor "+x.defender_value+" → "+
+        (x.winning_player===room.host_id?"Anfitrião":"Convidado")+
+        (x.tie_favors_attacker?" (empate favorece atacante)":"")+
+        " · PRÉVIA SEM LOCAL: nenhuma mudança de turno ou pontos."
+      ).join("\n")
+      :"Nenhuma iniciativa de teste calculada.";
     updateClashUI();
   }
   async function refreshClashes(){
@@ -535,6 +563,7 @@
     await refreshAttackResources();
     await refreshAttackInstances();
     await refreshClashes();
+    await refreshInitiatives();
     await refreshBaseDamage();
     await refreshModifiers();
     await refreshDice();
@@ -621,6 +650,9 @@
         .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_attack_hand",filter:"lobby_id=eq."+lobbyId
         },sync)
+        .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_initiatives",filter:"lobby_id=eq."+lobbyId
+        },sync)
         .subscribe(status=>{
           if(status==="CHANNEL_ERROR"||status==="TIMED_OUT")
             console.warn("DROME: canal em tempo real temporariamente indisponível; consultas periódicas seguem ativas.");
@@ -633,7 +665,7 @@
     }, 6000);
   }
   function show() {
-    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = [];
+    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -742,6 +774,12 @@
       '</div>',
       '<p id="lobby-clash-status" role="status"></p>',
       '<button id="lobby-clash-open" type="button" hidden>Registrar confronto</button>',
+      '<section id="lobby-initiative-preview" class="lobby-combat" hidden>',
+      '<strong>⚡ INICIATIVA COM DNA INDIVIDUAL — TESTE</strong>',
+      '<p>Compara Velocidade das criaturas preparadas e favorece o atacante no empate. O Local ainda não está sincronizado: a prévia NÃO muda turnos nem concede pontos.</p>',
+      '<button id="lobby-initiative-preview-calculate" type="button" hidden>Conferir iniciativa no servidor</button>',
+      '<p id="lobby-initiative-history" class="lobby-events" aria-live="polite">Nenhuma iniciativa calculada.</p>',
+      '</section>',
       '<section id="lobby-individual-preview" class="lobby-combat">',
       '<strong>🧬 PRÉVIA COM DNA INDIVIDUAL — 1x1</strong>',
       '<p>Simula dano com DNA e equipamentos após validar a carta na mão e gastar pontos SOMENTE no servidor de teste. A batalha oficial, HP, economia e recompensas permanecem inalterados.</p>',
@@ -911,6 +949,16 @@
       note(result.formula_status==="reference_only"
         ?"Bônus de catálogo conferidos; ainda não é dano final e não altera energia."
         :"Carta com efeitos ou referência incompleta: dano final não calculado.");
+    });
+    $("lobby-initiative-preview-calculate").onclick = () => action(async()=>{
+      if(!room||!match||room.mode!=="1x1"||match.status!=="active"
+        ||match.current_player!==userId)return;
+      const r=await rpc("chaotic_capture_preview_initiative",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refreshInitiatives();
+      note("Iniciativa de teste: "+r.attacker_value+" × "+r.defender_value+
+        ". Sem local definido, a vez real e os pontos permanecem iguais.");
     });
     $("lobby-individual-damage-calculate").onclick = () => action(async()=>{
       if(!room||!match||room.mode!=="1x1"||match.status!=="active"
