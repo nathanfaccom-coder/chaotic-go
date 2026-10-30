@@ -2116,6 +2116,26 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
   assert.equal(allies3x3.get(id+"/"+owner+"/4").starting_tokens,5);
   assert.equal(allies3x3.get(id+"/"+owner+"/5").creature_name,"Vidal");
   assert.equal(allies3x3.get(id+"/"+owner+"/5").remaining_tokens,2);
+  assert.equal(host("lobby-3x3-hp-prepare").hidden,false);
+  assert.ok((await makeClient(opponent).rpc("chaotic_prepare_preview_3x3_hp",{
+    p_lobby_id:id,p_expected_turn:1})).error,
+    "Opponent cannot seed another player's HP outside their turn");
+  deckA[5].energy=700;
+  assert.ok((await makeClient(owner).rpc("chaotic_prepare_preview_3x3_hp",{
+    p_lobby_id:id,p_expected_turn:1})).error,
+    "Invalid individual energy rejects all three wallets atomically");
+  assert.equal([...hp3x3.values()].filter(x=>x.lobby_id===id).length,0);
+  deckA[5].energy=46;
+  await host("lobby-3x3-hp-prepare").onclick();
+  assert.equal(host("lobby-3x3-hp-prepare").hidden,true);
+  assert.equal(hp3x3.get(id+"/"+owner+"/4").hp_max,10);
+  assert.equal(hp3x3.get(id+"/"+owner+"/5").hp_remaining,35);
+  assert.equal(hp3x3.get(id+"/"+owner+"/6").hp_max,46);
+  assert.equal(hp3x3.get(id+"/"+owner+"/5").official_hp_changed,false);
+  assert.equal(hp3x3.get(id+"/"+owner+"/5").location_bonuses_applied,false);
+  assert.match(host("lobby-3x3-hp-history").textContent,/HP de treino 35\/35/);
+  assert.ok((await makeClient(owner).rpc("chaotic_prepare_preview_3x3_hp",{
+    p_lobby_id:id,p_expected_turn:1})).error,"Reinitialization cannot restore HP");
   assert.ok((await makeClient(owner).rpc("chaotic_prepare_preview_3x3_allies",{
     p_lobby_id:id,p_expected_turn:1,p_deck_slot:1})).error,
     "Capturing twice cannot reset the token balances");
@@ -2151,6 +2171,15 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
   assert.equal(guest("lobby-3x3-prepare").hidden,false);
   guest("lobby-3x3-deck").value="1";
   await guest("lobby-3x3-prepare").onclick();
+  assert.equal(guest("lobby-3x3-hp-prepare").hidden,false);
+  await guest("lobby-3x3-hp-prepare").onclick();
+  assert.equal(guest("lobby-3x3-hp-prepare").hidden,true);
+  assert.equal(hp3x3.get(id+"/"+opponent+"/4").hp_max,55);
+  assert.equal(hp3x3.get(id+"/"+opponent+"/5").hp_max,40);
+  assert.equal(hp3x3.get(id+"/"+opponent+"/6").hp_remaining,32);
+  assert.equal([...hp3x3.values()].filter(x=>x.lobby_id===id).length,6);
+  assert.equal(hp3x3.get(id+"/"+owner+"/4").hp_remaining,10,
+    "Other account cannot overwrite the host's HP");
   assert.equal(allies3x3.get(id+"/"+opponent+"/4").creature_name,"Frador");
   assert.equal(allies3x3.get(id+"/"+owner+"/4").remaining_tokens,4,
     "Opponent's snapshot cannot reset our saved training tokens");
