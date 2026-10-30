@@ -135,7 +135,7 @@
     if(!img||!label)return;
     const actor=side==="host"?room?.host_id:room?.guest_id;
     const snapshot=loadouts.find(x=>x.actor_id===actor);
-    const canonicalName=snapshot?.creature_name?.replace(/ \\(Max\\)$/,"");
+    const canonicalName=snapshot?.creature_name?.replace(/ [(]Max[)]$/,'');
     const record=(window.ChaoticOriginalCards?.creatures||[])
       .find(c=>c.nome===canonicalName);
     img.hidden=!record?.cartaBlank;
