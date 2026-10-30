@@ -37,3 +37,10 @@ Esta branch recupera a base de 89 arquivos do repositório principal de origem, 
 - O botão **Iniciar teste de turnos** aparece com dois jogadores; os comandos **Passar meu turno** e **Encerrar teste** podem ser usados para verificar sincronização.
 - Isto NÃO é o motor oficial de combate: ainda não interpreta cartas, dano, efeitos, vencedores, XP ou recompensas. A batalha multiplayer legada permanece bloqueada.
 - Testes de simulação aprovados no GitHub Actions. Ainda é necessário testar com duas contas reais em dois navegadores/celulares. A pasta `/complete` é uma prévia separada.
+
+## Diário de ações e prévia de tabuleiro (fase 3)
+- A tabela `chaotic_match_events` registra somente eventos **start**, **pass** e **stop**, atomicamente com a mudança de turno.
+- O cliente só pode **ler** eventos de partidas em que participa; não há INSERT/UPDATE/DELETE de cliente.
+- A sala mostra o anfitrião e convidado, o marcador de jogador ativo e os doze eventos mais recentes. Isso é uma **prévia**, não o tabuleiro de combate funcional.
+- Encerrar uma sala ou o convidado sair durante uma partida encerra o teste, sem permitir reutilizar o duelo com outra pessoa.
+- Ainda não há sincronização de criaturas, ataques, cartas, custos, efeitos, estatísticas ou recompensas.

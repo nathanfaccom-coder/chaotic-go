@@ -35,8 +35,10 @@ function makeClient(userId) {
       throw Error("Unexpected RPC "+method);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events"].includes(table));
       return {select(){return this;},eq(_field,id){this.id=id;return this;},
+        order(){return this;},
+        limit(){return Promise.resolve({data:[],error:null});},
         async maybeSingle() {
           const room=rooms.get(this.id);
           if(table==="chaotic_match_turns")return {data:null,error:null};

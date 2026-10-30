@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -27,7 +27,9 @@ function makeClient(actor) {
           return {data:null,error:{message:"Apenas anfitrião pode começar"}};
         const state={lobby_id:room.id,host_id:room.host_id,guest_id:room.guest_id,
           status:"active",current_player:room.host_id,turn_no:1,last_player:null};
-        matches.set(room.id,state);return {data:{...state},error:null};
+        matches.set(room.id,state);
+        journals.set(room.id,[{seq:1,actor_id:actor,event_type:"start",turn_no:1}]);
+        return {data:{...state},error:null};
       }
       if(name==="chaotic_pass_turn"){
         const state=matches.get(room.id);
@@ -35,13 +37,17 @@ function makeClient(actor) {
            ||state.current_player!==actor||state.turn_no!==args.p_expected_turn)
           return {data:null,error:{message:"Turno inválido"}};
         state.last_player=actor;state.current_player=actor===state.host_id?state.guest_id:state.host_id;
-        state.turn_no++;return {data:{...state},error:null};
+        state.turn_no++;
+        journals.get(room.id).push({seq:state.turn_no,actor_id:actor,event_type:"pass",turn_no:state.turn_no});
+        return {data:{...state},error:null};
       }
       if(name==="chaotic_stop_match"){
         const state=matches.get(room.id);
         if(!state||!["host","guest"].some(a=>a===actor)||state.status!=="active")
           return {data:null,error:{message:"Ação negada"}};
-        state.status="finished";return {data:{...state},error:null};
+        state.status="finished";
+        journals.get(room.id).push({seq:state.turn_no+1,actor_id:actor,event_type:"stop",turn_no:state.turn_no});
+        return {data:{...state},error:null};
       }
       if(name==="chaotic_close_lobby"){
         if(actor!==room.host_id)return {data:null,error:{message:"Não autorizado"}};
@@ -54,8 +60,15 @@ function makeClient(actor) {
       throw Error(name);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
+        order(){return this;},
+        limit(size) {
+          const room=rooms.get(this.id);
+          const isMember=room&&(room.host_id===actor||room.guest_id===actor);
+          const events=isMember?(journals.get(this.id)||[]):[];
+          return Promise.resolve({data:[...events].reverse().slice(0,size),error:null});
+        },
         async maybeSingle(){
           const room=rooms.get(this.id);
           const member=room&&(room.host_id===actor||room.guest_id===actor);
@@ -99,6 +112,8 @@ test("ordered turns, replay prevention, unauthorized opponent and stop",async()=
   await host("lobby-turn-start").onclick();
   await guest("lobby-turn-refresh").onclick();
   assert.equal(guest("lobby-turn-count").textContent,"1");
+  assert.match(guest("lobby-events").textContent,/iniciou o teste/);
+  assert.match(host("lobby-board-host").textContent,/Anfitrião/);
   assert.equal(guest("lobby-turn-pass").hidden,true);
   const room=[...rooms.values()].find(r=>r.code===code);
   assert.ok((await makeClient("guest").rpc("chaotic_pass_turn",{p_lobby_id:room.id,p_expected_turn:1})).error);
@@ -109,9 +124,17 @@ test("ordered turns, replay prevention, unauthorized opponent and stop",async()=
   await guest("lobby-turn-pass").onclick();
   await host("lobby-turn-refresh").onclick();
   assert.equal(host("lobby-turn-count").textContent,"3");
+  assert.match(host("lobby-events").textContent,/passou o turno 1/);
+  assert.match(host("lobby-events").textContent,/passou o turno 2/);
+  assert.equal(journals.get(room.id).length,3);
   assert.ok((await makeClient("intruder").rpc("chaotic_pass_turn",{p_lobby_id:room.id,p_expected_turn:3})).error);
   await host("lobby-turn-stop").onclick();
   await guest("lobby-turn-refresh").onclick();
   assert.equal(guest("lobby-turn-pass").hidden,true);
   assert.match(guest("lobby-turn-state").textContent,/encerrado/);
+  assert.match(guest("lobby-events").textContent,/encerrou o teste/);
+  assert.equal(journals.get(room.id).length,4);
+  const noExtra = await makeClient("host").rpc("chaotic_pass_turn",{p_lobby_id:room.id,p_expected_turn:3});
+  assert.ok(noExtra.error,"Finished test must reject further turns");
+  assert.equal(journals.get(room.id).length,4);
 });
