@@ -5,10 +5,26 @@ import vm from "node:vm";
 
 const source = await readFile(new URL("../chaotic-lobby.js", import.meta.url), "utf8");
 const rooms = new Map();
+const realtimeChannels = [];
 let counter = 0;
 
 function makeClient(userId) {
   return {
+    channel(name) {
+      const listeners=[];
+      const c={name,userId,listeners,active:false,
+        on(kind,filter,handler) {
+          assert.equal(kind,"postgres_changes");
+          listeners.push({filter,handler});
+          return this;
+        },
+        subscribe(callback){this.active=true;callback?.("SUBSCRIBED");return this;},
+        unsubscribe(){this.active=false;return Promise.resolve();}
+      };
+      realtimeChannels.push(c);
+      return c;
+    },
+    removeChannel(c){c.unsubscribe();return Promise.resolve();},
     rpc: async (method, args) => {
       if (method === "chaotic_create_lobby") {
         const room = {id: "room-" + (++counter), code: "ABCDEF12345" + counter,
@@ -114,4 +130,24 @@ test("same account cannot join its own lobby", async()=>{
   otherTab.elem("lobby-input-code").value=code;
   await otherTab.elem("lobby-join-btn").onclick();
   assert.match(otherTab.elem("lobby-notice").textContent,/Não é possível entrar/);
+});
+
+test("private room subscribes to four channels and cleans up after closing",async()=>{
+  const host=makeBrowser("live-host"),guest=makeBrowser("live-guest");
+  host.browser.window.abrirSalaPrivadaDrome();
+  host.elem("lobby-select-mode").value="1x1";
+  await host.elem("lobby-create-btn").onclick();
+  const own=realtimeChannels.findLast(c=>c.userId==="live-host");
+  assert.ok(own?.active);
+  assert.deepEqual(own.listeners.map(x=>x.filter.table),
+    ["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations"]);
+  const code=host.elem("lobby-room-code").textContent;
+  guest.browser.window.abrirSalaPrivadaDrome();
+  guest.elem("lobby-input-code").value=code;
+  await guest.elem("lobby-join-btn").onclick();
+  own.listeners[0].handler({eventType:"UPDATE"});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.match(host.elem("lobby-status").textContent,/Dois jogadores/);
+  await host.elem("lobby-close").onclick();
+  assert.equal(own.active,false,"No stale subscription after closing room");
 });
