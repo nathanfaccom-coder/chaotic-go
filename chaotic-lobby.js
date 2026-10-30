@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -138,6 +138,18 @@
       &&!individualDamage.some(x=>x.turn_no===match.turn_no));
     const dmg=individualDamage.find(x=>x.turn_no===match.turn_no
       &&x.attacker_id===userId);
+    const hpReady=hpWallets.some(x=>x.actor_id===room.host_id)&&
+      hpWallets.some(x=>x.actor_id===room.guest_id);
+    $("lobby-hp-prepare").hidden=!(room.mode==="1x1"&&myTurn&&bothLoadouts
+      &&roomLocations.length>0&&!hpWallets.length&&!individualDamage.length);
+    const hpAttack=hpWallets.find(x=>x.actor_id===userId);
+    const hpDefender=hpWallets.find(x=>x.actor_id===dmg?.defender_id);
+    $("lobby-hp-apply").hidden=!(room.mode==="1x1"&&myTurn&&hpReady
+      &&dmg&&dmg.calculation_status==="partial_estimate"
+      &&dmg.cost_status==="test_spent"&&dmg.preview_subtotal!==null
+      &&hpAttack?.hp_remaining>0&&hpDefender?.hp_remaining>0
+      &&dmg.location_id===roomLocations[0]?.catalog_location_id
+      &&!hpEvents.some(x=>x.turn_no===match.turn_no));
     $("lobby-effect-candidate-capture").hidden=!(room.mode==="1x1"&&myTurn
       &&dmg&&["107","111","112"].includes(dmg.catalog_attack_id)
       &&dmg.calculation_status==="partial_estimate"&&dmg.preview_subtotal>0
@@ -273,6 +285,39 @@
         x.defender_energy_initial+" → "+x.preview_energy_remaining+
         " (SIMULAÇÃO: HP real inalterado)."+locationText+detail+cost;
     }).join("\n"):"Nenhuma simulação individual.";
+    updateClashUI();
+  }
+  async function refreshHpLedger(){
+    const panel=$("lobby-hp-ledger");
+    if(!panel)return;
+    panel.hidden=!room||!match||room.mode!=="1x1";
+    if(panel.hidden){hpWallets=[];hpEvents=[];return;}
+    const wallet=await api.from("chaotic_preview_hp_wallets")
+      .select("actor_id,creature_instance_id,location_id,hp_max,hp_remaining,projected_hits")
+      .eq("lobby_id",room.id).limit(2);
+    if(wallet.error)throw new Error(wallet.error.message);
+    hpWallets=wallet.data||[];
+    const history=await api.from("chaotic_preview_hp_events")
+      .select("turn_no,attacker_id,victim_id,hp_before,hp_after,indicative_damage,hypothetical_applied_damage,official_hp_changed,final_damage_verified")
+      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(15);
+    if(history.error)throw new Error(history.error.message);
+    hpEvents=history.data||[];
+    const hpDisplay=id=>{
+      const h=hpWallets.find(x=>x.actor_id===id);
+      return h?h.hp_remaining+"/"+h.hp_max+" HP de teste":"não iniciado";
+    };
+    $("lobby-hp-summary").textContent="Anfitrião: "+hpDisplay(room.host_id)+
+      " | Convidado: "+hpDisplay(room.guest_id)+
+      " · NÃO altera energia oficial nem declara vencedor.";
+    $("lobby-hp-events").textContent=hpEvents.length
+      ?hpEvents.slice().reverse().map(x=>
+        "T"+x.turn_no+": "+(x.victim_id===room.host_id?"Anfitrião":"Convidado")+
+        " "+x.hp_before+" → "+x.hp_after+
+        " (dano parcial hipotético "+x.indicative_damage+
+        "; aplicado ao saldo de teste "+x.hypothetical_applied_damage+
+        "; HP real inalterado)."
+      ).join("\n")
+      :"Nenhum dano acumulado de teste.";
     updateClashUI();
   }
   async function refreshEffectCandidates(){
@@ -637,6 +682,7 @@
     await refreshModifiers();
     await refreshDice();
     await refreshIndividualDamage();
+    await refreshHpLedger();
     await refreshEffectCandidates();
   }
   function updateRoomUI() {
@@ -729,6 +775,12 @@
         .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_effect_candidates",filter:"lobby_id=eq."+lobbyId
         },sync)
+        .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_hp_wallets",filter:"lobby_id=eq."+lobbyId
+        },sync)
+        .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_hp_events",filter:"lobby_id=eq."+lobbyId
+        },sync)
         .subscribe(status=>{
           if(status==="CHANNEL_ERROR"||status==="TIMED_OUT")
             console.warn("DROME: canal em tempo real temporariamente indisponível; consultas periódicas seguem ativas.");
@@ -741,7 +793,7 @@
     }, 6000);
   }
   function show() {
-    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = [];
+    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -861,6 +913,14 @@
       '<p>Compara o atributo do Local sorteado (Sabedoria, Poder ou Velocidade). Sem Local sorteado, usa Velocidade como fallback. O empate favorece o atacante. NÃO muda turnos nem concede pontos.</p>',
       '<button id="lobby-initiative-preview-calculate" type="button" hidden>Conferir iniciativa no servidor</button>',
       '<p id="lobby-initiative-history" class="lobby-events" aria-live="polite">Nenhuma iniciativa calculada.</p>',
+      '</section>',
+      '<section id="lobby-hp-ledger" class="lobby-combat" hidden>',
+      '<strong>❤️ ENERGIA ACUMULADA — 1x1 (TESTE)</strong>',
+      '<p>Saldo de HP independente, salvo no servidor. Exige Local sorteado e dois DNA preparados. Cada dano parcial altera APENAS o saldo hipotético; não é dano final, não altera HP real e não declara vitória.</p>',
+      '<button id="lobby-hp-prepare" type="button" hidden>Iniciar HP de teste das duas criaturas</button>',
+      '<p id="lobby-hp-summary" class="lobby-events">HP experimental ainda não iniciado.</p>',
+      '<button id="lobby-hp-apply" type="button" hidden>Acumular dano hipotético deste turno</button>',
+      '<p id="lobby-hp-events" class="lobby-events">Nenhum dano acumulado de teste.</p>',
       '</section>',
       '<section id="lobby-individual-preview" class="lobby-combat">',
       '<strong>🧬 PRÉVIA COM DNA INDIVIDUAL — 1x1</strong>',
@@ -1070,6 +1130,24 @@
       note(result.calculation_status==="partial_estimate"
         ?"Simulação de dano com DNA individual registrada no servidor. Nenhuma energia real foi alterada."
         :"Ataque especial identificado. A simulação NÃO informa dano final sem resolver seu efeito.");
+    });
+    $("lobby-hp-prepare").onclick = () => action(async()=>{
+      if(!room||!match||room.mode!=="1x1"||match.current_player!==userId)return;
+      const r=await rpc("chaotic_prepare_preview_hp",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refreshHpLedger();
+      note("HP hipotético iniciado: "+r.host_hp+" × "+r.guest_hp+
+        ". Não altera HP oficial nem conclui combate.");
+    });
+    $("lobby-hp-apply").onclick = () => action(async()=>{
+      if(!room||!match||room.mode!=="1x1"||match.current_player!==userId)return;
+      const r=await rpc("chaotic_apply_preview_hp_projection",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refreshHpLedger();
+      note("HP de TESTE atualizado: "+r.hp_before+" → "+r.hp_after+
+        ". Dano final NÃO verificado. HP real e turnos intactos.");
     });
     $("lobby-effect-candidate-capture").onclick = () => action(async()=>{
       if(!room||!match||room.mode!=="1x1"||match.status!=="active"
