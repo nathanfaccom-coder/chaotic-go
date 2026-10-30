@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -80,9 +80,23 @@ function makeClient(actor) {
           return {data:null,error:{message:"Ficha não autorizada"}};
         const snapshot={lobby_id:room.id,actor_id:actor,position:6,
           card_instance_id:unit.card_id,creature_name:"Criatura original",
-          stats:{c:65,p:55,s:70,v:45,e:65},equipment_name:"Equipamento original"};
+          stats:{c:65,p:55,s:70,v:45,e:65},
+          equipment_instance_id:"201",equipment_name:"Equipamento original"};
         loadouts.set(key,snapshot);
         return {data:{...snapshot},error:null};
+      }
+      if(name==="chaotic_reveal_preview_equipment"){
+        const match=matches.get(room.id),loadout=loadouts.get(room.id+"/"+actor);
+        const key=room.id+"/"+actor;
+        if(!match||room.mode!=="1x1"||match.status!=="active"||
+          match.current_player!==actor||match.turn_no!==args.p_expected_turn||
+          !loadout?.equipment_instance_id||equipmentReveals.has(key))
+          return {data:null,error:{message:"Revelação não autorizada"}};
+        const item={lobby_id:room.id,actor_id:actor,
+          equipment_instance_id:loadout.equipment_instance_id,
+          equipment_name:loadout.equipment_name,revealed_turn:args.p_expected_turn};
+        equipmentReveals.set(key,item);
+        return {data:{...item},error:null};
       }
       if(name==="chaotic_capture_preview_attack"){
         const match=matches.get(room.id),key=room.id+"/"+args.p_expected_turn;
@@ -116,7 +130,11 @@ function makeClient(actor) {
           defender_id:clash.defender_id,attack_name:attack.attack_name,
           attacker_name:attacker.creature_name,defender_name:defender.creature_name,
           defender_energy_initial:defender.stats.e,base_damage:attack.base_damage,
-          elemental_bonus:0,attribute_bonus:0,preview_subtotal:total,
+          elemental_bonus:0,attribute_bonus:0,equipment_bonus:0,
+          attack_cost:attack.attack_cost,cost_status:"not_verified",
+          attacker_equipment_revealed:equipmentReveals.has(room.id+"/"+actor),
+          defender_equipment_revealed:equipmentReveals.has(room.id+"/"+clash.defender_id),
+          preview_subtotal:total,
           preview_energy_remaining:total===null?null:Math.max(0,defender.stats.e-total),
           calculation_status:special?"special_resolution_required":"partial_estimate"};
         individualDamage.set(key,result);
@@ -228,7 +246,7 @@ function makeClient(actor) {
       throw Error(name);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
         then(resolve,reject) {
           const room=rooms.get(this.id);
@@ -258,6 +276,8 @@ function makeClient(actor) {
                       ?[...attackInstances.values()].filter(x=>x.lobby_id===this.id)
                       :table==="chaotic_preview_individual_damage"
                         ?[...individualDamage.values()].filter(x=>x.lobby_id===this.id)
+                        :table==="chaotic_preview_equipment_reveals"
+                          ?[...equipmentReveals.values()].filter(x=>x.lobby_id===this.id)
                         :(journals.get(this.id)||[])):[];
           return Promise.resolve({data:[...events].reverse().slice(0,size),error:null});
         },
@@ -653,4 +673,41 @@ test("1x1 DNA preview shows individual energy and never changes actual combat",a
     {p_lobby_id:id,p_expected_turn:3})).error,"No third-party simulation");
   await guest("lobby-turn-refresh").onclick();
   assert.match(guest("lobby-individual-damage-history").textContent,/65 → 60/);
+});
+
+
+test("1x1 equipment reveal can be done once by owner on own turn, with no HP mutation",async()=>{
+  const host=browser("equipment-host"),guest=browser("equipment-guest");
+  host("lobby-select-mode").value="1x1";
+  await host("lobby-create-btn").onclick();
+  const id=[...rooms.values()].find(r=>r.host_id==="equipment-host").id;
+  guest("lobby-input-code").value=host("lobby-room-code").textContent;
+  await guest("lobby-join-btn").onclick();
+  await host("lobby-refresh").onclick();
+  await host("lobby-turn-start").onclick();
+  assert.equal(host("lobby-equipment-reveal").hidden,true,
+    "No reveal before a creature has been prepared");
+  host("lobby-combat-kind").value="creature";
+  host("lobby-combat-slot").value="6";
+  await host("lobby-combat-submit").onclick();
+  await host("lobby-hex-place").onclick();
+  await host("lobby-loadout-capture").onclick();
+  assert.equal(host("lobby-equipment-reveal").hidden,false);
+  const intruder=await makeClient("not-member").rpc("chaotic_reveal_preview_equipment",
+    {p_lobby_id:id,p_expected_turn:1});
+  assert.ok(intruder.error);
+  await host("lobby-equipment-reveal").onclick();
+  assert.equal(host("lobby-equipment-reveal").hidden,true);
+  assert.match(host("lobby-equipment-reveal-history").textContent,/Equipamento original/);
+  assert.equal(equipmentReveals.get(id+"/equipment-host").revealed_turn,1);
+  assert.equal(loadouts.get(id+"/equipment-host").stats.e,65);
+  const again=await makeClient("equipment-host").rpc("chaotic_reveal_preview_equipment",
+    {p_lobby_id:id,p_expected_turn:1});
+  assert.ok(again.error);
+  await host("lobby-turn-pass").onclick();
+  await guest("lobby-turn-refresh").onclick();
+  assert.match(guest("lobby-equipment-reveal-history").textContent,/Anfitrião revelou/);
+  const wrongTurn=await makeClient("equipment-host").rpc("chaotic_reveal_preview_equipment",
+    {p_lobby_id:id,p_expected_turn:2});
+  assert.ok(wrongTurn.error);
 });
