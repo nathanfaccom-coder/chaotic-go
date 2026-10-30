@@ -23,7 +23,7 @@ begin
  if n<>1 then raise exception 'Exactly one members-only read policy required: %',n;end if;
  select pg_get_functiondef('public.chaotic_prepare_preview_burst_order(uuid,integer)'::regprocedure)
  into def;
- if position('win.status NOT IN' in upper(def))=0
+ if position('WIN.STATUS NOT IN' in upper(def))=0
    or position('defender_passed' in def)=0
    or position('defender_immunity_noted' in def)=0
  then raise exception 'Both completed defender response types not guarded';end if;
