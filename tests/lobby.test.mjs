@@ -51,7 +51,7 @@ function makeClient(userId) {
       throw Error("Unexpected RPC "+method);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances"].includes(table));
       return {select(){return this;},eq(_field,id){this.id=id;return this;},
         order(){return this;},
         limit(){return Promise.resolve({data:[],error:null});},
@@ -137,7 +137,7 @@ test("same account cannot join its own lobby", async()=>{
   assert.match(otherTab.elem("lobby-notice").textContent,/Não é possível entrar/);
 });
 
-test("private room subscribes to four channels and cleans up after closing",async()=>{
+test("private room subscribes to current DROME tables and cleans up after closing",async()=>{
   const host=makeBrowser("live-host"),guest=makeBrowser("live-guest");
   host.browser.window.abrirSalaPrivadaDrome();
   host.elem("lobby-select-mode").value="1x1";
