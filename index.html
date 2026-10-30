@@ -8,7 +8,7 @@
     <link rel="manifest" href="manifest.json">
     <script>
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js?v=release-12', { updateViaCache: 'none' })
+        navigator.serviceWorker.register('sw.js?v=release-13', { updateViaCache: 'none' })
           .then(() => console.log("Atualização do scanner instalada"))
           .catch(err => console.log("Erro no sinal do Service Worker:", err));
       }
@@ -27,7 +27,7 @@
     </a>
 
     <p class="creditos">DESENVOLVIDO POR NATHAN REIS</p>
-    <p class="versao">VERSÃO 0.1.12</p>
+    <p class="versao">VERSÃO 0.1.13</p>
 
     <script>
         let deferredPrompt;
