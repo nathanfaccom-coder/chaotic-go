@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -141,6 +141,16 @@
     const activePriority=burstPriority.find(x=>x.turn_no===match.turn_no);
     const priorityClosed=activePriority?.priority_status==="closed_preview"
       &&activePriority?.consecutive_passes===2;
+    const ownMugic=burstMugicIntents.find(x=>x.turn_no===match.turn_no
+      &&x.actor_id===userId);
+    const ownPendingMugic=ownMugic?.intent_status==="queued_unexecuted";
+    const canDeclareMugic=room.mode==="1x1"&&match.status==="active"
+      &&room.status==="ready"&&new Date(room.expires_at).getTime()>Date.now()
+      &&activePriority?.priority_status==="awaiting_priority"
+      &&activePriority.next_actor_id===userId&&!ownMugic;
+    $("lobby-burst-mugic-create").hidden=!canDeclareMugic;
+    $("lobby-burst-mugic-reject").hidden=!canDeclareMugic;
+    $("lobby-burst-mugic-cancel").hidden=!ownPendingMugic;
     $("lobby-burst-priority-open").hidden=!(room.mode==="1x1"&&myTurn
       &&activeBurst&&["defender_passed","defender_immunity_noted"].includes(activeBurst.status)
       &&!activePriority&&!activePlan
@@ -160,7 +170,7 @@
       &&defenderHp&&supportedGear&&!resolvedEquipment);
     $("lobby-burst-order-prepare").hidden=!(room.mode==="1x1"&&myTurn
       &&activeBurst&&["defender_passed","defender_immunity_noted"].includes(activeBurst.status)
-      &&priorityClosed
+      &&priorityClosed&&!ownPendingMugic
       &&!burstOrderPlans.some(x=>x.turn_no===match.turn_no));
     $("lobby-burst-open").hidden=!(room.mode==="1x1"&&myTurn
       &&clashToCalculate&&attackResolved&&!activeBurst
@@ -419,6 +429,27 @@
       ).join("\n")
       :"Nenhuma sequência de inspeção preparada.";
     updateMatchUI();
+    updateClashUI();
+  }
+  async function refreshBurstMugicIntents(){
+    const panel=$("lobby-burst-mugic-preview");
+    if(!panel)return;
+    panel.hidden=!room||!match||room.mode!=="1x1";
+    if(panel.hidden){burstMugicIntents=[];return;}
+    const {data,error}=await api.from("chaotic_preview_burst_mugic_intents")
+      .select("turn_no,actor_id,catalog_mugic_id,mugic_name,intent_status,consumes_card,consumes_tokens,effect_executed")
+      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(20);
+    if(error)throw new Error(error.message);
+    // RLS returns ONLY the current player's own Mugic declarations.
+    burstMugicIntents=data||[];
+    $("lobby-burst-mugic-history").textContent=burstMugicIntents.length
+      ?burstMugicIntents.slice().reverse().map(x=>
+        "T"+x.turn_no+" · "+x.mugic_name+" · "+
+        (x.intent_status==="cancelled"
+          ?"intenção cancelada: nenhuma carta consumida."
+          :"INTENÇÃO PENDENTE: cancele para permitir inspeção; efeito não executado.")+
+        " Nenhuma ficha, carta ou HP oficial alterado.").join("\n")
+      :"Nenhuma intenção Mugic registrada para sua conta.";
     updateClashUI();
   }
   async function refreshBurstPriority(){
@@ -919,6 +950,7 @@
     await refreshEffectCandidates();
     await refreshBurstWindows();
     await refreshBurstPriority();
+    await refreshBurstMugicIntents();
     await refreshBurstEquipmentResponses();
     await refreshBurstOrderPlans();
     await refreshBurstEquipmentEffects();
@@ -1033,6 +1065,9 @@
           event:"*",schema:"public",table:"chaotic_preview_burst_priority_passes",filter:"lobby_id=eq."+lobbyId
         },sync)
         .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_burst_mugic_intents",filter:"lobby_id=eq."+lobbyId
+        },sync)
+        .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_burst_order_plans",filter:"lobby_id=eq."+lobbyId
         },sync)
         .on("postgres_changes",{
@@ -1053,7 +1088,7 @@
     }, 6000);
   }
   function show() {
-    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = []; burstEquipmentResponses = []; burstEquipmentEffects = []; burstPriority = []; burstPriorityPasses = [];
+    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = []; burstEquipmentResponses = []; burstEquipmentEffects = []; burstPriority = []; burstPriorityPasses = []; burstMugicIntents = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -1192,6 +1227,14 @@
       '<button id="lobby-burst-priority-open" type="button" hidden>Abrir rodada de prioridade</button>',
       '<button id="lobby-burst-priority-pass" type="button" hidden>Passar minha prioridade agora</button>',
       '<p id="lobby-burst-priority-history" class="lobby-events" aria-live="polite">Nenhuma rodada de prioridade aberta.</p>',
+      '<section id="lobby-burst-mugic-preview" class="lobby-combat" hidden>',
+      '<strong>🎵 Mugics — intenção experimental (0.1.28)</strong>',
+      '<p>Durante SUA prioridade, declare uma Mugic já presente no Deck 1x1 e no álbum. Isto NÃO conjura, consome fichas ou revela a carta ao adversário. Enquanto pendente, o dano e o próximo turno ficam bloqueados; cancele para continuar o treinamento.</p>',
+      '<button id="lobby-burst-mugic-create" type="button" hidden>Declarar Canção da Criação (prévia)</button>',
+      '<button id="lobby-burst-mugic-reject" type="button" hidden>Declarar Canção da Rejeição (prévia)</button>',
+      '<button id="lobby-burst-mugic-cancel" type="button" hidden>Cancelar minha intenção Mugic</button>',
+      '<p id="lobby-burst-mugic-history" class="lobby-events" aria-live="polite">Nenhuma intenção Mugic registrada.</p>',
+      '</section>',
       '</section>',
       '<section id="lobby-burst-order-preview" hidden>',
       '<strong>🔁 Ordem de inspeção — Burst (somente teste)</strong>',
@@ -1464,6 +1507,26 @@
       note(state.priority_status==="closed_preview"
         ?"Os dois jogadores passaram a prioridade. Inspeção Burst disponível; dano final continua pendente."
         :"Prioridade passada. Aguardando PASSAR do defensor.");
+    });
+    for(const [buttonId,catalogId] of [["lobby-burst-mugic-create","301"],
+      ["lobby-burst-mugic-reject","302"]]){
+      $(buttonId).onclick = () => action(async()=>{
+        if(!room||!match||room.mode!=="1x1")return;
+        const result=await rpc("chaotic_queue_preview_burst_mugic",{
+          p_lobby_id:room.id,p_expected_turn:match.turn_no,p_catalog_mugic_id:catalogId
+        });
+        await refreshBurstMugicIntents();
+        note(result.mugic_name+" declarada como INTENÇÃO de teste. "+
+          "Ainda não foi conjurada, não gasta fichas e bloqueia dano até cancelar.");
+      });
+    }
+    $("lobby-burst-mugic-cancel").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="1x1")return;
+      await rpc("chaotic_cancel_preview_burst_mugic",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refreshBurstMugicIntents();
+      note("Intenção Mugic cancelada. Sem custos. O treinamento pode retomar após os passes.");
     });
     $("lobby-burst-air-immunity").onclick = () => action(async()=>{
       if(!room||!match||room.mode!=="1x1")return;
