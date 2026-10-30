@@ -2,9 +2,9 @@
 
 Implementação experimental na branch `feature/contas-e-salvamento-supabase`. **Não foi publicada em main.**
 
-1. Crie/indique um projeto Supabase dedicado ao Chaotic GO. Não reutilize acidentalmente o projeto de outro jogo.
+1. Projeto exclusivo criado: **ChaoticGO** em `https://avmpfnveotjzoqkrygfn.supabase.co`. Ele ainda precisa ser conectado ao Supabase do ChatGPT para executar a migração e obter a chave publishable com segurança.
 2. Execute `supabase/schema-chaotic-go.sql` no SQL Editor desse projeto.
-3. Em **Project Settings → API Keys**, copie a chave **publishable**; em **Connect** copie a URL do projeto. Preencha somente `supabase-config.js`. **Nunca use service_role ou sb_secret_ no navegador.**
+3. A URL já está preenchida em `supabase-config.js`. Em **Project Settings → API Keys**, copie a chave **publishable** para `publishableKey` (não exponha chaves secret ou service_role). **Nunca use service_role ou sb_secret_ no navegador.**
 4. Em **Authentication → Providers**, habilite Email. Configure **URL Configuration** com a URL do site e inclua `login.html` e `redefinir-senha.html` na lista de redirects permitidos.
 5. Faça testes com duas contas reais: registre, confirme o e-mail, entre, capture uma carta, recarregue, entre de outro navegador e verifique persistência. Confira que uma conta não consegue ler/escrever os dados da outra.
 6. Somente depois mescle a branch na `main` e faça o deploy.
