@@ -13,7 +13,7 @@
     retry.hidden=!error;
   }
   async function signOut() {
-    try {const {error}=await ChaoticAuth.getClient().auth.signOut();if(error)throw error;location.replace("login-v2.html");}
+    try {const {error}=await ChaoticAuth.getClient().auth.signOut();if(error)throw error;location.replace("login-completo.html");}
     catch(e){inform("Erro ao sair: "+e.message,true);}
   }
   logout.onclick=signOut; retry.onclick=signOut;
@@ -31,6 +31,7 @@
     importer.hidden=true;
     await import("./script.js?v=full-2");
     await import("./batalha.js?v=full-2");
-    inform("Conta conectada. Decks e coleção sincronizados.");
+    await import("./chaotic-lobby.js?v=full-3");
+    inform("Conta conectada. Decks e salas privadas disponíveis para teste.");
   }catch(e){console.error(e);inform("Falha na inicialização: "+e.message,true);}
 })();
