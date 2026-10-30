@@ -106,6 +106,9 @@ export async function migratePreviousTest() {
     amigos:old.data?.friends || []
   };
   for (const [node,value] of Object.entries(fields)) {
+    // Álbum vazio não deve anular o brinde inicial de uma conta recém-criada.
+    // O módulo original concede a carta inicial quando o nó 'album' não existe.
+    if ((node === "album" || node === "amigos") && Array.isArray(value) && value.length === 0) continue;
     const existing = await get(ref(db,"jogadores/"+ownerId+"/"+node));
     if (!existing.exists()) await set(ref(db,"jogadores/"+ownerId+"/"+node),value);
   }
