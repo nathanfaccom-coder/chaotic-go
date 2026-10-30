@@ -1,6 +1,6 @@
 # Chaotic GO — Status de conclusão e pendências (30/10/2026)
 
-Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 54% (incerteza aproximada ±10 pontos percentuais).**
+Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 55% (incerteza aproximada ±10 pontos percentuais).**
 
 ## Critérios ponderados
 
@@ -9,12 +9,12 @@ Este documento acompanha **prontidão para lançar o jogo completo com Supabase*
 | Motor legado, scanner, cartas, imagens, áudios e interfaces preservados | 25% | 90% | 22,5 p.p. |
 | Contas, migração de coleção, Decks e persistência privada Supabase | 15% | 75% | 11,25 p.p. |
 | Salas privadas, sincronização e protocolo de turnos | 10% | 70% | 7 p.p. |
-| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 24% | 6 p.p. |
+| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 28% | 7 p.p. |
 | Economia, amigos, trocas, recompensas e progressão integradas | 15% | 25% | 3,75 p.p. |
 | Testes ponta a ponta, dois dispositivos, mobile, segurança e publicação | 10% | 35% | 3,5 p.p. |
-| **Estimativa total** | **100%** | | **54 p.p.** |
+| **Estimativa total** | **100%** | | **55 p.p.** |
 
-Números estimados para planejamento, não verificação automática de 54% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
+Números estimados para planejamento, não verificação automática de 55% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
 
 ## Entregas já implementadas ou disponíveis
 - Jogo completo e recursos originais publicados no site; backup de branches anteriores.
@@ -56,4 +56,12 @@ Números estimados para planejamento, não verificação automática de 54% das 
 - **Privacidade do deck:** RLS libera ao próprio jogador somente cartas `hand` e `spent`; as cartas `deck` não são retornadas pela API até a compra. `total_cards` na carteira permite mostrar quantas restam sem expor nomes e ordem do monte. Mãos existentes na prévia preservam o índice anterior, para não invalidar testes já começados.
 - **Verificação 0.1.12:** a migração foi aplicada e o teste SQL de permutação/ocultação/permissões foi aprovado. O embaralhamento vale somente para o 1x1 experimental: não inclui descarte/reciclagem do lixo, iniciativa, compra bloqueada por habilidades, integridade da emissão das cartas nem efeitos de jogo.
 - **Próximo bloqueio crítico:** emissão/posse autoritativa das cartas (álbum editável no cliente), pontos oficiais com iniciativa/bloqueios de efeitos, custo real, reciclagem de lixo, equipamentos, locais, Burst, rolagens, efeitos e vitória antes de liberar dano real.
-- A estimativa ponderada sobe de **53% para 54%**, por adicionar recursos verificáveis no servidor sem dano oficial. O número ainda é manual e continuará incerto até existir um 1x1 completo testado.
+- **0.1.13:** a estimativa manual sobe de **54% para 55%** pelo descarte e reciclagem controlados pelo servidor, ainda sem dano oficial e sem testes reais entre aparelhos. O número continua incerto até existir um 1x1 completo.
+
+
+## Versão 0.1.13 — descarte e reciclagem no DROME 1x1 (30/10/2026)
+- Nova RPC `chaotic_discard_preview_attack`: proprietário pode descartar uma carta **realmente na mão de teste** durante a sua vez. A carta vai ao lixo experimental com marcador `spent_reason='discard'`, sem custo. Não pode ser repetida ou usada para comprovar pagamento.
+- RPC `chaotic_sync_preview_hand`: quando o monte está vazio e há cartas no lixo, reembaralha **somente as descartadas e usadas** no servidor (`gen_random_uuid()`), distribui uma nova carta, e incrementa o contador de ciclos. O embaralhamento não altera slots, DNA, catálogo ou a carta física original.
+- Pagamento real de teste marca `spent_reason='attack'`; a RPC de DNA agora exige a razão `attack`, e não apenas o estado usado. A validação da instância capturada também exige a carta disponível na mão do próprio jogador e no turno sincronizado.
+- UI inclui seleção de descarte por slot, resumo de lixo e reembaralhamentos, e mensagem de reciclagem. Os IDs de carta são exibidos em texto seguro e nunca interpolados na marcação dinâmica.
+- Nenhum efeito é aplicado à partida oficial. **Pendências**: iniciativa, habilidades que bloqueiam compra, pontos e turnos, escolha de alvo, Burst, equipamentos especiais, dano persistente, mortes, vitória, pagamentos oficiais e legitimidade da emissão das cartas. Testes automatizados não substituem validação ponta a ponta com duas contas reais.
