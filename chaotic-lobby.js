@@ -75,7 +75,9 @@
       guestTile.style.borderColor = active && match.current_player === room.guest_id ? "#86ff9b" : "#315b43";
     }
     $("lobby-turn-start").hidden = !!match || room.host_id !== userId || room.status !== "ready";
-    $("lobby-turn-pass").hidden = !active || match.current_player !== userId;
+    $("lobby-turn-pass").hidden = !active || match.current_player !== userId ||
+      (room.mode==="1x1"&&burstWindows.some(x=>x.turn_no===match.turn_no
+        &&x.attacker_id===userId&&x.status==="awaiting_defender"));
     $("lobby-turn-stop").hidden = !active;
   }
   // Conexões entre lados extraídas de batalha.js/obterAdjacencias.
@@ -331,6 +333,7 @@
         " Esta é uma PRÉVIA defensiva; dano final NÃO resolvido."
       ).join("\n")
       :"Nenhuma janela Burst de teste aberta.";
+    updateMatchUI();
     updateClashUI();
   }
   async function refreshResolutionAudits(){
