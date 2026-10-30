@@ -1,20 +1,20 @@
 # Chaotic GO — Status de conclusão e pendências (30/10/2026)
 
-Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 72% (incerteza aproximada ±10 pontos percentuais).**
+Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 73% (incerteza aproximada ±10 pontos percentuais).**
 
 ## Critérios ponderados
 
 | Área | Peso | Avaliação funcional | Contribuição |
 |---|---:|---:|---:|
 | Motor legado, scanner, cartas, imagens, áudios e interfaces preservados | 25% | 90% | 22,5 p.p. |
-| Contas, migração de coleção, Decks e persistência privada Supabase | 15% | 75% | 11,25 p.p. |
+| Contas, migração de coleção, Decks e persistência privada Supabase | 15% | 82% | 12,3 p.p. |
 | Salas privadas, sincronização e protocolo de turnos | 10% | 85% | 8,5 p.p. |
 | PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 90% | 22,5 p.p. |
 | Economia, amigos, trocas, recompensas e progressão integradas | 15% | 25% | 3,75 p.p. |
 | Testes ponta a ponta, dois dispositivos, mobile, segurança e publicação | 10% | 35% | 3,5 p.p. |
-| **Estimativa total** | **100%** | | **72 p.p.** |
+| **Estimativa total** | **100%** | | **73 p.p.** |
 
-Números estimados para planejamento, não verificação automática de 72% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
+Números estimados para planejamento, não verificação automática de 73% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
 
 ## Entregas já implementadas ou disponíveis
 - Jogo completo e recursos originais publicados no site; backup de branches anteriores.
@@ -274,3 +274,14 @@ Números estimados para planejamento, não verificação automática de 72% das 
 - Verificação SQL de permissões, função de HP, ligação com criaturas originais, ausência de dano e ausência de alterações oficiais aprovada em `supabase/tests/chaotic-preview-3x3-individual-hp-wallets.test.sql`. Suíte Node com cenário de duas contas simuladas agora verifica **os seis HP individuais**, diferencia energias 10/35/46 e 55/40/32, rejeita DNA inválido sem criar estado parcial, impede repetição e proíbe preparação de HP fora do próprio turno.
 - **Próximas necessidades críticas:** ações reais de movimento por criatura, colisão/posicionamento, dano por criatura, efeitos e Mugics, proteção autoritativa da posse das cartas e teste em dois celulares diferentes. A publicação no GitHub Pages ainda não está confirmada.
 - **Conclusão estimada: 72% (±10 p.p.)**: crescimento de 1 ponto em dados e sincronização do 3x3 experimental, não prontidão do PvP oficial. Toda a coleção, imagens, Decks, moedas e XP estão preservados.
+
+
+## Versão 0.1.35 — movimentação individual no tabuleiro experimental 3x3 (30/10/2026)
+- A formação **c4/c5/c6 permanece imutável**: os cartões, HP e fichas por criatura permanecem vinculados a esses slots. Novas tabelas `chaotic_preview_3x3_board_positions` e `chaotic_preview_3x3_move_events` acrescentam a posição **atual** independente (`hex_position` de 1 a 6) e histórico de movimentação por jogador e turno.
+- Nova RPC `chaotic_prepare_preview_3x3_board`: prepara os três marcadores inicialmente nos hexes 4, 5 e 6, apenas para o participante da vez, com sala 3x3 válida, três criaturas capturadas e três HP individuais positivos já validados. Não aceita reinicialização após qualquer movimento.
+- Nova RPC `chaotic_move_preview_3x3_unit`: exige participante autenticado, turno atualizado, criatura c4/c5/c6 própria, HP positivo correspondente ao snapshot, tabuleiro completo, destino hex 1–6 adjacente e **desocupado no mesmo lado**. Usa a tabela de adjacência experimental já presente no DROME (1⇄2/4; 2⇄1/3/4/5; 3⇄2/5; 4⇄1/2/5/6; 5⇄2/3/4/6; 6⇄4/5). O banco impõe unicidade de ocupação e de **um movimento por jogador/turno**; travamento transacional impede o duplo clique. Não permite movimento após Clash/Burst no mesmo turno.
+- Este tabuleiro de **seis hexágonos por lado** é um exercício isolado; **não é ainda o tabuleiro oficial da batalha 3x3**. Não há encontro com oponente, colisão entre lados, dano, vitória, derrota, consumo de cards ou mudança de HP.
+- DROME exibe o tabuleiro de cada jogador em texto, controles para escolher a criatura pelo slot original e selecionar destino, histórico da movimentação e atualização em Realtime. O 1x1 e toda a coleção, artes e decks originais continuam intactos.
+- Validação SQL transacional `supabase/tests/chaotic-preview-3x3-individual-movement.test.sql` aprovada, incluindo RLS, privilégios, identidade da criatura, adjacência, ocupação, prevenção de replay e ausência de efeitos oficiais. Suite Node **45 testes aprovados**, com cenário simulado de duas contas que rejeita movimento de adversário, movimento fora da vez, salto, hexágono ocupado e segunda movimentação no turno.
+- **Ainda prioritário:** origem real/verificável das cartas, movimento oficial 3x3 respeitando fases do jogo original, ataques e HP por alvo, confrontos entre jogadores, vitória, premiações, segurança RLS e teste ponta a ponta em dois celulares. Não há ainda prova de funcionamento real ao vivo.
+- **Estimativa geral: 73% (±10 p.p.; total ponderado arredondado de 73,05)**, +1 p.p. arredondado em integração e persistência das cartas em posições sincronizadas — não é percentual de testes funcionais do jogo inteiro nem conclusão do PvP.
