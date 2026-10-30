@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -70,6 +70,19 @@ function makeClient(actor) {
         const tile={lobby_id:room.id,actor_id:actor,card_id:creature.card_id,
           position:creature.card_slot,moved_turn:0};
         board.set(room.id+"/"+actor,tile);return {data:{...tile},error:null};
+      }
+      if(name==="chaotic_capture_preview_loadout"){
+        const match=matches.get(room.id),unit=board.get(room.id+"/"+actor);
+        const key=room.id+"/"+actor;
+        if(room.mode!=="1x1"||!match||match.status!=="active"||
+          match.current_player!==actor||match.turn_no!==args.p_expected_turn||
+          !unit||unit.position!==6||loadouts.has(key))
+          return {data:null,error:{message:"Ficha não autorizada"}};
+        const snapshot={lobby_id:room.id,actor_id:actor,position:6,
+          card_instance_id:unit.card_id,creature_name:"Criatura original",
+          stats:{c:65,p:55,s:70,v:45,e:65},equipment_name:"Equipamento original"};
+        loadouts.set(key,snapshot);
+        return {data:{...snapshot},error:null};
       }
       if(name==="chaotic_move_preview_creature"){
         const match=matches.get(room.id),tile=board.get(room.id+"/"+actor);
@@ -177,13 +190,16 @@ function makeClient(actor) {
       throw Error(name);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
         then(resolve,reject) {
           const room=rooms.get(this.id);
           const allowed=room&&(room.host_id===actor||room.guest_id===actor);
-          const result=table==="chaotic_preview_board"&&allowed
-            ?[...board.values()].filter(x=>x.lobby_id===this.id).map(x=>({...x})):[];
+          const result=!allowed?[]:
+            table==="chaotic_preview_board" ?
+            [...board.values()].filter(x=>x.lobby_id===this.id).map(x=>({...x})):
+            table==="chaotic_preview_loadouts" ?
+            [...loadouts.values()].filter(x=>x.lobby_id===this.id).map(x=>({...x})) : [];
           return Promise.resolve({data:result,error:null}).then(resolve,reject);
         },
         order(){return this;},
@@ -453,4 +469,37 @@ test("Fogo Primordial 2.0 requires dice roll and never shows a fake final damage
   assert.match(host("lobby-modifiers-history").textContent,/exige dado/);
   assert.equal(host("lobby-damage-calculate").hidden,true);
   assert.equal(m.turn_no,1,"No combat state changed");
+});
+
+test("1x1 loadout captures DNA and equipment once, only when owned turn is active",async()=>{
+  const host=browser("dna-host"),guest=browser("dna-guest");
+  host("lobby-select-mode").value="1x1";
+  await host("lobby-create-btn").onclick();
+  const code=host("lobby-room-code").textContent;
+  guest("lobby-input-code").value=code;
+  await guest("lobby-join-btn").onclick();
+  await host("lobby-refresh").onclick();
+  await host("lobby-turn-start").onclick();
+  const room=[...rooms.values()].find(x=>x.code===code);
+  assert.equal(host("lobby-loadout-capture").hidden,true,"Cannot capture an unplaced creature");
+  host("lobby-combat-kind").value="creature";
+  host("lobby-combat-deck").value="1";
+  host("lobby-combat-slot").value="6";
+  await host("lobby-combat-submit").onclick();
+  await host("lobby-hex-place").onclick();
+  assert.equal(host("lobby-loadout-capture").hidden,false);
+  await host("lobby-loadout-capture").onclick();
+  assert.match(host("lobby-loadout-host").textContent,/Energia 65/);
+  assert.match(host("lobby-loadout-host").textContent,/Equipamento original/);
+  assert.equal(host("lobby-loadout-capture").hidden,true,"Snapshot cannot be overwritten");
+  const outsider=await makeClient("outsider").rpc("chaotic_capture_preview_loadout",{
+    p_lobby_id:room.id,p_expected_turn:1});
+  assert.ok(outsider.error);
+  const duplicate=await makeClient("dna-host").rpc("chaotic_capture_preview_loadout",{
+    p_lobby_id:room.id,p_expected_turn:1});
+  assert.ok(duplicate.error);
+  assert.equal(loadouts.get(room.id+"/dna-host").stats.e,65);
+  await host("lobby-turn-pass").onclick();
+  await guest("lobby-turn-refresh").onclick();
+  assert.match(guest("lobby-loadout-host").textContent,/Energia 65/,"Opponent receives the same snapshot");
 });
