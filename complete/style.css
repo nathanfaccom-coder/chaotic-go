@@ -1723,3 +1723,28 @@ html, body {
   overflow-y: auto;
   overflow-wrap: anywhere;
 }
+
+/* DROME — protótipo de declarações: não altera o combate original. */
+.lobby-combat {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  border: 1px solid #6590ca;
+  border-radius: 9px;
+  padding: 12px;
+  background: #0c1a32;
+}
+.lobby-combat[hidden] { display: none !important; }
+.lobby-combat > strong {color:#bbd7ff;font-size:11px;}
+.lobby-card-sides {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid #34628a;
+  border-radius: 6px;
+  padding: 8px;
+  color: white;
+  font-size: 11px;
+}
+.lobby-combat label {color:#d8e8ff;}
+.lobby-combat #lobby-combat-history {max-height:150px;}

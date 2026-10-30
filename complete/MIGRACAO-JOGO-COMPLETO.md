@@ -44,3 +44,10 @@ Esta branch recupera a base de 89 arquivos do repositório principal de origem, 
 - A sala mostra o anfitrião e convidado, o marcador de jogador ativo e os doze eventos mais recentes. Isso é uma **prévia**, não o tabuleiro de combate funcional.
 - Encerrar uma sala ou o convidado sair durante uma partida encerra o teste, sem permitir reutilizar o duelo com outra pessoa.
 - Ainda não há sincronização de criaturas, ataques, cartas, custos, efeitos, estatísticas ou recompensas.
+
+## Declarações de criatura e ataque (fase 4)
+- A tabela `chaotic_combat_declarations` tem RLS de leitura pelos participantes, sem gravações diretas pelo cliente.
+- A função `chaotic_declare_combat_action` valida turno e participante, consulta o deck salvo **pelo próprio jogador** no `chaotic_game_nodes` e extrai o ID da carta no servidor; não aceita um ID escolhido livremente pelo navegador.
+- Uma declaração por turno. O primeiro comando de cada jogador precisa ser `creature`; comandos `attack` só depois da seleção de criatura em turno anterior.
+- A tela privada apresenta tipo de ação, slot do deck, posição da carta e histórico de ambos os jogadores.
+- NÃO implementa validação de posse do álbum contra fraudes, custos/efeitos das cartas, dano, movimentação no tabuleiro original, condição de vitória, XP ou economia. Apenas prova o transporte e autorização das escolhas.
