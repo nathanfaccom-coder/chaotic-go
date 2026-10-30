@@ -1,6 +1,6 @@
 # Chaotic GO — Status de conclusão e pendências (30/10/2026)
 
-Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 70% (incerteza aproximada ±10 pontos percentuais).**
+Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 71% (incerteza aproximada ±10 pontos percentuais).**
 
 ## Critérios ponderados
 
@@ -9,12 +9,12 @@ Este documento acompanha **prontidão para lançar o jogo completo com Supabase*
 | Motor legado, scanner, cartas, imagens, áudios e interfaces preservados | 25% | 90% | 22,5 p.p. |
 | Contas, migração de coleção, Decks e persistência privada Supabase | 15% | 75% | 11,25 p.p. |
 | Salas privadas, sincronização e protocolo de turnos | 10% | 75% | 7,5 p.p. |
-| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 86% | 21,5 p.p. |
+| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 90% | 22,5 p.p. |
 | Economia, amigos, trocas, recompensas e progressão integradas | 15% | 25% | 3,75 p.p. |
 | Testes ponta a ponta, dois dispositivos, mobile, segurança e publicação | 10% | 35% | 3,5 p.p. |
-| **Estimativa total** | **100%** | | **70 p.p.** |
+| **Estimativa total** | **100%** | | **71 p.p.** |
 
-Números estimados para planejamento, não verificação automática de 70% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
+Números estimados para planejamento, não verificação automática de 71% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
 
 ## Entregas já implementadas ou disponíveis
 - Jogo completo e recursos originais publicados no site; backup de branches anteriores.
@@ -252,3 +252,14 @@ Números estimados para planejamento, não verificação automática de 70% das 
 - Verificação SQL de permissões, RLS, turno, revelação, anti-replay, teto de saldo e inexistência de descarte oficial aprovada em `supabase/tests/chaotic-preview-harp-magic-training-token-grant.test.sql`; GitHub Actions **44/44 testes Node aprovados** após esta mudança.
 - **Alakazaz permanece pendente:** sua habilidade transfere fichas de habilidade para *outros* campeões aliados; como o preview 1x1 permite só uma criatura por jogador, o sistema não forçará uma transferência fictícia para o adversário nem usará uma segunda criatura inexistente. Será necessário implementar mais de uma criatura pertencente ao mesmo jogador (3x3/6x6) com controle de posse no servidor.
 - Ainda sem execução de Mugics/HP/dano/vitória oficiais, dois celulares reais e confirmação da publicação no GitHub Pages. **Estimativa geral 70% (±10 p.p.)**: avanço da mecânica de ganho de fichas no treino, não conclusão do PvP.
+
+
+## Versão 0.1.33 — captura de três criaturas 3x3 e transferência de Alakazaz (30/10/2026)
+- Novo registro SEPARADO `chaotic_preview_3x3_allies` permite preparar os três campeões de cada usuário nas posições **c4, c5 e c6**, consultando exclusivamente o Deck `decks/3x3_slot_N` (ou chave antiga `decks/3x3_N`) e o álbum privado do usuário; valida IDs de instância, unicidade das três cartas, tipo `Criatura` e nome original do catálogo de fichas. São **seis criaturas no total** com as duas contas, mas só como snapshots e não em um campo oficial de batalha.
+- Nova RPC `chaotic_prepare_preview_3x3_allies` autoriza apenas o participante da vez em sala 3x3 pronta; cria as três posições juntas, sem aceitar nomes/atributos/fichas fornecidos no navegador e sem permitir reinicializar para recuperar fichas.
+- Nova RPC `chaotic_transfer_preview_alakazaz_token` move **uma ficha real no livro experimental** de Alakazaz para outro campeão do MESMO jogador, usando as identidades capturadas e o saldo no banco; uma única transferência por jogador/turno, com travas e rejeição de auto-alvo, alvo adversário, saldo zerado, limite de 20 ou fase Clash/Burst.
+- Tabelas protegidas por RLS para leitura somente dos participantes. Escritas feitas exclusivamente por RPCs autenticadas; cada evento de transferência tem saldo antes/depois para ambos os personagens e restrições aritméticas. Nada é debitado no combate oficial.
+- Painel 3x3 no DROME permite selecionar o Deck, preparar c4–c6, consultar fichas individuais e selecionar o aliado destinatário de Alakazaz. Realtime e atualização manual consultam o histórico.
+- Teste SQL transacional `supabase/tests/chaotic-preview-3x3-allies-alakazaz-transfer.test.sql` aprovado e **45/45 testes Node passando** no GitHub Actions; o cenário simulado cobre duas contas, titularidade, saldo, repetição, posição adversária e ausência de efeitos oficiais.
+- **Limites:** ainda não há tabuleiro tático de seis criaturas, movimento/ataque 3x3 completo, combate com HP por personagem, habilidades sincronizadas no Burst, final de combate e publicação confirmada. A transferência de Alakazaz foi limitada a uma ficha por turno do treinamento; seu texto original permite distribuir suas fichas e exigirá uma sequência de escolhas para a regra completa. Teste ponta a ponta em dois celulares ainda pendente.
+- **Conclusão estimada 71% (±10 pontos percentuais)**, +1 ponto pelo cadastro autoritativo de aliados e primeira transferência. A lista de cartas, todas as imagens originais, Decks, XP e dinheiro foram preservados.
