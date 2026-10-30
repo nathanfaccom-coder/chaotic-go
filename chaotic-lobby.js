@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [], mugicTrainingWallets = [], mugicTrainingSettlements = [], trainingAbilityEvents = [], harpTrainingEvents = [], allies3x3 = [], transfers3x3 = [], hp3x3 = [], board3x3 = [], moves3x3 = [], contacts3x3 = [], attackProjections3x3 = [], hand3x3 = [], handWallet3x3 = [], costChecks3x3 = [], attackSpends3x3 = [], discard3x3 = [], drawEvents3x3 = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [], mugicTrainingWallets = [], mugicTrainingSettlements = [], trainingAbilityEvents = [], harpTrainingEvents = [], allies3x3 = [], transfers3x3 = [], hp3x3 = [], board3x3 = [], moves3x3 = [], contacts3x3 = [], attackProjections3x3 = [], hand3x3 = [], handWallet3x3 = [], costChecks3x3 = [], attackSpends3x3 = [], discard3x3 = [], drawEvents3x3 = [], defenseWindows3x3 = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -1126,6 +1126,12 @@
       &&x.actor_id===userId);
     const inspected=!!costThisTurn;
     const alreadySpent=attackSpends3x3.some(x=>x.turn_no===match?.turn_no);
+    const defenseWindowThisTurn=defenseWindows3x3.find(x=>x.turn_no===match?.turn_no);
+    $("lobby-3x3-defense-open").hidden=!(myTurn&&alreadySpent&&!defenseWindowThisTurn);
+    $("lobby-3x3-defense-pass").hidden=!(!!current&&!!defenseWindowThisTurn
+      &&defenseWindowThisTurn.status==="awaiting_defender"
+      &&defenseWindowThisTurn.defender_id===userId
+      &&defenseWindowThisTurn.attacker_id===match.current_player);
     $("lobby-3x3-attack-spend").hidden=!(myTurn&&!!costThisTurn?.can_afford
       &&!!currentProjection&&!alreadySpent&&ownHandWallet?.last_draw_turn===match?.turn_no
       &&hand3x3.some(x=>x.actor_id===userId&&x.card_slot===currentProjection.attack_card_slot
@@ -1219,6 +1225,14 @@
          ?". Pago APENAS no treino; carta marcada como utilizada na mão experimental."
          :". Ainda não pago e carta disponível.")).join("\n")
       :"Sem conferência da mão e dos custos.";
+    $("lobby-3x3-defense-history").textContent=defenseWindows3x3.length
+      ?defenseWindows3x3.slice().sort((a,b)=>a.turn_no-b.turn_no).map(x=>
+        "T"+x.turn_no+" · "+(x.attacker_id===userId?"Seu":"Do adversário")+
+        " ataque pago no treino. "+(x.status==="awaiting_defender"
+          ?"Defensor precisa responder; o atacante NÃO pode passar o turno."
+          :"Defensor PASSOU; o atacante pode passar o turno. Reações futuras não executadas.")+
+        " HP, efeitos e partida oficial intactos.").join("\n")
+      :"Nenhuma janela de resposta defensiva 3x3 aberta.";
     $("lobby-3x3-spend-history").textContent=attackSpends3x3.length
       ?attackSpends3x3.slice().sort((a,b)=>a.turn_no-b.turn_no).map(x=>
         "T"+x.turn_no+" · "+(x.actor_id===userId?"Você":"Adversário")+
@@ -1263,7 +1277,7 @@
   async function refresh3x3Allies(){
     if(!$("lobby-3x3-allies-panel"))return;
     if(!room||!match||room.mode!=="3x3"){
-      allies3x3=[];transfers3x3=[];hp3x3=[];board3x3=[];moves3x3=[];contacts3x3=[];attackProjections3x3=[];hand3x3=[];handWallet3x3=[];costChecks3x3=[];attackSpends3x3=[];discard3x3=[];drawEvents3x3=[];update3x3UI();return;
+      allies3x3=[];transfers3x3=[];hp3x3=[];board3x3=[];moves3x3=[];contacts3x3=[];attackProjections3x3=[];hand3x3=[];handWallet3x3=[];costChecks3x3=[];attackSpends3x3=[];discard3x3=[];drawEvents3x3=[];defenseWindows3x3=[];update3x3UI();return;
     }
     const units=await api.from("chaotic_preview_3x3_allies")
       .select("actor_id,position,deck_slot,creature_instance_id,creature_name,starting_tokens,remaining_tokens,received_tokens")
@@ -1315,6 +1329,11 @@
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
     if(spendResult.error)throw new Error(spendResult.error.message);
     attackSpends3x3=spendResult.data||[];
+    const defense=await api.from("chaotic_preview_3x3_defense_windows")
+      .select("turn_no,attacker_id,defender_id,attacker_slot,defender_slot,attack_instance_id,training_attack_cost,status,defender_passed_at,defensive_card_verified,defensive_effect_executed,training_hp_changed,official_match_modified")
+      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
+    if(defense.error)throw new Error(defense.error.message);
+    defenseWindows3x3=defense.data||[];
     const discarded=await api.from("chaotic_preview_3x3_hand_discards")
       .select("actor_id,turn_no,card_slot,attack_instance_id,original_card_consumed")
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
@@ -1477,6 +1496,9 @@
           event:"*",schema:"public",table:"chaotic_preview_3x3_attack_projections",filter:"lobby_id=eq."+lobbyId
         },sync)
         .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_3x3_defense_windows",filter:"lobby_id=eq."+lobbyId
+        },sync)
+        .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_3x3_attack_spends",filter:"lobby_id=eq."+lobbyId
         },sync)
         .on("postgres_changes",{
@@ -1506,7 +1528,7 @@
     }, 6000);
   }
   function show() {
-    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = []; burstEquipmentResponses = []; burstEquipmentEffects = []; burstPriority = []; burstPriorityPasses = []; burstMugicIntents = []; burstMugicCounterplans = []; mugicTrainingWallets = []; mugicTrainingSettlements = []; trainingAbilityEvents = []; harpTrainingEvents = []; allies3x3 = []; transfers3x3 = []; hp3x3 = []; board3x3 = []; moves3x3 = []; contacts3x3 = []; attackProjections3x3 = []; hand3x3 = []; handWallet3x3 = []; costChecks3x3 = []; attackSpends3x3 = []; discard3x3 = []; drawEvents3x3 = [];
+    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = []; burstEquipmentResponses = []; burstEquipmentEffects = []; burstPriority = []; burstPriorityPasses = []; burstMugicIntents = []; burstMugicCounterplans = []; mugicTrainingWallets = []; mugicTrainingSettlements = []; trainingAbilityEvents = []; harpTrainingEvents = []; allies3x3 = []; transfers3x3 = []; hp3x3 = []; board3x3 = []; moves3x3 = []; contacts3x3 = []; attackProjections3x3 = []; hand3x3 = []; handWallet3x3 = []; costChecks3x3 = []; attackSpends3x3 = []; discard3x3 = []; drawEvents3x3 = []; defenseWindows3x3 = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -1678,7 +1700,7 @@
       '<p id="lobby-harp-token-history" class="lobby-events" aria-live="polite">Nenhuma Arpa usada no treinamento.</p>',
       '</section>',
       '<section id="lobby-3x3-allies-panel" class="lobby-combat" hidden>',
-      '<strong>🛡️ Formação 3x3 — treinamento separado (0.1.40)</strong>',
+      '<strong>🛡️ Formação 3x3 — treinamento separado (0.1.41)</strong>',
       '<p>Congele as 3 criaturas originais do Deck 3x3 escolhido, posições c4-c6. Somente depois, Alakazaz pode transferir 1 ficha de seu próprio saldo para outra criatura aliada, uma vez por turno. Nenhum saldo/carta do combate oficial é alterado.</p>',
       '<label for="lobby-3x3-deck">Deck 3x3 salvo</label>',
       '<select id="lobby-3x3-deck"><option value="1">Deck 1</option><option value="2">Deck 2</option><option value="3">Deck 3</option></select>',
@@ -1722,6 +1744,10 @@
       '<p>Depois de conferir que a carta está na mão e o custo cabe no saldo, você pode GASTAR pontos e DESCARTAR a carta exclusivamente da mão experimental. A transação é única e não causa dano, nem afeta o Deck ou álbum original.</p>',
       '<button id="lobby-3x3-attack-spend" type="button" hidden>Gastar pontos e usar carta SÓ no treino</button>',
       '<p id="lobby-3x3-spend-history" class="lobby-events" aria-live="polite">Nenhum ataque usado no treino.</p>',
+      '<p>Janela defensiva 3x3: após pagar o ataque no treinamento, o atacante abre a janela. O DEFENSOR pode PASSAR durante a vez adversária. O atacante não consegue avançar seu turno enquanto não houver resposta. O passe não equivale a resolver equipamentos, Magias, Mugics ou dano.</p>',
+      '<button id="lobby-3x3-defense-open" type="button" hidden>Abrir resposta do defensor 3x3</button>',
+      '<button id="lobby-3x3-defense-pass" type="button" hidden>Defensor: passar reação (SEM dano)</button>',
+      '<p id="lobby-3x3-defense-history" class="lobby-events" aria-live="polite">Nenhuma janela de defesa 3x3.</p>',
       '<label for="lobby-3x3-receiver">Aliado que receberá 1 ficha:</label>',
       '<select id="lobby-3x3-receiver"></select>',
       '<button id="lobby-3x3-transfer" type="button" hidden>Alakazaz: transferir 1 ficha</button>',
@@ -2139,6 +2165,24 @@
       note("Ataque usado SOMENTE NO TREINO: "+paid.points_before+" → "+
         paid.points_after+" pontos; carta retirada apenas da mão experimental. "+
         "HP e coleção original permanecem intactos.");
+    });
+    $("lobby-3x3-defense-open").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
+      const window=await rpc("chaotic_open_preview_3x3_defense_window",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refresh3x3Allies();
+      note("Defensor convidado a responder ao ataque pago de c"+window.attacker_slot+
+        ". A vez NÃO avança antes de sua resposta.");
+    });
+    $("lobby-3x3-defense-pass").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="3x3"||match.current_player===userId)return;
+      const window=await rpc("chaotic_pass_preview_3x3_defense",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refresh3x3Allies();
+      note("Defensor passou na janela de treinamento T"+window.turn_no+
+        ". O atacante pode passar o turno; nenhuma carta, HP ou efeito defensivo foi executado.");
     });
     $("lobby-3x3-transfer").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3")return;
