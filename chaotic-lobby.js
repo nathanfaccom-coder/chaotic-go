@@ -52,6 +52,7 @@
         : "Aguardando a vez do outro jogador. Turno " + match.turn_no + ".");
     $("lobby-turn-count").textContent = match ? String(match.turn_no) : "—";
     updateBoardUI();
+    updateLoadoutUI();
     updateClashUI();
     const combatPanel = $("lobby-combat");
     if (combatPanel) {
