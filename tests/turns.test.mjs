@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map(),burstOrderPlans=new Map(),burstPriority=new Map(),burstPriorityPasses=new Map(),burstMugicIntents=new Map(),burstMugicCounterplans=new Map(),mugicTrainingWallets=new Map(),mugicTrainingSettlements=new Map(),trainingAbilityEvents=new Map(),harpTrainingEvents=new Map(),allies3x3=new Map(),transfers3x3=new Map(),decks3x3=new Map(),hp3x3=new Map(),boardPositions3x3=new Map(),moveEvents3x3=new Map(),contacts3x3=new Map(),attackProjections3x3=new Map(),hand3x3Wallets=new Map(),hand3x3Cards=new Map(),hand3x3Discards=new Map(),hand3x3DrawEvents=new Map(),costChecks3x3=new Map(),attackSpends3x3=new Map(),defenseWindows3x3=new Map(),burstEquipmentResponses=new Map(),burstEquipmentEffects=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map(),burstOrderPlans=new Map(),burstPriority=new Map(),burstPriorityPasses=new Map(),burstMugicIntents=new Map(),burstMugicCounterplans=new Map(),mugicTrainingWallets=new Map(),mugicTrainingSettlements=new Map(),trainingAbilityEvents=new Map(),harpTrainingEvents=new Map(),allies3x3=new Map(),transfers3x3=new Map(),decks3x3=new Map(),hp3x3=new Map(),boardPositions3x3=new Map(),moveEvents3x3=new Map(),contacts3x3=new Map(),attackProjections3x3=new Map(),hand3x3Wallets=new Map(),hand3x3Cards=new Map(),hand3x3Discards=new Map(),hand3x3DrawEvents=new Map(),costChecks3x3=new Map(),attackSpends3x3=new Map(),defenseWindows3x3=new Map(),elementReviews3x3=new Map(),burstEquipmentResponses=new Map(),burstEquipmentEffects=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -237,6 +237,52 @@ function makeClient(actor) {
           defensive_card_verified:false,defensive_effect_executed:false,
           training_hp_changed:false,official_hp_changed:false,official_match_modified:false};
         defenseWindows3x3.set(key,event);return {data:{...event},error:null};
+      }
+      if(name==="chaotic_inspect_preview_3x3_elemental_defense"){
+        const m=matches.get(room.id),key=room.id+"/"+args.p_expected_turn;
+        const w=defenseWindows3x3.get(key),p=attackProjections3x3.get(key);
+        const contact=contacts3x3.get(key),paid=attackSpends3x3.get(key);
+        const hp=hp3x3.get(room.id+"/"+actor+"/"+w?.defender_slot);
+        const attackerHp=hp3x3.get(room.id+"/"+w?.attacker_id+"/"+w?.attacker_slot);
+        const catalog={
+          "104":{name:"Fogo Primordial 2.0",fire:5,water:0,earth:0,air:0,
+            special:"six_sided_base_multiplier"},
+          "101":{name:"Ácido Gástrico",fire:5,water:5,earth:0,air:0,special:"none"}
+        }[p?.catalog_attack_id];
+        if(!m||m.status!=="active"||m.turn_no!==args.p_expected_turn
+          ||room.status!=="ready"||room.mode!=="3x3"
+          ||![m.host_id,m.guest_id].includes(actor)
+          ||!w||w.defender_id!==actor||w.attacker_id!==m.current_player
+          ||w.status!=="awaiting_defender"||elementReviews3x3.has(key)
+          ||!p||p.actor_id!==w.attacker_id||p.defender_id!==actor
+          ||p.attack_instance_id!==w.attack_instance_id
+          ||p.attack_cost!==w.training_attack_cost
+          ||!catalog||catalog.name!==p.attack_name
+          ||!contact||contact.attacker_id!==w.attacker_id||contact.defender_id!==actor
+          ||contact.attacker_slot!==w.attacker_slot||contact.defender_slot!==w.defender_slot
+          ||!paid||!paid.training_points_paid||!paid.training_card_spent
+          ||paid.attack_instance_id!==p.attack_instance_id
+          ||hp?.creature_instance_id!==contact.defender_creature_instance_id
+          ||hp?.hp_remaining!==contact.defender_hp_at_contact||hp?.hp_remaining<=0
+          ||attackerHp?.creature_instance_id!==contact.attacker_creature_instance_id
+          ||attackerHp?.hp_remaining!==contact.attacker_hp_at_contact
+          ||attackerHp?.hp_remaining<=0)
+          return {data:null,error:{message:"Only defender can review pending canonical elements"}};
+        const event={lobby_id:room.id,turn_no:m.turn_no,attacker_id:w.attacker_id,
+          defender_id:actor,attacker_slot:w.attacker_slot,defender_slot:w.defender_slot,
+          attack_instance_id:p.attack_instance_id,catalog_attack_id:p.catalog_attack_id,
+          attack_name:catalog.name,base_damage:p.base_damage,
+          fire_component:catalog.fire,water_component:catalog.water,
+          earth_component:catalog.earth,air_component:catalog.air,
+          special_resolution:catalog.special,
+          attacker_hp_at_contact:contact.attacker_hp_at_contact,
+          defender_hp_at_contact:contact.defender_hp_at_contact,
+          elemental_eligibility_verified:false,special_effect_executed:false,
+          defender_equipment_verified:false,final_damage_calculated:false,
+          training_hp_changed:false,official_hp_changed:false,
+          official_match_modified:false,inspection_scope:"canonical_attack_components_only"};
+        elementReviews3x3.set(key,event);
+        return {data:{...event},error:null};
       }
       if(name==="chaotic_pass_preview_3x3_defense"){
         const m=matches.get(room.id),key=room.id+"/"+args.p_expected_turn;
@@ -1354,7 +1400,7 @@ function makeClient(actor) {
       throw Error(name);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits","chaotic_preview_burst_windows","chaotic_preview_burst_priority","chaotic_preview_burst_priority_passes","chaotic_preview_burst_mugic_intents","chaotic_preview_burst_mugic_counterplans","chaotic_preview_mugic_token_wallets","chaotic_preview_mugic_token_settlements","chaotic_preview_ability_heal_events","chaotic_preview_harp_token_events","chaotic_preview_3x3_allies","chaotic_preview_3x3_hp_wallets","chaotic_preview_3x3_board_positions","chaotic_preview_3x3_move_events","chaotic_preview_3x3_contact_intents","chaotic_preview_3x3_attack_projections","chaotic_preview_3x3_attack_wallets","chaotic_preview_3x3_attack_hand","chaotic_preview_3x3_cost_inspections","chaotic_preview_3x3_attack_spends","chaotic_preview_3x3_defense_windows","chaotic_preview_3x3_hand_discards","chaotic_preview_3x3_hand_draw_events","chaotic_preview_3x3_token_transfers","chaotic_preview_burst_order_plans","chaotic_preview_burst_equipment_responses","chaotic_preview_burst_equipment_effects"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits","chaotic_preview_burst_windows","chaotic_preview_burst_priority","chaotic_preview_burst_priority_passes","chaotic_preview_burst_mugic_intents","chaotic_preview_burst_mugic_counterplans","chaotic_preview_mugic_token_wallets","chaotic_preview_mugic_token_settlements","chaotic_preview_ability_heal_events","chaotic_preview_harp_token_events","chaotic_preview_3x3_allies","chaotic_preview_3x3_hp_wallets","chaotic_preview_3x3_board_positions","chaotic_preview_3x3_move_events","chaotic_preview_3x3_contact_intents","chaotic_preview_3x3_attack_projections","chaotic_preview_3x3_attack_wallets","chaotic_preview_3x3_attack_hand","chaotic_preview_3x3_cost_inspections","chaotic_preview_3x3_attack_spends","chaotic_preview_3x3_elemental_inspections","chaotic_preview_3x3_defense_windows","chaotic_preview_3x3_hand_discards","chaotic_preview_3x3_hand_draw_events","chaotic_preview_3x3_token_transfers","chaotic_preview_burst_order_plans","chaotic_preview_burst_equipment_responses","chaotic_preview_burst_equipment_effects"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
         then(resolve,reject) {
           const room=rooms.get(this.id);
@@ -1446,6 +1492,8 @@ function makeClient(actor) {
                                               ?[...costChecks3x3.values()].filter(x=>x.lobby_id===this.id)
                                               :table==="chaotic_preview_3x3_attack_spends"
                                               ?[...attackSpends3x3.values()].filter(x=>x.lobby_id===this.id)
+                                              :table==="chaotic_preview_3x3_elemental_inspections"
+                                              ?[...elementReviews3x3.values()].filter(x=>x.lobby_id===this.id)
                                               :table==="chaotic_preview_3x3_defense_windows"
                                               ?[...defenseWindows3x3.values()].filter(x=>x.lobby_id===this.id)
                                               :table==="chaotic_preview_3x3_token_transfers"
