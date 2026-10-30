@@ -48,7 +48,10 @@ function renderizarPassoTipoJogo() {
                 </div>
             </div>
         </div>
-        <button class="btn-voltar-pequeno" style="margin-top:40px;" onclick="window.voltarMenuDrome()">Voltar ao Menu</button>
+        <button class="btn-entrada-drome modo" type="button" style="width:85%; margin:20px auto 0; padding:12px; border:2px solid #64cb83; border-radius:10px; background:#103321; color:white; cursor:pointer;"
+          onclick="window.abrirSalaPrivadaDrome && window.abrirSalaPrivadaDrome()">🔐 SALA PRIVADA (TESTE)</button>
+        <p style="font-size:9px;color:#aaa;margin:6px auto;">Convide outro jogador por código. Batalhas ainda indisponíveis.</p>
+        <button class="btn-voltar-pequeno" style="margin-top:18px;" onclick="window.voltarMenuDrome()">Voltar ao Menu</button>
     `;
 }
 
