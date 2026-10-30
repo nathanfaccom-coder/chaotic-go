@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map(),burstOrderPlans=new Map(),burstPriority=new Map(),burstPriorityPasses=new Map(),burstMugicIntents=new Map(),burstEquipmentResponses=new Map(),burstEquipmentEffects=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map(),burstOrderPlans=new Map(),burstPriority=new Map(),burstPriorityPasses=new Map(),burstMugicIntents=new Map(),burstMugicCounterplans=new Map(),burstEquipmentResponses=new Map(),burstEquipmentEffects=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -427,6 +427,36 @@ function makeClient(actor) {
         entry.intent_status="cancelled";
         return {data:{...entry},error:null};
       }
+      if(name==="chaotic_prepare_preview_mugic_counterplan"){
+        const m=matches.get(room.id),key=room.id+"/"+args.p_expected_turn;
+        const w=burstWindows.get(key),p=burstPriority.get(key);
+        const first=burstMugicIntents.get(key+"/"+actor);
+        const second=burstMugicIntents.get(key+"/"+w?.defender_id);
+        const passes=burstPriorityPasses.get(key)||[];
+        if(room.mode!=="1x1"||room.status!=="ready"||!m||m.status!=="active"
+          ||m.current_player!==actor||m.turn_no!==args.p_expected_turn
+          ||w?.attacker_id!==actor||w?.status!=="defender_passed"
+          ||p?.priority_status!=="closed_preview"||p.consecutive_passes!==2
+          ||passes.length!==2||passes[0].actor_id!==actor
+          ||passes[1].actor_id!==w.defender_id
+          ||first?.catalog_mugic_id!=="301"||first.intent_status!=="queued_unexecuted"
+          ||second?.catalog_mugic_id!=="302"||second.intent_status!=="queued_unexecuted"
+          ||burstMugicCounterplans.has(key)||burstOrderPlans.has(key)||individualDamage.has(key))
+          return {data:null,error:{message:"Cannot prepare counterplan"}};
+        const result={lobby_id:room.id,turn_no:m.turn_no,attacker_id:actor,
+          defender_id:w.defender_id,
+          required_creation_tokens:1,required_rejection_tokens:2,
+          hypothetical_creation_negated:true,token_balance_verified:false,
+          consumes_tokens:false,consumes_cards:false,effect_executed:false,
+          official_match_modified:false,final_damage_verified:false,
+          inspection_status:"lifo_counter_review_only",
+          inspection_steps:[
+            {reverse_order:1,actor:"defender",name:"Canção da Rejeição",executed:false},
+            {reverse_order:2,actor:"attacker",name:"Canção da Criação",executed:false}
+          ]};
+        burstMugicCounterplans.set(key,result);
+        return {data:{...result},error:null};
+      }
       if(name==="chaotic_prepare_preview_burst_order"){
         const m=matches.get(room.id),key=room.id+"/"+args.p_expected_turn;
         const win=burstWindows.get(key),clash=clashes.get(key),attack=attackInstances.get(key),
@@ -784,7 +814,7 @@ function makeClient(actor) {
       throw Error(name);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits","chaotic_preview_burst_windows","chaotic_preview_burst_priority","chaotic_preview_burst_priority_passes","chaotic_preview_burst_mugic_intents","chaotic_preview_burst_order_plans","chaotic_preview_burst_equipment_responses","chaotic_preview_burst_equipment_effects"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits","chaotic_preview_burst_windows","chaotic_preview_burst_priority","chaotic_preview_burst_priority_passes","chaotic_preview_burst_mugic_intents","chaotic_preview_burst_mugic_counterplans","chaotic_preview_burst_order_plans","chaotic_preview_burst_equipment_responses","chaotic_preview_burst_equipment_effects"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
         then(resolve,reject) {
           const room=rooms.get(this.id);
@@ -842,6 +872,8 @@ function makeClient(actor) {
                                               :table==="chaotic_preview_burst_mugic_intents"
                                               ?[...burstMugicIntents.values()].filter(x=>
                                                 x.lobby_id===this.id&&x.actor_id===actor)
+                                              :table==="chaotic_preview_burst_mugic_counterplans"
+                                              ?[...burstMugicCounterplans.values()].filter(x=>x.lobby_id===this.id)
                                               :table==="chaotic_preview_burst_order_plans"
                                               ?[...burstOrderPlans.values()].filter(x=>x.lobby_id===this.id)
                                               :table==="chaotic_preview_burst_equipment_responses"
