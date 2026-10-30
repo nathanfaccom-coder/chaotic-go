@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -118,8 +118,10 @@
       && x.actor_id===userId && x.attack_instance_id===clashToCalculate?.attack_card);
     const bothLoadouts=loadouts.some(x=>x.actor_id===room.host_id)
       && loadouts.some(x=>x.actor_id===room.guest_id);
+    const confirmedSpend=handCards.some(x=>x.card_state==="spent"
+      &&x.spent_turn===match.turn_no &&x.attack_instance_id===clashToCalculate?.attack_card);
     $("lobby-individual-damage-calculate").hidden=!(room.mode==="1x1"
-      &&myTurn&&clashToCalculate&&attackResolved&&bothLoadouts
+      &&myTurn&&clashToCalculate&&attackResolved&&bothLoadouts&&confirmedSpend
       &&!individualDamage.some(x=>x.turn_no===match.turn_no));
     $("lobby-reference-preview").hidden=room.mode==="1x1";
     $("lobby-individual-preview").hidden=room.mode!=="1x1";
@@ -318,6 +320,59 @@
     equipmentReveals=data||[];
     updateLoadoutUI();
   }
+  function updateAttackResourceUI(){
+    const panel=$("lobby-attack-resources-panel");
+    if(!panel)return;
+    panel.hidden=!room||!match||room.mode!=="1x1";
+    if(panel.hidden)return;
+    const myTurn=match.status==="active"&&room.status==="ready"&&
+      match.current_player===userId&&new Date(room.expires_at).getTime()>Date.now();
+    const wallet=attackWallets[0];
+    const ownCreature=loadouts.some(x=>x.actor_id===userId);
+    const available=wallet&&myTurn&&match.turn_no>=wallet.prepared_turn
+      ?3+Math.floor((match.turn_no-wallet.prepared_turn)/2)-wallet.spent_points
+      :null;
+    $("lobby-hand-prepare").hidden=!(myTurn&&ownCreature&&!wallet);
+    $("lobby-hand-sync").hidden=!(myTurn&&wallet&&wallet.last_draw_turn!==match.turn_no);
+    const snapshot=attackInstances.find(x=>x.actor_id===userId&&x.turn_no===match.turn_no);
+    const clash=clashes.find(x=>x.attacker_id===userId&&x.turn_no===match.turn_no);
+    const inHand=handCards.some(x=>x.card_slot===snapshot?.card_slot
+      &&x.attack_instance_id===snapshot?.attack_instance_id&&x.card_state==="hand");
+    const spent=handCards.some(x=>x.card_slot===snapshot?.card_slot
+      &&x.attack_instance_id===snapshot?.attack_instance_id&&x.spent_turn===match.turn_no);
+    $("lobby-hand-spend").hidden=!(myTurn&&wallet?.last_draw_turn===match.turn_no
+      &&snapshot&&clash&&inHand&&!spent);
+    const remaining=handCards.filter(x=>x.card_state==="hand");
+    $("lobby-attack-resource-summary").textContent=!wallet
+      ?"Prepare a mão de teste após preparar sua criatura."
+      :"Mão: "+remaining.length+" carta(s) · monte "+
+        handCards.filter(x=>x.card_state==="deck").length+
+        " · usadas "+handCards.filter(x=>x.card_state==="spent").length+
+        " · pontos "+(available===null?"na sua vez":available)+
+        " (3 iniciais e +1 por nova vez em TESTE).";
+    $("lobby-hand-cards").textContent=remaining.length
+      ?remaining.map(x=>"slot "+x.card_slot+" · carta #"+x.attack_instance_id).join(" | ")
+      :"Nenhuma carta disponível nesta mão de teste.";
+  }
+  async function refreshAttackResources(){
+    if(!$("lobby-attack-resources-panel"))return;
+    if(!room||!match){
+      attackWallets=[];handCards=[];updateAttackResourceUI();return;
+    }
+    const wallets=await api.from("chaotic_preview_attack_wallets")
+      .select("actor_id,prepared_turn,last_draw_turn,spent_points")
+      .eq("lobby_id",room.id).limit(2);
+    if(wallets.error)throw new Error(wallets.error.message);
+    attackWallets=(wallets.data||[]).filter(x=>x.actor_id===userId);
+    const hand=await api.from("chaotic_preview_attack_hand")
+      .select("actor_id,card_slot,attack_instance_id,card_state,spent_turn")
+      .eq("lobby_id",room.id).order("card_slot",{ascending:true}).limit(20);
+    if(hand.error)throw new Error(hand.error.message);
+    handCards=(hand.data||[]).filter(x=>x.actor_id===userId);
+    updateAttackResourceUI();
+    updateAttackInstanceUI();
+    updateClashUI();
+  }
   function updateAttackInstanceUI(){
     const panel=$("lobby-attack-instance-panel");
     if(!panel)return;
@@ -329,7 +384,11 @@
     const hasCreature=loadouts.some(x=>x.actor_id===userId);
     const ownTurn=match.status==="active"&&room.status==="ready"&&
       match.current_player===userId&&new Date(room.expires_at).getTime()>Date.now();
-    $("lobby-attack-instance-capture").hidden=!(ownTurn&&declared&&hasCreature&&!already);
+    const ownHandCard=handCards.find(x=>x.card_slot===declared?.card_slot
+      &&x.attack_instance_id===declared?.card_id);
+    $("lobby-attack-instance-capture").hidden=!(ownTurn&&declared&&hasCreature&&!already
+      &&attackWallets.length&&ownHandCard?.card_state==="hand"
+      &&attackWallets[0]?.last_draw_turn===match.turn_no);
     const log=$("lobby-attack-instance-history");
     log.textContent=attackInstances.length
       ?attackInstances.slice().reverse().map(x=>
@@ -348,6 +407,7 @@
     if(error)throw new Error(error.message);
     attackInstances=data||[];
     updateAttackInstanceUI();
+    updateAttackResourceUI();
     updateClashUI();
   }
   function updateBoardUI() {
@@ -458,6 +518,7 @@
     await refreshBoard();
     await refreshLoadouts();
     await refreshEquipmentReveals();
+    await refreshAttackResources();
     await refreshAttackInstances();
     await refreshClashes();
     await refreshBaseDamage();
@@ -540,6 +601,12 @@
         .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_equipment_reveals",filter:"lobby_id=eq."+lobbyId
         },sync)
+        .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_attack_wallets",filter:"lobby_id=eq."+lobbyId
+        },sync)
+        .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_attack_hand",filter:"lobby_id=eq."+lobbyId
+        },sync)
         .subscribe(status=>{
           if(status==="CHANNEL_ERROR"||status==="TIMED_OUT")
             console.warn("DROME: canal em tempo real temporariamente indisponível; consultas periódicas seguem ativas.");
@@ -552,7 +619,7 @@
     }, 6000);
   }
   function show() {
-    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = [];
+    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -631,6 +698,15 @@
       '<p id="lobby-equipment-reveal-history" class="lobby-events" aria-live="polite">Nenhum equipamento revelado.</p>',
       '<p>Ficha congelada para este teste; nenhuma energia foi reduzida.</p>',
       '</section>',
+      '<section id="lobby-attack-resources-panel" class="lobby-combat" hidden>',
+      '<strong>🃏 MÃO E PONTOS DE ATAQUE — 1x1 (TESTE)</strong>',
+      '<p>Três primeiras cartas não vazias do deck (ordem fixa nesta prévia). Inicia com 3 pontos; ganha 1 em cada nova vez. Nada é descontado no combate oficial.</p>',
+      '<button id="lobby-hand-prepare" type="button" hidden>Preparar mão de teste</button>',
+      '<button id="lobby-hand-sync" type="button" hidden>Comprar carta e atualizar pontos (teste)</button>',
+      '<p id="lobby-attack-resource-summary" class="lobby-events" aria-live="polite">Mão não preparada.</p>',
+      '<p id="lobby-hand-cards" class="lobby-events">Nenhuma carta na mão.</p>',
+      '<button id="lobby-hand-spend" type="button" hidden>Confirmar carta e gastar pontos de teste</button>',
+      '</section>',
       '<section id="lobby-attack-instance-panel" class="lobby-combat" hidden>',
       '<strong>🃏 ATAQUE INDIVIDUAL — 1x1 (TESTE)</strong>',
       '<p>Confere se o ataque declarado está no seu deck e no álbum, relacionando o ID da captura ao catálogo original. Não aplica dano.</p>',
@@ -651,7 +727,7 @@
       '<button id="lobby-clash-open" type="button" hidden>Registrar confronto</button>',
       '<section id="lobby-individual-preview" class="lobby-combat">',
       '<strong>🧬 PRÉVIA COM DNA INDIVIDUAL — 1x1</strong>',
-      '<p>Usa o ataque validado e o DNA individual. Considera apenas equipamentos revelados no servidor e imunidades conhecidas. Custo é informativo: saldo e mão ainda NÃO são verificados, e pontos NÃO são gastos. Nenhum HP real é alterado.</p>',
+      '<p>Simula dano com DNA e equipamentos após validar a carta na mão e gastar pontos SOMENTE no servidor de teste. A batalha oficial, HP, economia e recompensas permanecem inalterados.</p>',
       '<button id="lobby-individual-damage-calculate" type="button" hidden>Simular dano com DNA no servidor</button>',
       '<p id="lobby-individual-damage-history" class="lobby-events" aria-live="polite">Nenhuma simulação individual.</p>',
       '</section>',
@@ -734,6 +810,33 @@
       });
       await refreshEquipmentReveals();
       note(result.equipment_name+" revelado no teste. Efeitos reais não foram ativados.");
+    });
+    $("lobby-hand-prepare").onclick = () => action(async()=>{
+      if(!room||!match||room.mode!=="1x1"||match.current_player!==userId)return;
+      const out=await rpc("chaotic_prepare_preview_hand",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refreshAttackResources();
+      note("Mão experimental preparada: "+out.cards_in_hand+
+        " cartas e "+out.points+" pontos. Ordem fixa somente no teste.");
+    });
+    $("lobby-hand-sync").onclick = () => action(async()=>{
+      if(!room||!match||room.mode!=="1x1"||match.current_player!==userId)return;
+      const out=await rpc("chaotic_sync_preview_hand",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refreshAttackResources();
+      note("Saldo experimental: "+out.available_points+
+        " pontos"+(out.drew_card?"; uma carta comprada.":"."));
+    });
+    $("lobby-hand-spend").onclick = () => action(async()=>{
+      if(!room||!match||room.mode!=="1x1"||match.current_player!==userId)return;
+      const out=await rpc("chaotic_spend_preview_attack",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refreshAttackResources();
+      note("Ataque "+out.attack_name+" pago apenas no teste: -"+out.spent_cost+
+        " ponto(s). Restantes: "+out.points_left+". O combate oficial não foi alterado.");
     });
     $("lobby-attack-instance-capture").onclick = () => action(async()=>{
       if(!room||!match||room.mode!=="1x1"||match.status!=="active"
