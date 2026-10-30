@@ -26,7 +26,7 @@
       await ChaoticState.save(); // Aguarda a última gravação antes de encerrar a sessão.
       const { error } = await ChaoticAuth.getClient().auth.signOut();
       if (error) throw error;
-      window.location.replace("login.html");
+      window.location.replace("login-v2.html");
     } catch (error) {
       show("Não foi possível sair com segurança: " + error.message, "error");
       logoutButton.disabled = false;
@@ -67,7 +67,7 @@
     });
 
     const game = document.createElement("script");
-    game.src = "script.js";
+    game.src = "script.js?v=20261030.2";
     game.onload = () => show("Conta conectada — progresso salvo no servidor.");
     game.onerror = () => show("Erro ao carregar o jogo.", "error");
     document.body.appendChild(game);
