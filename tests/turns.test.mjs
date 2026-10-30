@@ -1752,9 +1752,8 @@ async function completePriority(host,guest,exerciseMugic=false){
     await host("lobby-burst-mugic-reject").onclick();
     assert.match(host("lobby-burst-mugic-history").textContent,/INTENÇÃO PENDENTE/);
     assert.equal(host("lobby-burst-mugic-cancel").hidden,false);
-    await host("lobby-burst-mugic-cancel").onclick();
-    assert.match(host("lobby-burst-mugic-history").textContent,/intenção cancelada/);
-    assert.equal(host("lobby-burst-mugic-reject").hidden,true);
+    assert.equal(host("lobby-burst-mugic-reject").hidden,true,
+      "One Mugic intent per player in a test window");
   }
   assert.equal(host("lobby-burst-priority-pass").hidden,false);
   await host("lobby-burst-priority-pass").onclick();
@@ -1764,6 +1763,17 @@ async function completePriority(host,guest,exerciseMugic=false){
   await guest("lobby-burst-priority-pass").onclick();
   assert.match(guest("lobby-burst-priority-history").textContent,/Dois passes confirmados/);
   await host("lobby-turn-refresh").onclick();
+  if(exerciseMugic){
+    const pending=[...burstMugicIntents.values()].find(x=>x.intent_status==="queued_unexecuted");
+    assert.ok(pending,"The server keeps the Mugic intent while both players pass");
+    assert.equal(host("lobby-burst-order-prepare").hidden,true,
+      "Unresolved Mugic must block even the inspection plan");
+    assert.ok((await makeClient(pending.actor_id).rpc("chaotic_prepare_preview_burst_order",{
+      p_lobby_id:pending.lobby_id,p_expected_turn:pending.turn_no
+    })).error,"Server must reject an unresolved Mugic after both priority passes");
+    await host("lobby-burst-mugic-cancel").onclick();
+    assert.match(host("lobby-burst-mugic-history").textContent,/intenção cancelada/);
+  }
   assert.equal(host("lobby-burst-order-prepare").hidden,false);
 }
 
