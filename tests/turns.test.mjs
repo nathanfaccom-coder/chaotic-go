@@ -1931,6 +1931,73 @@ async function completePriority(host,guest,exerciseMugic=false){
   assert.equal(host("lobby-burst-order-prepare").hidden,false);
 }
 
+test("Arpa Mágica grants +1 TRAINING token once after equipment reveal; original card stays intact",async()=>{
+  const actor="harp-host",other="harp-guest";
+  const host=browser(actor),guest=browser(other);
+  host("lobby-select-mode").value="1x1";
+  await host("lobby-create-btn").onclick();
+  const code=host("lobby-room-code").textContent;
+  const id=[...rooms.values()].find(x=>x.code===code).id;
+  guest("lobby-input-code").value=code;
+  await guest("lobby-join-btn").onclick();
+  await host("lobby-refresh").onclick();
+  await host("lobby-turn-start").onclick();
+  loadouts.set(id+"/"+actor,{
+    lobby_id:id,actor_id:actor,position:6,deck_slot:1,
+    card_instance_id:"xama-own-1",creature_name:"Xamã",tribe:"Azul",
+    equipment_instance_id:"harp-own-203",equipment_name:"Arpa Mágica",stats:{e:30}
+  });
+  loadouts.set(id+"/"+other,{
+    lobby_id:id,actor_id:other,position:6,deck_slot:1,
+    card_instance_id:"opponent-owned",creature_name:"Lion",tribe:"Azul",stats:{e:35}
+  });
+  hpWallets.set(id+"/"+actor,{
+    lobby_id:id,actor_id:actor,creature_instance_id:"xama-own-1",
+    hp_max:30,hp_remaining:20,projected_hits:0,init_turn:1,location_id:501
+  });
+  hpWallets.set(id+"/"+other,{
+    lobby_id:id,actor_id:other,creature_instance_id:"opponent-owned",
+    hp_max:35,hp_remaining:35,projected_hits:0,init_turn:1,location_id:501
+  });
+  await host("lobby-turn-refresh").onclick();
+  assert.equal(host("lobby-mugic-token-wallet-prepare").hidden,false);
+  await host("lobby-mugic-token-wallet-prepare").onclick();
+  assert.equal(mugicTrainingWallets.get(id+"/"+actor).remaining_tokens,4);
+  assert.equal(host("lobby-harp-token-activate").hidden,true,
+    "Harp cannot be used before its own equipment reveal");
+  assert.ok((await makeClient(actor).rpc("chaotic_discard_preview_harp_for_token",{
+    p_lobby_id:id,p_expected_turn:1})).error,
+    "Server, not merely button, requires original equipped harp to be revealed");
+  assert.ok((await makeClient(other).rpc("chaotic_discard_preview_harp_for_token",{
+    p_lobby_id:id,p_expected_turn:1})).error,"Opponent cannot grant a token");
+  await makeClient(actor).rpc("chaotic_reveal_preview_equipment",{
+    p_lobby_id:id,p_expected_turn:1
+  });
+  await host("lobby-turn-refresh").onclick();
+  assert.equal(host("lobby-harp-token-activate").hidden,false);
+  await host("lobby-harp-token-activate").onclick();
+  const event=harpTrainingEvents.get(id+"/"+actor);
+  assert.equal(event.tokens_before,4);
+  assert.equal(event.tokens_after,5);
+  assert.equal(event.equipment_discarded_training,true);
+  assert.equal(event.original_equipment_discarded,false);
+  assert.equal(event.official_tokens_changed,false);
+  assert.equal(event.official_match_modified,false);
+  assert.equal(mugicTrainingWallets.get(id+"/"+actor).remaining_tokens,5);
+  assert.equal(mugicTrainingWallets.get(id+"/"+actor).bonus_tokens,1);
+  assert.equal(loadouts.get(id+"/"+actor).equipment_instance_id,"harp-own-203",
+    "Original equipped snapshot must not be erased");
+  assert.match(host("lobby-harp-token-history").textContent,/ORIGINAL permanece/);
+  assert.ok((await makeClient(actor).rpc("chaotic_discard_preview_harp_for_token",{
+    p_lobby_id:id,p_expected_turn:1})).error,"Replay must not mint a second token");
+  host("lobby-ability-target").value="self";
+  await host("lobby-ability-heal-activate").onclick();
+  assert.equal(mugicTrainingWallets.get(id+"/"+actor).remaining_tokens,4,
+    "After +1 from harp, Xamã's original -1 healing cost still works");
+  assert.equal(hpWallets.get(id+"/"+actor).hp_remaining,30);
+  assert.equal(mugicTrainingWallets.get(id+"/"+actor).bonus_tokens,1);
+});
+
 test("Lion, Vidal and Xamã spend exactly one TRAINING token and update only hypothetical HP",async()=>{
   const cases=[
     {name:"Lion",gain:10,hostHp:20,max:30,target:"self",startTokens:1,expectedHp:30,expectedMax:40},
