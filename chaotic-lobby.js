@@ -301,6 +301,7 @@
     showOfficialCard("host",board.find(x=>x.actor_id===room.host_id));
     showOfficialCard("guest",board.find(x=>x.actor_id===room.guest_id));
     updateBoardUI();
+    updateLoadoutUI();
     updateClashUI();
   }
   async function refreshDeclarations() {
