@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map(),burstOrderPlans=new Map(),burstPriority=new Map(),burstPriorityPasses=new Map(),burstMugicIntents=new Map(),burstMugicCounterplans=new Map(),mugicTrainingWallets=new Map(),mugicTrainingSettlements=new Map(),trainingAbilityEvents=new Map(),harpTrainingEvents=new Map(),allies3x3=new Map(),transfers3x3=new Map(),decks3x3=new Map(),hp3x3=new Map(),boardPositions3x3=new Map(),moveEvents3x3=new Map(),burstEquipmentResponses=new Map(),burstEquipmentEffects=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map(),burstOrderPlans=new Map(),burstPriority=new Map(),burstPriorityPasses=new Map(),burstMugicIntents=new Map(),burstMugicCounterplans=new Map(),mugicTrainingWallets=new Map(),mugicTrainingSettlements=new Map(),trainingAbilityEvents=new Map(),harpTrainingEvents=new Map(),allies3x3=new Map(),transfers3x3=new Map(),decks3x3=new Map(),hp3x3=new Map(),boardPositions3x3=new Map(),moveEvents3x3=new Map(),contacts3x3=new Map(),burstEquipmentResponses=new Map(),burstEquipmentEffects=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -87,6 +87,40 @@ function makeClient(actor) {
         return {data:{status:"3x3_board_preview_prepared",hexes_per_player:6,
           creatures:3,official_match_modified:false},error:null};
       }
+      if(name==="chaotic_open_preview_3x3_contact"){
+        const m=matches.get(room.id),turn=args.p_expected_turn;
+        const enemyId=actor===m?.host_id?m?.guest_id:m?.host_id;
+        const attacker=boardPositions3x3.get(room.id+"/"+actor+"/"+args.p_attacker_slot);
+        const defender=boardPositions3x3.get(room.id+"/"+enemyId+"/"+args.p_defender_slot);
+        const attackerHp=hp3x3.get(room.id+"/"+actor+"/"+args.p_attacker_slot);
+        const defenderHp=hp3x3.get(room.id+"/"+enemyId+"/"+args.p_defender_slot);
+        const key=room.id+"/"+turn;
+        const ownCount=[...boardPositions3x3.values()].filter(x=>x.lobby_id===room.id&&x.actor_id===actor).length;
+        const enemyCount=[...boardPositions3x3.values()].filter(x=>x.lobby_id===room.id&&x.actor_id===enemyId).length;
+        if(!m||m.status!=="active"||m.turn_no!==turn||m.current_player!==actor
+          ||room.mode!=="3x3"||room.status!=="ready"||![m.host_id,m.guest_id].includes(actor)
+          ||!Number.isInteger(args.p_attacker_slot)||args.p_attacker_slot<4||args.p_attacker_slot>6
+          ||!Number.isInteger(args.p_defender_slot)||args.p_defender_slot<4||args.p_defender_slot>6
+          ||ownCount!==3||enemyCount!==3||!attacker||!defender
+          ||![4,5].includes(attacker.hex_position)||![4,5].includes(defender.hex_position)
+          ||attackerHp?.creature_instance_id!==attacker.creature_instance_id
+          ||defenderHp?.creature_instance_id!==defender.creature_instance_id
+          ||attackerHp.hp_remaining<=0||defenderHp.hp_remaining<=0
+          ||contacts3x3.has(key)||clashes.has(key)||burstWindows.has(key))
+          return {data:null,error:{message:"Invalid, replayed or non-contacting 3x3 encounter"}};
+        const contact={lobby_id:room.id,turn_no:turn,attacker_id:actor,defender_id:enemyId,
+          attacker_slot:args.p_attacker_slot,defender_slot:args.p_defender_slot,
+          attacker_creature_instance_id:attacker.creature_instance_id,
+          defender_creature_instance_id:defender.creature_instance_id,
+          attacker_hex:attacker.hex_position,defender_hex:defender.hex_position,
+          attacker_hp_at_contact:attackerHp.hp_remaining,
+          defender_hp_at_contact:defenderHp.hp_remaining,
+          contact_status:"awaiting_validated_attack_preview",
+          attack_card_validated:false,damage_applied:false,
+          official_match_modified:false,official_hp_changed:false};
+        contacts3x3.set(key,contact);
+        return {data:{...contact},error:null};
+      }
       if(name==="chaotic_move_preview_3x3_unit"){
         const m=matches.get(room.id),key=room.id+"/"+args.p_expected_turn+"/"+actor;
         const own=[...boardPositions3x3.values()].filter(x=>x.lobby_id===room.id&&x.actor_id===actor);
@@ -102,7 +136,8 @@ function makeClient(actor) {
           ||!hp||hp.creature_instance_id!==b.creature_instance_id||hp.hp_remaining<=0
           ||!neighbors[b.hex_position]?.includes(args.p_target_hex)
           ||own.some(x=>x.hex_position===args.p_target_hex)
-          ||clashes.has(room.id+"/"+m.turn_no)||burstWindows.has(room.id+"/"+m.turn_no))
+          ||clashes.has(room.id+"/"+m.turn_no)||burstWindows.has(room.id+"/"+m.turn_no)
+          ||contacts3x3.has(room.id+"/"+m.turn_no))
           return {data:null,error:{message:"Illegal 3x3 movement, replay or occupied ally hex"}};
         const event={lobby_id:room.id,turn_no:m.turn_no,actor_id:actor,
           formation_slot:b.formation_slot,creature_instance_id:b.creature_instance_id,
@@ -1051,7 +1086,7 @@ function makeClient(actor) {
       throw Error(name);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits","chaotic_preview_burst_windows","chaotic_preview_burst_priority","chaotic_preview_burst_priority_passes","chaotic_preview_burst_mugic_intents","chaotic_preview_burst_mugic_counterplans","chaotic_preview_mugic_token_wallets","chaotic_preview_mugic_token_settlements","chaotic_preview_ability_heal_events","chaotic_preview_harp_token_events","chaotic_preview_3x3_allies","chaotic_preview_3x3_hp_wallets","chaotic_preview_3x3_board_positions","chaotic_preview_3x3_move_events","chaotic_preview_3x3_token_transfers","chaotic_preview_burst_order_plans","chaotic_preview_burst_equipment_responses","chaotic_preview_burst_equipment_effects"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits","chaotic_preview_burst_windows","chaotic_preview_burst_priority","chaotic_preview_burst_priority_passes","chaotic_preview_burst_mugic_intents","chaotic_preview_burst_mugic_counterplans","chaotic_preview_mugic_token_wallets","chaotic_preview_mugic_token_settlements","chaotic_preview_ability_heal_events","chaotic_preview_harp_token_events","chaotic_preview_3x3_allies","chaotic_preview_3x3_hp_wallets","chaotic_preview_3x3_board_positions","chaotic_preview_3x3_move_events","chaotic_preview_3x3_contact_intents","chaotic_preview_3x3_token_transfers","chaotic_preview_burst_order_plans","chaotic_preview_burst_equipment_responses","chaotic_preview_burst_equipment_effects"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
         then(resolve,reject) {
           const room=rooms.get(this.id);
@@ -1127,6 +1162,8 @@ function makeClient(actor) {
                                               ?[...boardPositions3x3.values()].filter(x=>x.lobby_id===this.id)
                                               :table==="chaotic_preview_3x3_move_events"
                                               ?[...moveEvents3x3.values()].filter(x=>x.lobby_id===this.id)
+                                              :table==="chaotic_preview_3x3_contact_intents"
+                                              ?[...contacts3x3.values()].filter(x=>x.lobby_id===this.id)
                                               :table==="chaotic_preview_3x3_token_transfers"
                                               ?[...transfers3x3.values()].filter(x=>x.lobby_id===this.id)
                                               :table==="chaotic_preview_burst_order_plans"
