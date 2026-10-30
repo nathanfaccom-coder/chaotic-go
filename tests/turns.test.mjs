@@ -2328,6 +2328,52 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
   assert.ok((await makeClient(opponent).rpc("chaotic_transfer_preview_alakazaz_token",{
     p_lobby_id:id,p_expected_turn:2,p_receiver_position:5})).error);
   assert.equal(transfers3x3.get(id+"/1/"+owner).official_match_modified,false);
+  assert.ok((await makeClient(owner).rpc("chaotic_open_preview_3x3_contact",{
+    p_lobby_id:id,p_expected_turn:2,p_attacker_slot:5,p_defender_slot:4})).error,
+    "Owner cannot open contact on guest's turn");
+  assert.ok((await makeClient(opponent).rpc("chaotic_open_preview_3x3_contact",{
+    p_lobby_id:id,p_expected_turn:2,p_attacker_slot:5,p_defender_slot:5})).error,
+    "Guest c5 has moved to hex 2; cannot register a distant contact");
+  assert.ok((await makeClient(opponent).rpc("chaotic_open_preview_3x3_contact",{
+    p_lobby_id:id,p_expected_turn:2,p_attacker_slot:4,p_defender_slot:4})).error,
+    "Host c4 has moved to hex 1; cannot register a distant contact");
+  guest("lobby-3x3-contact-attacker").value="4";
+  guest("lobby-3x3-contact-defender").value="5";
+  assert.equal(guest("lobby-3x3-contact").hidden,false);
+  await guest("lobby-3x3-contact").onclick();
+  const firstContact=contacts3x3.get(id+"/2");
+  assert.equal(firstContact?.attacker_id,opponent);
+  assert.equal(firstContact.attacker_slot,4);
+  assert.equal(firstContact.defender_slot,5);
+  assert.equal(firstContact.attacker_hex,4);
+  assert.equal(firstContact.defender_hex,5);
+  assert.equal(firstContact.attacker_hp_at_contact,55);
+  assert.equal(firstContact.defender_hp_at_contact,35);
+  assert.equal(firstContact.damage_applied,false);
+  assert.equal(firstContact.attack_card_validated,false);
+  assert.equal(firstContact.official_match_modified,false);
+  assert.match(guest("lobby-3x3-contact-history").textContent,/Contato registrado/);
+  assert.ok((await makeClient(opponent).rpc("chaotic_open_preview_3x3_contact",{
+    p_lobby_id:id,p_expected_turn:2,p_attacker_slot:4,p_defender_slot:5})).error,
+    "A second contact cannot be recorded in the same player turn");
+  await guest("lobby-turn-pass").onclick();
+  await host("lobby-turn-refresh").onclick();
+  host("lobby-3x3-contact-attacker").value="5";
+  host("lobby-3x3-contact-defender").value="4";
+  assert.equal(host("lobby-3x3-move").hidden,false,
+    "Attacker has not moved this turn before contact");
+  await host("lobby-3x3-contact").onclick();
+  const secondContact=contacts3x3.get(id+"/3");
+  assert.equal(secondContact?.attacker_id,owner);
+  assert.equal(secondContact?.attacker_hp_at_contact,35);
+  assert.equal(secondContact?.defender_hp_at_contact,55);
+  assert.equal(host("lobby-3x3-move").hidden,true,
+    "Contact freezes further movement on its own turn");
+  assert.ok((await makeClient(owner).rpc("chaotic_move_preview_3x3_unit",{
+    p_lobby_id:id,p_expected_turn:3,p_formation_slot:5,p_target_hex:2})).error,
+    "Server must block movement after opening a 3x3 contact");
+  assert.equal(boardPositions3x3.get(id+"/"+owner+"/5").hex_position,5);
+  assert.equal(hp3x3.get(id+"/"+owner+"/5").hp_remaining,35);
 });
 
 test("Lion, Vidal and Xamã spend exactly one TRAINING token and update only hypothetical HP",async()=>{
