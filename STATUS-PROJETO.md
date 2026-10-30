@@ -1,6 +1,6 @@
 # Chaotic GO — Status de conclusão e pendências (30/10/2026)
 
-Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 71% (incerteza aproximada ±10 pontos percentuais).**
+Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 72% (incerteza aproximada ±10 pontos percentuais).**
 
 ## Critérios ponderados
 
@@ -8,13 +8,13 @@ Este documento acompanha **prontidão para lançar o jogo completo com Supabase*
 |---|---:|---:|---:|
 | Motor legado, scanner, cartas, imagens, áudios e interfaces preservados | 25% | 90% | 22,5 p.p. |
 | Contas, migração de coleção, Decks e persistência privada Supabase | 15% | 75% | 11,25 p.p. |
-| Salas privadas, sincronização e protocolo de turnos | 10% | 75% | 7,5 p.p. |
+| Salas privadas, sincronização e protocolo de turnos | 10% | 85% | 8,5 p.p. |
 | PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 90% | 22,5 p.p. |
 | Economia, amigos, trocas, recompensas e progressão integradas | 15% | 25% | 3,75 p.p. |
 | Testes ponta a ponta, dois dispositivos, mobile, segurança e publicação | 10% | 35% | 3,5 p.p. |
-| **Estimativa total** | **100%** | | **71 p.p.** |
+| **Estimativa total** | **100%** | | **72 p.p.** |
 
-Números estimados para planejamento, não verificação automática de 71% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
+Números estimados para planejamento, não verificação automática de 72% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
 
 ## Entregas já implementadas ou disponíveis
 - Jogo completo e recursos originais publicados no site; backup de branches anteriores.
@@ -263,3 +263,14 @@ Números estimados para planejamento, não verificação automática de 71% das 
 - Teste SQL transacional `supabase/tests/chaotic-preview-3x3-allies-alakazaz-transfer.test.sql` aprovado e **45/45 testes Node passando** no GitHub Actions; o cenário simulado cobre duas contas, titularidade, saldo, repetição, posição adversária e ausência de efeitos oficiais.
 - **Limites:** ainda não há tabuleiro tático de seis criaturas, movimento/ataque 3x3 completo, combate com HP por personagem, habilidades sincronizadas no Burst, final de combate e publicação confirmada. A transferência de Alakazaz foi limitada a uma ficha por turno do treinamento; seu texto original permite distribuir suas fichas e exigirá uma sequência de escolhas para a regra completa. Teste ponta a ponta em dois celulares ainda pendente.
 - **Conclusão estimada 71% (±10 pontos percentuais)**, +1 ponto pelo cadastro autoritativo de aliados e primeira transferência. A lista de cartas, todas as imagens originais, Decks, XP e dinheiro foram preservados.
+
+
+## Versão 0.1.34 — HP individual c4–c6 para formação 3x3 de treinamento (30/10/2026)
+- Nova tabela isolada `chaotic_preview_3x3_hp_wallets` com até **seis carteiras independentes de HP por sala** (três criaturas de cada jogador), vinculadas por chave estrangeira ao mesmo jogador, slot c4/c5/c6 e criatura já congelada em `chaotic_preview_3x3_allies`. O HP nunca é compartilhado entre criaturas do mesmo Deck.
+- A RPC autenticada `chaotic_prepare_preview_3x3_hp` permite que cada participante prepare suas três carteiras somente em seu turno: exige a formação completa, o Deck 3x3 original salvo, ID de cada carta igual ao snapshot congelado, identidade única no álbum privado, nome correspondente e atributo DNA `stats.e` inteiro de 1 a 500. **Toda a preparação é uma transação**: energia inválida em qualquer carta faz falhar as três inicializações. A segunda preparação fica bloqueada (não há restauração artificial).
+- O valor `hp_initial = hp_max = hp_remaining` é registrado individualmente para cada slot. **Nenhum bônus de Local, movimento, ataque, dano, cura, derrota ou vitória foi implementado no 3x3 por esta etapa.** O desenho da tabela de HP é intencionalmente restritivo e precisará evoluir antes da resolução do combate.
+- Interface DROME mostra um botão separado para preparar HP após congelar os três personagens, exibe a energia de cada c4/c5/c6 para os dois jogadores e atualiza via Realtime. Os controles do 1x1 e as cartas originais permanecem intactos.
+- RLS protege acesso de não participantes; navegadores autenticados não podem inserir/alterar HP diretamente. A função exige `auth.uid()`, sala 3x3 ativa e a vez correta, e não recebe números de energia informados pelo navegador. O álbum continua editável e não deve ser tratado como prova de emissão legítima da carta para PvP oficial.
+- Verificação SQL de permissões, função de HP, ligação com criaturas originais, ausência de dano e ausência de alterações oficiais aprovada em `supabase/tests/chaotic-preview-3x3-individual-hp-wallets.test.sql`. Suíte Node com cenário de duas contas simuladas agora verifica **os seis HP individuais**, diferencia energias 10/35/46 e 55/40/32, rejeita DNA inválido sem criar estado parcial, impede repetição e proíbe preparação de HP fora do próprio turno.
+- **Próximas necessidades críticas:** ações reais de movimento por criatura, colisão/posicionamento, dano por criatura, efeitos e Mugics, proteção autoritativa da posse das cartas e teste em dois celulares diferentes. A publicação no GitHub Pages ainda não está confirmada.
+- **Conclusão estimada: 72% (±10 p.p.)**: crescimento de 1 ponto em dados e sincronização do 3x3 experimental, não prontidão do PvP oficial. Toda a coleção, imagens, Decks, moedas e XP estão preservados.
