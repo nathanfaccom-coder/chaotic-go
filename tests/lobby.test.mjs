@@ -103,6 +103,7 @@ test("two accounts create and join a private room, host sees ready",async()=>{
 test("same account cannot join its own lobby", async()=>{
   const host=makeBrowser("self");
   host.browser.window.abrirSalaPrivadaDrome();
+  host.elem("lobby-select-mode").value="1x1"; // Simula a opção padrão do SELECT real.
   await host.elem("lobby-create-btn").onclick();
   const code=host.elem("lobby-room-code").textContent;
   const otherTab=makeBrowser("self");
