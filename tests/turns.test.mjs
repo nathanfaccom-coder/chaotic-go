@@ -186,7 +186,10 @@ function makeClient(actor) {
           x.actor_id===actor&&x.turn_no===args.p_expected_turn&&x.kind==="attack");
         if(room.mode!=="1x1"||!match||match.status!=="active"||
           match.current_player!==actor||match.turn_no!==args.p_expected_turn||
-          !loadouts.has(room.id+"/"+actor)||!chosen||attackInstances.has(key))
+          !loadouts.has(room.id+"/"+actor)||!chosen||attackInstances.has(key)||
+          wallets.get(room.id+"/"+actor)?.last_draw_turn!==args.p_expected_turn||
+          !hands.get(room.id+"/"+actor)?.some(x=>x.card_slot===chosen.card_slot
+            &&x.attack_instance_id===chosen.card_id&&x.card_state==="hand"))
           return {data:null,error:{message:"Instância de ataque não autorizada"}};
         const snapshot={lobby_id:room.id,turn_no:match.turn_no,actor_id:actor,
           attack_instance_id:chosen.card_id,catalog_attack_id:"105",
@@ -747,6 +750,12 @@ test("1x1 DNA preview shows individual energy and never changes actual combat",a
   host("lobby-combat-slot").value="1";
   await host("lobby-combat-submit").onclick();
   await host("lobby-clash-open").onclick();
+  const undealt=hands.get(id+"/dna-preview-host")[0];
+  undealt.card_state="deck";
+  assert.ok((await makeClient("dna-preview-host").rpc("chaotic_capture_preview_attack",{
+    p_lobby_id:id,p_expected_turn:3})).error,
+    "An undealt card cannot be captured through a direct RPC");
+  undealt.card_state="hand";
   assert.equal(host("lobby-individual-damage-calculate").hidden,true,
     "Must validate captured attack first");
   await host("lobby-attack-instance-capture").onclick();
