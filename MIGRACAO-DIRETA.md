@@ -111,3 +111,12 @@ Os dados da mão de um jogador não são compartilhados com o adversário. Nenhu
 - Mãos experimentais que já existiam recebem `draw_position=card_slot` como migração conservadora, evitando apagar partidas de teste ou invalidar a mão que já tinha sido distribuída.
 - Os testes SQL em `supabase/tests/chaotic-preview-server-shuffle.test.sql` verificam permutação, posições válidas, RLS, autenticação e escrita bloqueada. As verificações Node cobrem a ordem de compra e o bloqueio da visualização de cartas não compradas.
 - **Não é combate oficial.** A posse dos itens ainda vem do álbum gravável pelo cliente; não existe prevenção completa de fraude, efeitos de compra bloqueada, descarte oficial, reembaralhamento do lixo, iniciativa, HP ou vitória.
+
+## Descarte e reciclagem de cartas no 1x1 de teste (versão 0.1.13 — 30/10/2026)
+- RPC `chaotic_discard_preview_attack`: permite ao dono descartar uma carta que esteja de fato na mão experimental em seu próprio turno, após sincronizá-la. O descarte não gasta pontos e não pode substituir um ataque declarado ou registrar dano.
+- `spent_reason` distingue `attack` (jogada validada e paga) de `discard` (descarte voluntário); as funções de cálculo de dano agora exigem `attack` como motivo do gasto no mesmo turno.
+- A reciclagem ocorre automaticamente **quando o monte acaba** e a compra da vez é permitida. As cartas de lixo recebem ordem aleatória renovada pelo servidor; nenhuma carta é criada ou apagada do álbum, deck ou coleção original. O contador `recycle_cycles` acompanha as reciclagens em uma mesma partida experimental.
+- A função `chaotic_capture_preview_attack` foi reforçada para recusar ataques que não estão na mão já distribuída do jogador e sincronizada ao turno. Manipular as chamadas da interface não permite pular essa verificação.
+- A tela exibe lixo, ciclos de reembaralhamento e comando de descarte. Mãos/monte permanecem privados. Cartas não compradas não são reveladas ao oponente.
+- Teste de regressão: `supabase/tests/chaotic-preview-discard-recycle.test.sql` verifica RLS, restrição de escrita direta, razão do gasto e função de reembaralhamento. Os testes JavaScript com estado simulado cobrem descarte duplicado, tentativa do oponente, reciclagem e compra única por turno.
+- **Atenção:** ainda é um módulo de teste, não o combate autoritativo completo; não cobre iniciativa, efeitos de cartas que bloqueiam compra e custos, danos reais, vitórias ou recompensas. Não há teste real concluído com duas contas em aparelhos diferentes.
