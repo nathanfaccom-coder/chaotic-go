@@ -120,3 +120,10 @@ Os dados da mão de um jogador não são compartilhados com o adversário. Nenhu
 - A tela exibe lixo, ciclos de reembaralhamento e comando de descarte. Mãos/monte permanecem privados. Cartas não compradas não são reveladas ao oponente.
 - Teste de regressão: `supabase/tests/chaotic-preview-discard-recycle.test.sql` verifica RLS, restrição de escrita direta, razão do gasto e função de reembaralhamento. Os testes JavaScript com estado simulado cobrem descarte duplicado, tentativa do oponente, reciclagem e compra única por turno.
 - **Atenção:** ainda é um módulo de teste, não o combate autoritativo completo; não cobre iniciativa, efeitos de cartas que bloqueiam compra e custos, danos reais, vitórias ou recompensas. Não há teste real concluído com duas contas em aparelhos diferentes.
+
+## Iniciativa individual em prévia segura (versão 0.1.14 — 30/10/2026)
+- `chaotic_preview_initiatives` e `chaotic_capture_preview_initiative` foram adicionadas ao Supabase. O servidor exige sala 1x1 ativa, ator no turno, confronto registrado, fichas de criatura realmente vinculadas a cada carta individual e ausência de cálculo duplicado.
+- O motor original usa atributo de iniciativa definido pelo Local, com Velocidade como padrão, e desempate em favor de quem iniciou o confronto. A prévia atual implementa **somente o fallback de Velocidade**, que é corretamente rotulado como `no_location_speed_default`; não afirma que a iniciativa é oficial quando o Local exige outro atributo.
+- Resultados podem ser consultados somente por participantes via RLS. Usuários anônimos e alterações diretas são bloqueados; a função de comparação rejeita valores inválidos e atributos ainda não implementados.
+- A prévia **não** reordena turnos, concede pontos, altera estado de cartas, compra, HP, XP ou vitória. O futuro uso em combate real requer Local e confirmação completa dos gatilhos de habilidade (Armadilha de Vinha, Mão Eletrônica, Mão Mão), que dependem de dano final verificado.
+- Testes: `supabase/tests/chaotic-preview-initiative.test.sql` e `tests/turns.test.mjs`. A automação do GitHub e o teste de dois celulares continuam necessários antes de tratar o 1x1 como pronto.
