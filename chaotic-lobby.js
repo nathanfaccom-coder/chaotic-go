@@ -1223,7 +1223,7 @@
       '<p id="lobby-burst-history" class="lobby-events" aria-live="polite">Nenhuma resposta de Burst registrada.</p>',
       '<section id="lobby-burst-priority-preview" class="lobby-combat" hidden>',
       '<strong>⏳ Prioridade sucessiva — treinamento 1x1</strong>',
-      '<p>Após a resposta inicial, o atacante e depois o defensor devem PASSAR a prioridade. Não adiciona cartas nem resolve Burst: prepara a conferência da pilha.</p>',
+      '<p>Após a resposta inicial, o atacante e depois o defensor podem PASSAR a prioridade. Durante a própria prioridade também é possível registrar uma INTENÇÃO de Mugic; ela não é conjurada e deve ser cancelada antes do dano experimental.</p>',
       '<button id="lobby-burst-priority-open" type="button" hidden>Abrir rodada de prioridade</button>',
       '<button id="lobby-burst-priority-pass" type="button" hidden>Passar minha prioridade agora</button>',
       '<p id="lobby-burst-priority-history" class="lobby-events" aria-live="polite">Nenhuma rodada de prioridade aberta.</p>',
