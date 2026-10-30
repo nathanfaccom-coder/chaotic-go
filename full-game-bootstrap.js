@@ -53,7 +53,7 @@
     // apenas os dados privados do jogador e decks são migrados nesta etapa.
     await import("./script.js?v=release-7");
     await import("./batalha.js?v=release-7");
-    await import("./chaotic-lobby.js?v=release-20");
+    await import("./chaotic-lobby.js?v=release-21");
     inform("Conta conectada. Jogo completo e progresso disponíveis; online em migração.");
   }catch(e){console.error(e);inform("Falha na inicialização: "+e.message,true);}
 })();
