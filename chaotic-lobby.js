@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -128,6 +128,16 @@
       !dice.some(x=>x.turn_no===match.turn_no));
     const attackResolved=attackInstances.some(x=>x.turn_no===match.turn_no
       && x.actor_id===userId && x.attack_instance_id===clashToCalculate?.attack_card);
+    const activeBurst=burstWindows.find(x=>x.turn_no===match.turn_no);
+    $("lobby-burst-open").hidden=!(room.mode==="1x1"&&myTurn
+      &&clashToCalculate&&attackResolved&&!activeBurst
+      &&!individualDamage.some(x=>x.turn_no===match.turn_no));
+    $("lobby-burst-pass").hidden=!(room.mode==="1x1"
+      &&match.status==="active"&&room.status==="ready"
+      &&new Date(room.expires_at).getTime()>Date.now()
+      &&activeBurst?.status==="awaiting_defender"
+      &&activeBurst.defender_id===userId
+      &&activeBurst.attacker_id===match.current_player);
     const bothLoadouts=loadouts.some(x=>x.actor_id===room.host_id)
       && loadouts.some(x=>x.actor_id===room.guest_id);
     const confirmedSpend=handCards.some(x=>x.card_state==="spent"
@@ -290,6 +300,26 @@
     }).join("\n"):"Nenhuma simulação individual.";
     updateClashUI();
   }
+  async function refreshBurstWindows(){
+    const panel=$("lobby-burst-preview");
+    if(!panel)return;
+    panel.hidden=!room||!match||room.mode!=="1x1";
+    if(panel.hidden){burstWindows=[];return;}
+    const {data,error}=await api.from("chaotic_preview_burst_windows")
+      .select("turn_no,attacker_id,defender_id,status,defender_response,burst_fully_resolved,final_damage_verified")
+      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(20);
+    if(error)throw new Error(error.message);
+    burstWindows=data||[];
+    $("lobby-burst-history").textContent=burstWindows.length
+      ?burstWindows.slice().reverse().map(x=>
+        "T"+x.turn_no+": "+(x.attacker_id===room.host_id?"Anfitrião":"Convidado")+
+        " abriu Burst. "+(x.status==="defender_passed"
+          ?"Defensor escolheu PASSAR.":"Aguardando resposta do defensor.")+
+        " Nenhuma habilidade de resposta é executada; dano final NÃO resolvido."
+      ).join("\n")
+      :"Nenhuma janela Burst de teste aberta.";
+    updateClashUI();
+  }
   async function refreshResolutionAudits(){
     const panel=$("lobby-resolution-audit");
     if(!panel)return;
@@ -301,7 +331,10 @@
     if(error)throw new Error(error.message);
     resolutionAudits=data||[];
     const labels={
-      burst_unresolved:"Burst pendente",
+      burst_unresolved:"Burst ainda não resolvido",
+      burst_window_not_opened:"janela Burst não aberta",
+      burst_defender_response_pending:"defensor ainda não respondeu",
+      burst_defender_passed_preview_only:"defensor passou; demais respostas ainda indisponíveis",
       creature_abilities_unresolved:"habilidades de criaturas pendentes",
       official_turn_and_hp_unintegrated:"combate oficial separado",
       card_ownership_not_authoritative:"emissão e posse de cartas não certificadas",
@@ -726,6 +759,7 @@
     await refreshIndividualDamage();
     await refreshHpLedger();
     await refreshEffectCandidates();
+    await refreshBurstWindows();
     await refreshResolutionAudits();
   }
   function updateRoomUI() {
@@ -827,6 +861,9 @@
         .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_resolution_audits",filter:"lobby_id=eq."+lobbyId
         },sync)
+        .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_burst_windows",filter:"lobby_id=eq."+lobbyId
+        },sync)
         .subscribe(status=>{
           if(status==="CHANNEL_ERROR"||status==="TIMED_OUT")
             console.warn("DROME: canal em tempo real temporariamente indisponível; consultas periódicas seguem ativas.");
@@ -839,7 +876,7 @@
     }, 6000);
   }
   function show() {
-    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = [];
+    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -959,6 +996,13 @@
       '<p>Compara o atributo do Local sorteado (Sabedoria, Poder ou Velocidade). Sem Local sorteado, usa Velocidade como fallback. O empate favorece o atacante. NÃO muda turnos nem concede pontos.</p>',
       '<button id="lobby-initiative-preview-calculate" type="button" hidden>Conferir iniciativa no servidor</button>',
       '<p id="lobby-initiative-history" class="lobby-events" aria-live="polite">Nenhuma iniciativa calculada.</p>',
+      '</section>',
+      '<section id="lobby-burst-preview" class="lobby-combat" hidden>',
+      '<strong>⚡ BURST — JANELA DE RESPOSTA 1x1 (TESTE)</strong>',
+      '<p>O atacante abre a janela após validar a carta. O defensor pode PASSAR mesmo durante a vez do atacante. Não executa respostas, contra-ataques, habilidades nem dano final.</p>',
+      '<button id="lobby-burst-open" type="button" hidden>Abrir janela de resposta Burst</button>',
+      '<button id="lobby-burst-pass" type="button" hidden>Passar minha resposta ao Burst</button>',
+      '<p id="lobby-burst-history" class="lobby-events" aria-live="polite">Nenhuma resposta de Burst registrada.</p>',
       '</section>',
       '<section id="lobby-hp-ledger" class="lobby-combat" hidden>',
       '<strong>❤️ ENERGIA ACUMULADA — 1x1 (TESTE)</strong>',
@@ -1182,6 +1226,24 @@
       note(result.calculation_status==="partial_estimate"
         ?"Simulação de dano com DNA individual registrada no servidor. Nenhuma energia real foi alterada."
         :"Ataque especial identificado. A simulação NÃO informa dano final sem resolver seu efeito.");
+    });
+    $("lobby-burst-open").onclick = () => action(async()=>{
+      if(!room||!match||room.mode!=="1x1"||match.current_player!==userId)return;
+      await rpc("chaotic_open_preview_burst",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refreshBurstWindows();
+      note("Janela Burst de teste aberta. Aguardando PASSAR do defensor. Nenhum dano final.");
+    });
+    $("lobby-burst-pass").onclick = () => action(async()=>{
+      if(!room||!match||room.mode!=="1x1")return;
+      const result=await rpc("chaotic_pass_preview_burst",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refreshBurstWindows();
+      note(result.status==="defender_passed"
+        ?"Resposta PASSAR registrada no servidor. O Burst completo ainda NÃO foi resolvido."
+        :"Resposta não confirmada.");
     });
     $("lobby-resolution-audit-capture").onclick = () => action(async()=>{
       if(!room||!match||room.mode!=="1x1"||match.current_player!==userId)return;
