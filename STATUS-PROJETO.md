@@ -1,6 +1,6 @@
 # Chaotic GO — Status de conclusão e pendências (30/10/2026)
 
-Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 64% (incerteza aproximada ±10 pontos percentuais).**
+Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 65% (incerteza aproximada ±10 pontos percentuais).**
 
 ## Critérios ponderados
 
@@ -9,12 +9,12 @@ Este documento acompanha **prontidão para lançar o jogo completo com Supabase*
 | Motor legado, scanner, cartas, imagens, áudios e interfaces preservados | 25% | 90% | 22,5 p.p. |
 | Contas, migração de coleção, Decks e persistência privada Supabase | 15% | 75% | 11,25 p.p. |
 | Salas privadas, sincronização e protocolo de turnos | 10% | 70% | 7 p.p. |
-| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 64% | 16 p.p. |
+| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 68% | 17 p.p. |
 | Economia, amigos, trocas, recompensas e progressão integradas | 15% | 25% | 3,75 p.p. |
 | Testes ponta a ponta, dois dispositivos, mobile, segurança e publicação | 10% | 35% | 3,5 p.p. |
-| **Estimativa total** | **100%** | | **64 p.p.** |
+| **Estimativa total** | **100%** | | **65 p.p.** |
 
-Números estimados para planejamento, não verificação automática de 64% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
+Números estimados para planejamento, não verificação automática de 65% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
 
 ## Entregas já implementadas ou disponíveis
 - Jogo completo e recursos originais publicados no site; backup de branches anteriores.
@@ -189,3 +189,13 @@ Números estimados para planejamento, não verificação automática de 64% das 
 - Resposta PASSAR e imunidade passiva são caminhos distintos; nenhum deles é tratado como uma carta de contra-ataque. A pilha ainda **não executa habilidades nem magias** e não valida dano final.
 - Mudança aplicada via migração `chaotic_preview_burst_training_projection_gate` no Supabase, com teste SQL transacional aprovado; script reprodutível em `supabase/chaotic-preview-burst-training-projection-gate.sql`.
 - **Conclusão global mantida em 64% (estimativa manual ±10 p.p.).** A validação em dois celulares e o combate completo continuam pendentes. Nenhum item do álbum, Deck, DNA, HP oficial, recompensa ou vitória foi modificado.
+
+
+## Versão 0.1.27 — prioridade sucessiva autenticada no Burst de teste (30/10/2026)
+- Nova tabela `chaotic_preview_burst_priority` e diário `chaotic_preview_burst_priority_passes`, protegidos com RLS e acesso **somente de leitura** aos participantes. Terceiros não podem consultar a sala; nenhum cliente pode escrever nas tabelas diretamente.
+- A RPC `chaotic_open_preview_burst_priority` exige atacante atual, sala 1x1 ativa, ataque e resposta inicial do defensor. A RPC `chaotic_pass_preview_burst_priority` só aceita quem está com a prioridade: **atacante passa, depois defensor passa**. Ambas usam travas de banco para bloquear duas chamadas simultâneas e repetição de passe.
+- O plano de inspeção da pilha (LIFO), a prévia com DNA e o avanço do turno passam a exigir os dois passes confirmados. Uma revelação de equipamento existente continua sujeita à sua própria resolução experimental antes de permitir a prévia.
+- O painel do DROME mostra a próxima pessoa com prioridade, os passes confirmados e o encerramento da rodada. Realtime e consultas de reconexão consultam as novas tabelas.
+- A verificação SQL transacional de funções, RLS, proteção da ordem e ausência de dano oficial foi aprovada em `supabase/tests/chaotic-preview-burst-successive-priority.test.sql`. A suíte Node é executada pelo GitHub Actions e deve ser conferida separadamente.
+- **Escopo ainda limitado:** apenas o primeiro ciclo de passes. Não aceita uma terceira carta, contra-Mugic, habilidade de criatura ou múltiplos efeitos novos no Burst. O HP da partida real, vitórias, coleção, Decks, dinheiro e XP continuam intactos.
+- **Conclusão geral estimada: 65% (±10 p.p.)**, +1 p.p. pela primeira troca de prioridade autenticada entre dois participantes. Necessário testar com duas contas reais em celulares distintos antes de declarar funcionamento completo.
