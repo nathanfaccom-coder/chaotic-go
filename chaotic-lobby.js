@@ -226,7 +226,9 @@
     log.textContent=individualDamage.length?individualDamage.slice().reverse().map(x=>{
       const who=x.attacker_id===room.host_id?"Anfitrião":"Convidado";
       const cost=" · custo "+(x.attack_cost??"?")+
-        " ponto(s) — saldo e mão NÃO verificados; nenhum ponto descontado.";
+        (x.cost_status==="test_spent"
+          ?" ponto(s) debitado(s) SOMENTE na mão e no saldo de teste."
+          :" ponto(s) — saldo e mão ainda NÃO verificados.");
       const detail=x.immunity_reason?" · Imunidade: "+x.immunity_reason+".":"";
       if(x.calculation_status!=="partial_estimate")
         return "T"+x.turn_no+" · "+who+": "+x.attack_name+
