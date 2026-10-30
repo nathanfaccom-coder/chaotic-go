@@ -325,7 +325,7 @@
         (x.equipment_bonus??0)+" equipamento + "+(x.location_elemental_bonus??0)+
         " aura de Fogo + "+(x.location_damage_delta??0)+
         " terreno = "+x.preview_subtotal+
-        " dano parcial. Energia individual inicial "+
+        " dano parcial. Energia de referência da prévia "+
         x.defender_energy_initial+" → "+x.preview_energy_remaining+
         " (SIMULAÇÃO: HP real inalterado)."+locationText+detail+cost;
     }).join("\n"):"Nenhuma simulação individual.";
