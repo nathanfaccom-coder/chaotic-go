@@ -129,7 +129,7 @@ begin
     if card ? raw then
       if (card->>raw) !~ '^[0-9]{1,3}$' then
         raise exception 'Valor inválido na carta: %',raw; end if;
-      if (card->>raw)::integer <> case when raw='danoBase' then model_damage else model_cost end then
+      if (card->>raw)::integer <> (case when raw='danoBase' then model_damage else model_cost end) then
         raise exception 'Atributos do ataque divergem do catálogo: %',raw; end if;
     end if;
   end loop;
