@@ -2609,7 +2609,7 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
   assert.equal(guestCost.original_card_consumed,false);
   assert.equal(hand3x3Wallets.get(id+"/"+opponent).spent_points,0);
   assert.equal(hand3x3Cards.get(id+"/"+opponent+"/1").card_state,"hand");
-  assert.match(guest("lobby-3x3-cost-history").textContent,/Nenhum ponto gasto/);
+  assert.match(guest("lobby-3x3-cost-history").textContent,/Ainda não pago/);
   assert.ok((await makeClient(opponent).rpc("chaotic_inspect_preview_3x3_hand_cost",{
     p_lobby_id:id,p_expected_turn:2})).error,
     "Cost inspection must be idempotent / reject a second event");
