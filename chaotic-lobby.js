@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [], mugicTrainingWallets = [], mugicTrainingSettlements = [], trainingAbilityEvents = [], harpTrainingEvents = [], allies3x3 = [], transfers3x3 = [], hp3x3 = [], board3x3 = [], moves3x3 = [], contacts3x3 = [], attackProjections3x3 = [], hand3x3 = [], handWallet3x3 = [], costChecks3x3 = [], attackSpends3x3 = [], discard3x3 = [], drawEvents3x3 = [], defenseWindows3x3 = [], elementalInspections3x3 = [], creatureChecks3x3 = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [], mugicTrainingWallets = [], mugicTrainingSettlements = [], trainingAbilityEvents = [], harpTrainingEvents = [], allies3x3 = [], transfers3x3 = [], hp3x3 = [], board3x3 = [], moves3x3 = [], contacts3x3 = [], attackProjections3x3 = [], hand3x3 = [], handWallet3x3 = [], costChecks3x3 = [], attackSpends3x3 = [], discard3x3 = [], drawEvents3x3 = [], defenseWindows3x3 = [], elementalInspections3x3 = [], creatureChecks3x3 = [], privateEquipmentChecks3x3 = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -1143,6 +1143,12 @@
       &&defenseWindowThisTurn.attacker_id===match.current_player
       &&elementalInspections3x3.some(x=>x.turn_no===match.turn_no)
       &&!creatureChecks3x3.some(x=>x.turn_no===match.turn_no));
+    $("lobby-3x3-private-equipment").hidden=!(!!current&&!!defenseWindowThisTurn
+      &&defenseWindowThisTurn.status==="awaiting_defender"
+      &&defenseWindowThisTurn.defender_id===userId
+      &&defenseWindowThisTurn.attacker_id===match.current_player
+      &&creatureChecks3x3.some(x=>x.turn_no===match.turn_no)
+      &&!privateEquipmentChecks3x3.some(x=>x.turn_no===match.turn_no));
     $("lobby-3x3-attack-spend").hidden=!(myTurn&&!!costThisTurn?.can_afford
       &&!!currentProjection&&!alreadySpent&&ownHandWallet?.last_draw_turn===match?.turn_no
       &&hand3x3.some(x=>x.actor_id===userId&&x.card_slot===currentProjection.attack_card_slot
@@ -1258,6 +1264,15 @@
         (x.rex_air_immunity_candidate?" · Rex: possível imunidade a Ar.":"")+
         " Elementos recebidos por habilidades, equipamento, imunidade e dano final PENDENTES. HP intacto.").join("\n")
       :"Nenhuma verificação básica de criaturas 3x3.";
+    $("lobby-3x3-private-equipment-history").textContent=privateEquipmentChecks3x3.length
+      ?privateEquipmentChecks3x3.slice().sort((a,b)=>a.turn_no-b.turn_no).map(x=>
+        "T"+x.turn_no+" · verificação PRIVADA do seu equipamento em c"+x.defender_slot+
+        ": "+(x.equipment_name||"nenhum equipamento neste slot")+
+        ". "+(x.air_immunity_candidate?"Possível proteção contra ataque com Ar. ":"")+
+        (x.elemental_shield_candidate?"Possível proteção contra dano elemental. ":"")+
+        "Efeito, custos de ativação, imunidade e dano final NÃO resolvidos. "+
+        "Nenhuma revelação ao atacante; HP intacto.").join("\n")
+      :"Nenhuma conferência privada de equipamento 3x3.";
     $("lobby-3x3-defense-history").textContent=defenseWindows3x3.length
       ?defenseWindows3x3.slice().sort((a,b)=>a.turn_no-b.turn_no).map(x=>
         "T"+x.turn_no+" · "+(x.attacker_id===userId?"Seu":"Do adversário")+
@@ -1310,7 +1325,7 @@
   async function refresh3x3Allies(){
     if(!$("lobby-3x3-allies-panel"))return;
     if(!room||!match||room.mode!=="3x3"){
-      allies3x3=[];transfers3x3=[];hp3x3=[];board3x3=[];moves3x3=[];contacts3x3=[];attackProjections3x3=[];hand3x3=[];handWallet3x3=[];costChecks3x3=[];attackSpends3x3=[];discard3x3=[];drawEvents3x3=[];defenseWindows3x3=[];elementalInspections3x3=[];creatureChecks3x3=[];update3x3UI();return;
+      allies3x3=[];transfers3x3=[];hp3x3=[];board3x3=[];moves3x3=[];contacts3x3=[];attackProjections3x3=[];hand3x3=[];handWallet3x3=[];costChecks3x3=[];attackSpends3x3=[];discard3x3=[];drawEvents3x3=[];defenseWindows3x3=[];elementalInspections3x3=[];creatureChecks3x3=[];privateEquipmentChecks3x3=[];update3x3UI();return;
     }
     const units=await api.from("chaotic_preview_3x3_allies")
       .select("actor_id,position,deck_slot,creature_instance_id,creature_name,starting_tokens,remaining_tokens,received_tokens")
@@ -1377,6 +1392,11 @@
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
     if(creatureCheck.error)throw new Error(creatureCheck.error.message);
     creatureChecks3x3=creatureCheck.data||[];
+    const equipmentCheck=await api.from("chaotic_preview_3x3_private_equipment_checks")
+      .select("turn_no,defender_id,defender_slot,equipment_status,equipment_name,rule_code,air_immunity_candidate,elemental_shield_candidate,official_match_modified")
+      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
+    if(equipmentCheck.error)throw new Error(equipmentCheck.error.message);
+    privateEquipmentChecks3x3=equipmentCheck.data||[];
     const discarded=await api.from("chaotic_preview_3x3_hand_discards")
       .select("actor_id,turn_no,card_slot,attack_instance_id,original_card_consumed")
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
@@ -1803,6 +1823,9 @@
       '<p>Depois de conferir o ataque, o defensor pode comparar os elementos BÁSICOS das criaturas originais. Efeitos de Guru/Naty, equipamentos, dados e imunidade continuam pendentes: o resultado NÃO é dano final.</p>',
       '<button id="lobby-3x3-creature-elements" type="button" hidden>Defensor: conferir elementos básicos das criaturas (sem dano)</button>',
       '<p id="lobby-3x3-creature-element-history" class="lobby-events" aria-live="polite">Nenhuma verificação de criatura.</p>',
+      '<p>O defensor pode conferir discretamente o equipamento salvo no slot da própria criatura. A informação é PRIVADA: não revela cartas ao atacante, não consome equipamento nem aplica efeitos.</p>',
+      '<button id="lobby-3x3-private-equipment" type="button" hidden>Defensor: conferir meu equipamento (privado, sem dano)</button>',
+      '<p id="lobby-3x3-private-equipment-history" class="lobby-events" aria-live="polite">Nenhum equipamento inspecionado.</p>',
       '<label for="lobby-3x3-receiver">Aliado que receberá 1 ficha:</label>',
       '<select id="lobby-3x3-receiver"></select>',
       '<button id="lobby-3x3-transfer" type="button" hidden>Alakazaz: transferir 1 ficha</button>',
@@ -2249,6 +2272,15 @@
       await refresh3x3Allies();
       note("Elementos BÁSICOS de "+snapshot.attacker_creature_name+
         " conferidos com o catálogo original. Habilidades, equipamentos e dano NÃO calculados.");
+    });
+    $("lobby-3x3-private-equipment").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="3x3"||match.current_player===userId)return;
+      const verified=await rpc("chaotic_inspect_preview_3x3_private_defender_equipment",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refresh3x3Allies();
+      note("Conferência PRIVADA: "+(verified.equipment_name||"slot sem equipamento")+
+        ". Nenhuma carta revelada ao atacante, nenhum efeito/HP aplicado.");
     });
     $("lobby-3x3-defense-pass").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3"||match.current_player===userId)return;
