@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -77,7 +77,10 @@
     $("lobby-turn-start").hidden = !!match || room.host_id !== userId || room.status !== "ready";
     $("lobby-turn-pass").hidden = !active || match.current_player !== userId ||
       (room.mode==="1x1"&&burstWindows.some(x=>x.turn_no===match.turn_no
-        &&x.attacker_id===userId&&x.status==="awaiting_defender"));
+        &&x.attacker_id===userId&&
+        (x.status==="awaiting_defender"||
+          !burstPriority.some(p=>p.turn_no===match.turn_no&&p.priority_status==="closed_preview")
+          ||!burstOrderPlans.some(p=>p.turn_no===match.turn_no))));
     $("lobby-turn-stop").hidden = !active;
   }
   // Conexões entre lados extraídas de batalha.js/obterAdjacencias.
@@ -135,6 +138,18 @@
       x.turn_no===match.turn_no&&x.resolution_status==="queued_unexecuted");
     const pendingEquipment=!!queuedEquipment;
     const activePlan=burstOrderPlans.find(x=>x.turn_no===match.turn_no);
+    const activePriority=burstPriority.find(x=>x.turn_no===match.turn_no);
+    const priorityClosed=activePriority?.priority_status==="closed_preview"
+      &&activePriority?.consecutive_passes===2;
+    $("lobby-burst-priority-open").hidden=!(room.mode==="1x1"&&myTurn
+      &&activeBurst&&["defender_passed","defender_immunity_noted"].includes(activeBurst.status)
+      &&!activePriority&&!activePlan
+      &&!individualDamage.some(x=>x.turn_no===match.turn_no));
+    $("lobby-burst-priority-pass").hidden=!(room.mode==="1x1"
+      &&match.status==="active"&&room.status==="ready"
+      &&new Date(room.expires_at).getTime()>Date.now()
+      &&activePriority?.priority_status==="awaiting_priority"
+      &&activePriority.next_actor_id===userId);
     const resolvedEquipment=burstEquipmentEffects.some(x=>x.turn_no===match.turn_no);
     const defenderHp=hpWallets.find(x=>x.actor_id===queuedEquipment?.defender_id);
     const supportedGear=["anel precioso","bastão da sabedoria","bastao da sabedoria","bomba de fogo"]
@@ -145,6 +160,7 @@
       &&defenderHp&&supportedGear&&!resolvedEquipment);
     $("lobby-burst-order-prepare").hidden=!(room.mode==="1x1"&&myTurn
       &&activeBurst&&["defender_passed","defender_immunity_noted"].includes(activeBurst.status)
+      &&priorityClosed
       &&!burstOrderPlans.some(x=>x.turn_no===match.turn_no));
     $("lobby-burst-open").hidden=!(room.mode==="1x1"&&myTurn
       &&clashToCalculate&&attackResolved&&!activeBurst
@@ -175,6 +191,7 @@
     $("lobby-individual-damage-calculate").hidden=!(room.mode==="1x1"
       &&myTurn&&clashToCalculate&&attackResolved&&bothLoadouts&&confirmedSpend
       &&activeBurst?.status!=="awaiting_defender"
+      &&(!activeBurst||(priorityClosed&&activePlan))
       &&(!pendingEquipment||resolvedEquipment)
       &&!individualDamage.some(x=>x.turn_no===match.turn_no));
     const dmg=individualDamage.find(x=>x.turn_no===match.turn_no
@@ -401,6 +418,36 @@
         ". Nada executado; dano final NÃO confirmado."
       ).join("\n")
       :"Nenhuma sequência de inspeção preparada.";
+    updateClashUI();
+  }
+  async function refreshBurstPriority(){
+    const panel=$("lobby-burst-priority-preview");
+    if(!panel)return;
+    panel.hidden=!room||!match||room.mode!=="1x1";
+    if(panel.hidden){burstPriority=[];burstPriorityPasses=[];return;}
+    const state=await api.from("chaotic_preview_burst_priority")
+      .select("turn_no,attacker_id,defender_id,next_actor_id,consecutive_passes,priority_status")
+      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(20);
+    if(state.error)throw new Error(state.error.message);
+    burstPriority=state.data||[];
+    const events=await api.from("chaotic_preview_burst_priority_passes")
+      .select("turn_no,pass_seq,actor_id,action_type")
+      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
+    if(events.error)throw new Error(events.error.message);
+    burstPriorityPasses=events.data||[];
+    $("lobby-burst-priority-history").textContent=burstPriority.length
+      ?burstPriority.slice().reverse().map(x=>{
+        const entries=burstPriorityPasses.filter(p=>p.turn_no===x.turn_no)
+          .sort((a,b)=>a.pass_seq-b.pass_seq);
+        const detail=entries.map(p=>(p.actor_id===x.attacker_id?"Atacante":"Defensor")
+          +" PASSOU (#"+p.pass_seq+")").join(" → ");
+        const status=x.priority_status==="closed_preview"
+          ?"Dois passes confirmados; ordem de INSPEÇÃO liberada. Burst ainda NÃO resolvido."
+          :"Próxima prioridade: "+(x.next_actor_id===x.attacker_id?"atacante":"defensor")+".";
+        return "T"+x.turn_no+" · "+(detail||"Nenhum passe ainda.")+" · "+status;
+      }).join("\n")
+      :"Nenhuma rodada de prioridade aberta.";
+    updateMatchUI();
     updateClashUI();
   }
   async function refreshBurstWindows(){
@@ -870,6 +917,7 @@
     await refreshHpLedger();
     await refreshEffectCandidates();
     await refreshBurstWindows();
+    await refreshBurstPriority();
     await refreshBurstEquipmentResponses();
     await refreshBurstOrderPlans();
     await refreshBurstEquipmentEffects();
@@ -978,6 +1026,12 @@
           event:"*",schema:"public",table:"chaotic_preview_burst_windows",filter:"lobby_id=eq."+lobbyId
         },sync)
         .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_burst_priority",filter:"lobby_id=eq."+lobbyId
+        },sync)
+        .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_burst_priority_passes",filter:"lobby_id=eq."+lobbyId
+        },sync)
+        .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_burst_order_plans",filter:"lobby_id=eq."+lobbyId
         },sync)
         .on("postgres_changes",{
@@ -998,7 +1052,7 @@
     }, 6000);
   }
   function show() {
-    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = []; burstEquipmentResponses = []; burstEquipmentEffects = [];
+    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = []; burstEquipmentResponses = []; burstEquipmentEffects = []; burstPriority = []; burstPriorityPasses = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -1131,6 +1185,13 @@
       '<p id="lobby-burst-equipment-history" class="lobby-events">Nenhuma resposta de equipamento declarada.</p>',
       '</section>',
       '<p id="lobby-burst-history" class="lobby-events" aria-live="polite">Nenhuma resposta de Burst registrada.</p>',
+      '<section id="lobby-burst-priority-preview" class="lobby-combat" hidden>',
+      '<strong>⏳ Prioridade sucessiva — treinamento 1x1</strong>',
+      '<p>Após a resposta inicial, o atacante e depois o defensor devem PASSAR a prioridade. Não adiciona cartas nem resolve Burst: prepara a conferência da pilha.</p>',
+      '<button id="lobby-burst-priority-open" type="button" hidden>Abrir rodada de prioridade</button>',
+      '<button id="lobby-burst-priority-pass" type="button" hidden>Passar minha prioridade agora</button>',
+      '<p id="lobby-burst-priority-history" class="lobby-events" aria-live="polite">Nenhuma rodada de prioridade aberta.</p>',
+      '</section>',
       '<section id="lobby-burst-order-preview" hidden>',
       '<strong>🔁 Ordem de inspeção — Burst (somente teste)</strong>',
       '<p>A resposta do defensor é conferida antes do ataque. PASSAR não vira carta de resposta; Rex e Amuleto são passivos, não contra-ataques.</p>',
@@ -1384,6 +1445,24 @@
       note(result.status==="defender_passed"
         ?"Resposta PASSAR registrada no servidor. O Burst completo ainda NÃO foi resolvido."
         :"Resposta não confirmada.");
+    });
+    $("lobby-burst-priority-open").onclick = () => action(async()=>{
+      if(!room||!match||room.mode!=="1x1"||match.current_player!==userId)return;
+      await rpc("chaotic_open_preview_burst_priority",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refreshBurstPriority();
+      note("Prioridade aberta. Atacante deve PASSAR, depois defensor. Nada é aplicado ao combate oficial.");
+    });
+    $("lobby-burst-priority-pass").onclick = () => action(async()=>{
+      if(!room||!match||room.mode!=="1x1")return;
+      const state=await rpc("chaotic_pass_preview_burst_priority",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refreshBurstPriority();
+      note(state.priority_status==="closed_preview"
+        ?"Os dois jogadores passaram a prioridade. Inspeção Burst disponível; dano final continua pendente."
+        :"Prioridade passada. Aguardando PASSAR do defensor.");
     });
     $("lobby-burst-air-immunity").onclick = () => action(async()=>{
       if(!room||!match||room.mode!=="1x1")return;
