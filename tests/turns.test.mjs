@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map(),burstOrderPlans=new Map(),burstPriority=new Map(),burstPriorityPasses=new Map(),burstMugicIntents=new Map(),burstMugicCounterplans=new Map(),mugicTrainingWallets=new Map(),mugicTrainingSettlements=new Map(),trainingAbilityEvents=new Map(),harpTrainingEvents=new Map(),burstEquipmentResponses=new Map(),burstEquipmentEffects=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map(),burstOrderPlans=new Map(),burstPriority=new Map(),burstPriorityPasses=new Map(),burstMugicIntents=new Map(),burstMugicCounterplans=new Map(),mugicTrainingWallets=new Map(),mugicTrainingSettlements=new Map(),trainingAbilityEvents=new Map(),harpTrainingEvents=new Map(),allies3x3=new Map(),transfers3x3=new Map(),decks3x3=new Map(),burstEquipmentResponses=new Map(),burstEquipmentEffects=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -17,6 +17,56 @@ function makeClient(actor) {
       }
       const room=[...rooms.values()].find(r=>r.id===args.p_lobby_id||r.id===args.p_id||r.code===args.p_code);
       if(!room)return {data:null,error:{message:"Sala indisponível"}};
+      if(name==="chaotic_prepare_preview_3x3_allies"){
+        const m=matches.get(room.id), deck=decks3x3.get(actor+"/"+args.p_deck_slot);
+        const mine=[...allies3x3.values()].filter(x=>x.lobby_id===room.id&&x.actor_id===actor);
+        const caps={Alakazaz:5,Lion:1,Vidal:2,"Xamã":4,Frador:1};
+        const cards=deck?.slice(3,6);
+        if(!m||m.status!=="active"||m.turn_no!==args.p_expected_turn
+          ||m.current_player!==actor||room.mode!=="3x3"||room.status!=="ready"
+          ||![m.host_id,m.guest_id].includes(actor)||mine.length
+          ||!Number.isInteger(args.p_deck_slot)||args.p_deck_slot<1||args.p_deck_slot>3
+          ||!Array.isArray(deck)||deck.length<6
+          ||cards.some(x=>!x?.id||!Object.hasOwn(caps,x.name))
+          ||new Set(cards.map(x=>x.id)).size!==3)
+          return {data:null,error:{message:"Invalid 3x3 saved deck or replay"}};
+        cards.forEach((card,i)=>allies3x3.set(room.id+"/"+actor+"/"+(i+4),{
+          lobby_id:room.id,actor_id:actor,position:i+4,deck_slot:args.p_deck_slot,
+          creature_instance_id:card.id,creature_name:card.name,
+          starting_tokens:caps[card.name],remaining_tokens:caps[card.name],
+          received_tokens:0,official_match_modified:false
+        }));
+        return {data:{status:"captured_3x3_training_only",count:3,
+          mode:"3x3",official_match_modified:false},error:null};
+      }
+      if(name==="chaotic_transfer_preview_alakazaz_token"){
+        const m=matches.get(room.id);
+        const own=[...allies3x3.values()].filter(x=>x.lobby_id===room.id&&x.actor_id===actor);
+        const donor=own.find(x=>x.creature_name==="Alakazaz");
+        const recv=own.find(x=>x.position===args.p_receiver_position);
+        const key=room.id+"/"+args.p_expected_turn+"/"+actor;
+        if(!m||m.status!=="active"||m.turn_no!==args.p_expected_turn
+          ||m.current_player!==actor||room.mode!=="3x3"||room.status!=="ready"
+          ||![m.host_id,m.guest_id].includes(actor)||own.length!==3
+          ||!donor||donor.remaining_tokens<1||!recv||recv.position===donor.position
+          ||recv.creature_instance_id===donor.creature_instance_id
+          ||recv.remaining_tokens>=20||transfers3x3.has(key)
+          ||clashes.has(room.id+"/"+args.p_expected_turn)
+          ||burstWindows.has(room.id+"/"+args.p_expected_turn))
+          return {data:null,error:{message:"Invalid Alakazaz transfer or duplicate"}};
+        const event={lobby_id:room.id,turn_no:m.turn_no,actor_id:actor,
+          donor_position:donor.position,receiver_position:recv.position,
+          donor_creature_instance_id:donor.creature_instance_id,
+          receiver_creature_instance_id:recv.creature_instance_id,
+          donor_creature_name:"Alakazaz",tokens_moved:1,
+          donor_before:donor.remaining_tokens,donor_after:donor.remaining_tokens-1,
+          receiver_before:recv.remaining_tokens,receiver_after:recv.remaining_tokens+1,
+          original_card_consumed:false,official_tokens_changed:false,
+          official_match_modified:false};
+        donor.remaining_tokens--;recv.remaining_tokens++;recv.received_tokens++;
+        transfers3x3.set(key,event);
+        return {data:{...event},error:null};
+      }
       if(name==="chaotic_join_lobby"){
         if(room.host_id===actor||room.guest_id||room.status!=="waiting")
           return {data:null,error:{message:"Sala indisponível"}};
@@ -928,7 +978,7 @@ function makeClient(actor) {
       throw Error(name);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits","chaotic_preview_burst_windows","chaotic_preview_burst_priority","chaotic_preview_burst_priority_passes","chaotic_preview_burst_mugic_intents","chaotic_preview_burst_mugic_counterplans","chaotic_preview_mugic_token_wallets","chaotic_preview_mugic_token_settlements","chaotic_preview_ability_heal_events","chaotic_preview_harp_token_events","chaotic_preview_burst_order_plans","chaotic_preview_burst_equipment_responses","chaotic_preview_burst_equipment_effects"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits","chaotic_preview_burst_windows","chaotic_preview_burst_priority","chaotic_preview_burst_priority_passes","chaotic_preview_burst_mugic_intents","chaotic_preview_burst_mugic_counterplans","chaotic_preview_mugic_token_wallets","chaotic_preview_mugic_token_settlements","chaotic_preview_ability_heal_events","chaotic_preview_harp_token_events","chaotic_preview_3x3_allies","chaotic_preview_3x3_token_transfers","chaotic_preview_burst_order_plans","chaotic_preview_burst_equipment_responses","chaotic_preview_burst_equipment_effects"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
         then(resolve,reject) {
           const room=rooms.get(this.id);
@@ -996,6 +1046,10 @@ function makeClient(actor) {
                                               ?[...trainingAbilityEvents.values()].filter(x=>x.lobby_id===this.id)
                                               :table==="chaotic_preview_harp_token_events"
                                               ?[...harpTrainingEvents.values()].filter(x=>x.lobby_id===this.id)
+                                              :table==="chaotic_preview_3x3_allies"
+                                              ?[...allies3x3.values()].filter(x=>x.lobby_id===this.id)
+                                              :table==="chaotic_preview_3x3_token_transfers"
+                                              ?[...transfers3x3.values()].filter(x=>x.lobby_id===this.id)
                                               :table==="chaotic_preview_burst_order_plans"
                                               ?[...burstOrderPlans.values()].filter(x=>x.lobby_id===this.id)
                                               :table==="chaotic_preview_burst_equipment_responses"
