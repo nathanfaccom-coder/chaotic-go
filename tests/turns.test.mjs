@@ -405,6 +405,7 @@ function makeClient(actor) {
         const defender=loadouts.get(room.id+"/"+(clash?.defender_id||""));
         if(room.mode!=="1x1"||!match||match.status!=="active"||
           match.current_player!==actor||match.turn_no!==args.p_expected_turn||
+          burstWindows.get(key)?.status==="awaiting_defender"||
           !clash||clash.attacker_id!==actor||!attack||attack.actor_id!==actor||
           !attacker||!defender||attack.attack_instance_id!==clash.attack_card||
           attacker.card_instance_id!==clash.attacker_card||
@@ -1531,6 +1532,12 @@ test("1x1 Burst defender may pass during attacker's turn but cannot resolve dama
   assert.equal(host("lobby-burst-open").hidden,false);
   await host("lobby-burst-open").onclick();
   assert.equal(burstWindows.get(id+"/3").status,"awaiting_defender");
+  await host("lobby-hand-spend").onclick();
+  assert.equal(host("lobby-individual-damage-calculate").hidden,true,
+    "Defender's pending response blocks damage preview");
+  assert.ok((await makeClient("burst-host").rpc("chaotic_calculate_individual_preview",{
+    p_lobby_id:id,p_expected_turn:3})).error,
+    "Direct RPC cannot bypass a pending defender response");
   assert.equal(host("lobby-burst-open").hidden,true);
   assert.ok((await makeClient("burst-host").rpc("chaotic_pass_preview_burst",{
     p_lobby_id:id,p_expected_turn:3})).error,"Attacker cannot pass as defender");
@@ -1553,7 +1560,7 @@ test("1x1 Burst defender may pass during attacker's turn but cannot resolve dama
     p_lobby_id:id,p_expected_turn:3})).error,"Pass is one-time");
   await host("lobby-turn-refresh").onclick();
   assert.match(host("lobby-burst-history").textContent,/PASSAR/);
-  await host("lobby-hand-spend").onclick();
+  assert.equal(host("lobby-individual-damage-calculate").hidden,false);
   await host("lobby-individual-damage-calculate").onclick();
   await host("lobby-resolution-audit-capture").onclick();
   const audit=resolutionAudits.get(id+"/3");
