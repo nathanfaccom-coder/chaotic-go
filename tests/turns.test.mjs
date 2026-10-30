@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map(),burstOrderPlans=new Map(),burstPriority=new Map(),burstPriorityPasses=new Map(),burstMugicIntents=new Map(),burstMugicCounterplans=new Map(),burstEquipmentResponses=new Map(),burstEquipmentEffects=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map(),burstOrderPlans=new Map(),burstPriority=new Map(),burstPriorityPasses=new Map(),burstMugicIntents=new Map(),burstMugicCounterplans=new Map(),mugicTrainingWallets=new Map(),mugicTrainingSettlements=new Map(),burstEquipmentResponses=new Map(),burstEquipmentEffects=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -85,7 +85,7 @@ function makeClient(actor) {
           !unit||unit.position!==6||loadouts.has(key))
           return {data:null,error:{message:"Ficha não autorizada"}};
         const snapshot={lobby_id:room.id,actor_id:actor,position:6,
-          card_instance_id:unit.card_id,creature_name:"Criatura original",tribe:"Azul",
+          card_instance_id:unit.card_id,creature_name:"Alakazaz",tribe:"Azul",
           stats:{c:65,p:55,s:70,v:45,e:65},
           equipment_instance_id:"201",equipment_name:"Equipamento original"};
         loadouts.set(key,snapshot);
@@ -426,6 +426,48 @@ function makeClient(actor) {
           return {data:null,error:{message:"Intenção não cancelável"}};
         entry.intent_status="cancelled";
         return {data:{...entry},error:null};
+      }
+      if(name==="chaotic_prepare_preview_mugic_token_wallet"){
+        const m=matches.get(room.id),unit=loadouts.get(room.id+"/"+actor);
+        if(!m||m.status!=="active"||room.status!=="ready"||room.mode!=="1x1"
+           ||m.turn_no!==args.p_expected_turn||![m.host_id,m.guest_id].includes(actor)
+           ||!unit||unit.creature_name!=="Alakazaz")
+          return {data:null,error:{message:"Missing authentic creature loadout"}};
+        const key=room.id+"/"+actor;
+        if(!mugicTrainingWallets.has(key)){
+          mugicTrainingWallets.set(key,{
+            lobby_id:room.id,actor_id:actor,creature_instance_id:unit.card_instance_id,
+            creature_name:"Alakazaz",starting_tokens:5,remaining_tokens:5,
+            official_match_modified:false
+          });
+        }
+        return {data:{...mugicTrainingWallets.get(key)},error:null};
+      }
+      if(name==="chaotic_simulate_preview_mugic_counter_cost"){
+        const m=matches.get(room.id),key=room.id+"/"+args.p_expected_turn;
+        const w=burstWindows.get(key),priority=burstPriority.get(key);
+        const plan=burstMugicCounterplans.get(key);
+        const c=burstMugicIntents.get(key+"/"+actor),d=burstMugicIntents.get(key+"/"+w?.defender_id);
+        const wa=mugicTrainingWallets.get(room.id+"/"+actor),wd=mugicTrainingWallets.get(room.id+"/"+w?.defender_id);
+        if(!m||m.status!=="active"||m.current_player!==actor||m.turn_no!==args.p_expected_turn
+           ||room.mode!=="1x1"||room.status!=="ready"
+           ||w?.attacker_id!==actor||priority?.priority_status!=="closed_preview"
+           ||!plan||plan.attacker_id!==actor||plan.defender_id!==w.defender_id
+           ||c?.catalog_mugic_id!=="301"||d?.catalog_mugic_id!=="302"
+           ||c.intent_status!=="queued_unexecuted"||d.intent_status!=="queued_unexecuted"
+           ||c.card_instance_id!==undefined&&c.card_instance_id==="mismatched"
+           ||!wa||!wd||wa.remaining_tokens<1||wd.remaining_tokens<2
+           ||mugicTrainingSettlements.has(key)||burstOrderPlans.has(key)||individualDamage.has(key))
+          return {data:null,error:{message:"Insufficient training tokens or already settled"}};
+        const record={lobby_id:room.id,turn_no:m.turn_no,attacker_id:actor,defender_id:w.defender_id,
+          attacker_tokens_before:wa.remaining_tokens,attacker_tokens_after:wa.remaining_tokens-1,
+          defender_tokens_before:wd.remaining_tokens,defender_tokens_after:wd.remaining_tokens-2,
+          outcome:"creation_negated_training_only",tokens_verified:true,training_tokens_debited:true,
+          official_match_modified:false,original_card_consumed:false,actual_mugic_effect_executed:false};
+        wa.remaining_tokens-=1;wd.remaining_tokens-=2;
+        c.intent_status="resolved_training";d.intent_status="resolved_training";
+        mugicTrainingSettlements.set(key,record);
+        return {data:{...record},error:null};
       }
       if(name==="chaotic_prepare_preview_mugic_counterplan"){
         const m=matches.get(room.id),key=room.id+"/"+args.p_expected_turn;
@@ -814,7 +856,7 @@ function makeClient(actor) {
       throw Error(name);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits","chaotic_preview_burst_windows","chaotic_preview_burst_priority","chaotic_preview_burst_priority_passes","chaotic_preview_burst_mugic_intents","chaotic_preview_burst_mugic_counterplans","chaotic_preview_burst_order_plans","chaotic_preview_burst_equipment_responses","chaotic_preview_burst_equipment_effects"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits","chaotic_preview_burst_windows","chaotic_preview_burst_priority","chaotic_preview_burst_priority_passes","chaotic_preview_burst_mugic_intents","chaotic_preview_burst_mugic_counterplans","chaotic_preview_mugic_token_wallets","chaotic_preview_mugic_token_settlements","chaotic_preview_burst_order_plans","chaotic_preview_burst_equipment_responses","chaotic_preview_burst_equipment_effects"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
         then(resolve,reject) {
           const room=rooms.get(this.id);
@@ -874,6 +916,10 @@ function makeClient(actor) {
                                                 x.lobby_id===this.id&&x.actor_id===actor)
                                               :table==="chaotic_preview_burst_mugic_counterplans"
                                               ?[...burstMugicCounterplans.values()].filter(x=>x.lobby_id===this.id)
+                                              :table==="chaotic_preview_mugic_token_wallets"
+                                              ?[...mugicTrainingWallets.values()].filter(x=>x.lobby_id===this.id&&x.actor_id===actor)
+                                              :table==="chaotic_preview_mugic_token_settlements"
+                                              ?[...mugicTrainingSettlements.values()].filter(x=>x.lobby_id===this.id)
                                               :table==="chaotic_preview_burst_order_plans"
                                               ?[...burstOrderPlans.values()].filter(x=>x.lobby_id===this.id)
                                               :table==="chaotic_preview_burst_equipment_responses"
@@ -1883,11 +1929,40 @@ test("Burst 1x1 inspects Creation countered by Rejection in LIFO without consump
     p_lobby_id:id,p_expected_turn:3})).error,"Cannot repeat the review");
   await guest("lobby-turn-refresh").onclick();
   assert.match(guest("lobby-burst-mugic-counter-history").textContent,/Rejeição/);
-  await host("lobby-burst-mugic-cancel").onclick();
-  await guest("lobby-burst-mugic-cancel").onclick();
+  assert.equal(host("lobby-mugic-token-settle").hidden,false);
+  assert.ok((await makeClient("mugic-lifo-host").rpc("chaotic_simulate_preview_mugic_counter_cost",{
+    p_lobby_id:id,p_expected_turn:3})).error,"Both players must seed wallets before debiting");
+  await host("lobby-mugic-token-wallet-prepare").onclick();
+  await guest("lobby-mugic-token-wallet-prepare").onclick();
+  assert.equal(mugicTrainingWallets.get(id+"/mugic-lifo-host").starting_tokens,5);
+  assert.equal(mugicTrainingWallets.get(id+"/mugic-lifo-guest").starting_tokens,5);
+  const beforeInsufficient=mugicTrainingWallets.get(id+"/mugic-lifo-guest");
+  beforeInsufficient.remaining_tokens=1;
+  assert.ok((await makeClient("mugic-lifo-host").rpc("chaotic_simulate_preview_mugic_counter_cost",{
+    p_lobby_id:id,p_expected_turn:3})).error,"If defender lacks 2 tokens, neither user pays");
+  assert.equal(mugicTrainingWallets.get(id+"/mugic-lifo-host").remaining_tokens,5);
+  assert.equal(mugicTrainingSettlements.has(id+"/3"),false);
+  beforeInsufficient.remaining_tokens=5;
+  await host("lobby-turn-refresh").onclick();
+  await host("lobby-mugic-token-settle").onclick();
+  const paid=mugicTrainingSettlements.get(id+"/3");
+  assert.equal(paid.attacker_tokens_before,5);
+  assert.equal(paid.attacker_tokens_after,4);
+  assert.equal(paid.defender_tokens_before,5);
+  assert.equal(paid.defender_tokens_after,3);
+  assert.equal(paid.original_card_consumed,false);
+  assert.equal(paid.actual_mugic_effect_executed,false);
+  assert.equal(paid.official_match_modified,false);
+  assert.equal(burstMugicIntents.get(id+"/3/mugic-lifo-host").intent_status,"resolved_training");
+  assert.equal(burstMugicIntents.get(id+"/3/mugic-lifo-guest").intent_status,"resolved_training");
+  assert.ok((await makeClient("mugic-lifo-host").rpc("chaotic_simulate_preview_mugic_counter_cost",{
+    p_lobby_id:id,p_expected_turn:3})).error,"Duplicate request must never debit twice");
+  assert.ok((await makeClient("mugic-lifo-guest").rpc("chaotic_simulate_preview_mugic_counter_cost",{
+    p_lobby_id:id,p_expected_turn:3})).error,"Defender cannot forge attacker resource debit");
+  assert.equal(mugicTrainingWallets.get(id+"/mugic-lifo-host").remaining_tokens,4);
   await host("lobby-turn-refresh").onclick();
   assert.equal(host("lobby-burst-order-prepare").hidden,false,
-    "Both Mugic intentions cancelled before original experimental attack");
+    "Completed training-only Mugic cost can unlock existing attack inspection");
   await host("lobby-burst-order-prepare").onclick();
   assert.equal(burstOrderPlans.get(id+"/3").burst_stack_executed,false);
   assert.equal(matches.get(id).current_player,"mugic-lifo-host");
