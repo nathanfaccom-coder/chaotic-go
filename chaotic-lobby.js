@@ -145,6 +145,7 @@
       &&x.attack_instance_id===clashToCalculate?.attack_card);
     $("lobby-individual-damage-calculate").hidden=!(room.mode==="1x1"
       &&myTurn&&clashToCalculate&&attackResolved&&bothLoadouts&&confirmedSpend
+      &&activeBurst?.status!=="awaiting_defender"
       &&!individualDamage.some(x=>x.turn_no===match.turn_no));
     const dmg=individualDamage.find(x=>x.turn_no===match.turn_no
       &&x.attacker_id===userId);
