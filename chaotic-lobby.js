@@ -175,7 +175,7 @@
     $("lobby-individual-damage-calculate").hidden=!(room.mode==="1x1"
       &&myTurn&&clashToCalculate&&attackResolved&&bothLoadouts&&confirmedSpend
       &&activeBurst?.status!=="awaiting_defender"
-      &&!pendingEquipment
+      &&(!pendingEquipment||resolvedEquipment)
       &&!individualDamage.some(x=>x.turn_no===match.turn_no));
     const dmg=individualDamage.find(x=>x.turn_no===match.turn_no
       &&x.attacker_id===userId);
@@ -1154,7 +1154,7 @@
       '</section>',
       '<section id="lobby-individual-preview" class="lobby-combat">',
       '<strong>🧬 PRÉVIA COM DNA INDIVIDUAL — 1x1</strong>',
-      '<p>Simula dano com DNA, equipamento revelado e efeitos dos três Locais originais após validar o gasto SOMENTE no servidor de teste. Bônus de Kiru é somado à energia indicada. HP oficial, economia e recompensas não mudam.</p>',
+      '<p>Simula dano com DNA, equipamentos e Locais após validar pagamento SOMENTE no treino. Se o equipamento declarado no Burst já teve seu efeito experimental aplicado, a prévia usa o HP/atributo experimental atualizado; antes disso o dano fica bloqueado. Dano final, HP oficial, cartas e recompensas não mudam.</p>',
       '<button id="lobby-individual-damage-calculate" type="button" hidden>Simular dano com DNA no servidor</button>',
       '<p id="lobby-individual-damage-history" class="lobby-events" aria-live="polite">Nenhuma simulação individual.</p>',
       '</section>',
