@@ -1,6 +1,6 @@
 # Chaotic GO — Status de conclusão e pendências (30/10/2026)
 
-Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 65% (incerteza aproximada ±10 pontos percentuais).**
+Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 66% (incerteza aproximada ±10 pontos percentuais).**
 
 ## Critérios ponderados
 
@@ -8,13 +8,13 @@ Este documento acompanha **prontidão para lançar o jogo completo com Supabase*
 |---|---:|---:|---:|
 | Motor legado, scanner, cartas, imagens, áudios e interfaces preservados | 25% | 90% | 22,5 p.p. |
 | Contas, migração de coleção, Decks e persistência privada Supabase | 15% | 75% | 11,25 p.p. |
-| Salas privadas, sincronização e protocolo de turnos | 10% | 70% | 7 p.p. |
-| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 68% | 17 p.p. |
+| Salas privadas, sincronização e protocolo de turnos | 10% | 75% | 7,5 p.p. |
+| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 70% | 17,5 p.p. |
 | Economia, amigos, trocas, recompensas e progressão integradas | 15% | 25% | 3,75 p.p. |
 | Testes ponta a ponta, dois dispositivos, mobile, segurança e publicação | 10% | 35% | 3,5 p.p. |
-| **Estimativa total** | **100%** | | **65 p.p.** |
+| **Estimativa total** | **100%** | | **66 p.p.** |
 
-Números estimados para planejamento, não verificação automática de 65% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
+Números estimados para planejamento, não verificação automática de 66% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
 
 ## Entregas já implementadas ou disponíveis
 - Jogo completo e recursos originais publicados no site; backup de branches anteriores.
@@ -199,3 +199,14 @@ Números estimados para planejamento, não verificação automática de 65% das 
 - A verificação SQL transacional de funções, RLS, proteção da ordem e ausência de dano oficial foi aprovada em `supabase/tests/chaotic-preview-burst-successive-priority.test.sql`. A suíte Node é executada pelo GitHub Actions e deve ser conferida separadamente.
 - **Escopo ainda limitado:** apenas o primeiro ciclo de passes. Não aceita uma terceira carta, contra-Mugic, habilidade de criatura ou múltiplos efeitos novos no Burst. O HP da partida real, vitórias, coleção, Decks, dinheiro e XP continuam intactos.
 - **Conclusão geral estimada: 65% (±10 p.p.)**, +1 p.p. pela primeira troca de prioridade autenticada entre dois participantes. Necessário testar com duas contas reais em celulares distintos antes de declarar funcionamento completo.
+
+
+## Versão 0.1.28 — declaração privada de Mugic em Burst, sem conjuração (30/10/2026)
+- **Nova etapa limitada ao 1x1 experimental:** durante a própria prioridade, o jogador pode registrar a intenção de usar **Canção da Criação (301)** ou **Canção da Rejeição (302)**, desde que o servidor encontre a instância da carta tanto nos slots `mugics` de seu Deck 1x1 selecionado quanto no álbum privado. Não há entrada livre para inventar uma terceira magia.
+- A RPC `chaotic_queue_preview_burst_mugic` verifica conta autenticada, turno, sala pronta, janela Burst respondida, prioridade da vez, criatura/Deck congelados, ID da instância, tipo `Magia` e nome original. Essa validação de correspondência ainda **não prova emissão legítima**: dados de álbum continuam editáveis pelo usuário; integridade de posse precisa ser resolvida para o combate oficial.
+- Registro em `chaotic_preview_burst_mugic_intents` com RLS: **cada jogador vê apenas sua própria intenção**. A única escrita é por funções protegidas do Supabase; não consome Mugic, fichas, HP ou recompensas, nem resolve efeitos. Uma intenção por jogador e turno, com rejeição de repetição.
+- A RPC `chaotic_cancel_preview_burst_mugic` permite cancelar uma intenção pendente durante o mesmo turno, preservando histórico. É necessário cancelar para continuar a inspeção normal: os RPCs de **preparar ordem, calcular dano individual e passar turno** rejeitam uma Mugic não resolvida de qualquer lado.
+- O DROME ganhou botões de declaração das duas Mugics e cancelamento, histórico pessoal privado e escuta Realtime; nenhum dado da Mugic do outro participante é mostrado antes de uma futura execução oficial.
+- Testes SQL transacionais de RLS, permissões, integridade do Deck e bloqueios aprovados: `supabase/tests/chaotic-preview-burst-mugic-intents.test.sql`. Teste simulado de interface incluindo declaração/cancelamento integrado à suíte de 41 testes Node.
+- **Ainda pendente:** execução real de Canção da Criação/Rejeição, consumo autoritativo de fichas, alvo, contraposição, cadeia LIFO completa, habilidades, HP oficial, derrota, vitória e teste real com duas contas e celulares. A prévia só avança a preparação segura.
+- **Conclusão geral estimada: 66% (±10 p.p.)**, +1 ponto de estimativa pela integração privada da declaração, do estado no servidor e do cancelamento, **não pela conclusão das regras de Mugic**.
