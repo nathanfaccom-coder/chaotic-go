@@ -1,6 +1,6 @@
 # Chaotic GO — Status de conclusão e pendências (30/10/2026)
 
-Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 55% (incerteza aproximada ±10 pontos percentuais).**
+Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 56% (incerteza aproximada ±10 pontos percentuais).**
 
 ## Critérios ponderados
 
@@ -9,12 +9,12 @@ Este documento acompanha **prontidão para lançar o jogo completo com Supabase*
 | Motor legado, scanner, cartas, imagens, áudios e interfaces preservados | 25% | 90% | 22,5 p.p. |
 | Contas, migração de coleção, Decks e persistência privada Supabase | 15% | 75% | 11,25 p.p. |
 | Salas privadas, sincronização e protocolo de turnos | 10% | 70% | 7 p.p. |
-| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 28% | 7 p.p. |
+| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 32% | 8 p.p. |
 | Economia, amigos, trocas, recompensas e progressão integradas | 15% | 25% | 3,75 p.p. |
 | Testes ponta a ponta, dois dispositivos, mobile, segurança e publicação | 10% | 35% | 3,5 p.p. |
-| **Estimativa total** | **100%** | | **55 p.p.** |
+| **Estimativa total** | **100%** | | **56 p.p.** |
 
-Números estimados para planejamento, não verificação automática de 55% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
+Números estimados para planejamento, não verificação automática de 56% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
 
 ## Entregas já implementadas ou disponíveis
 - Jogo completo e recursos originais publicados no site; backup de branches anteriores.
@@ -73,3 +73,13 @@ Números estimados para planejamento, não verificação automática de 55% das 
 - A interface mostra a comparação individual em ambos os aparelhos com a ressalva de que o resultado é diagnóstico. Testes SQL validam atacante mais rápido, defensor mais rápido, empate, dados inválidos, permissões e ausência de escrita direta.
 - **Próximo bloqueio:** sincronizar Local/arena e início do combate com turnos, depois implementar efeitos efetivos da Armadilha de Vinha (107), Mão Eletrônica (111) e Mão Mão (112) **somente após confirmar dano final positivo no servidor**. Esses bloqueios não devem ser acionados manualmente pelo jogador nem sobre uma prévia de dano incompleta.
 - Estimativa geral **mantida em 55%** até iniciativa e efeitos virarem parte do motor de combate real, e não somente prévias de diagnóstico.
+
+## Versão 0.1.15 — compatibilidade dos Decks salvos e Local de iniciativa (30/10/2026)
+
+- **Correção de compatibilidade real:** `chaotic_declare_combat_action` agora procura `decks/<modo>_slot_<n>` (chave escrita por `script.js` ao salvar um Deck), antes da forma antiga `decks/<modo>_<n>`. Essa divergência poderia impedir o servidor de reconhecer um Deck legítimo e interromper o fluxo antes da batalha. Nenhum Deck ou carta existente foi apagado.
+- **Sorteio de Local em servidor (somente teste 1x1):** nova tabela `chaotic_preview_room_locations` e RPC `chaotic_capture_preview_room_location`, com RLS e proteção contra manipulação direta. Requer sala ativa, confronto declarado, fichas individuais dos dois lados e uma carta de Local pertencente ao álbum/Deck selecionado do atacante. O Local é sorteado uma vez por sala e não pode ser alterado após a primeira iniciativa.
+- **Atributos fiéis ao motor existente:** `Cidade de Kiru` (501) usa Sabedoria (`s`), `O Túnel da Tempestade` (502) usa Poder (`p`) e `A Barragem de Magma` (503) usa Velocidade (`v`, fallback de `Ar` no código legado). Iniciativas posteriores podem utilizar a seleção registrada; continuam sem alterar turnos nem pontos oficiais.
+- **Interface:** botão "Sortear Local do meu Deck no servidor", nome e atributo do Local, comparação individual de iniciativa visível para ambos os participantes. RLS impede consulta das salas por usuários externos.
+- **Verificação SQL:** `supabase/tests/chaotic-preview-location-initiative.test.sql` cobre os três Locais, desempate, atributos faltantes, acesso e permissão de escrita. Testes JavaScript têm caso de sorteio, sincronização com segundo jogador e proteção contra sorteio repetido; GitHub Actions acompanha mudanças de versão.
+- **Próximos bloqueios:** a validade do álbum/carta ainda depende de registros graváveis pelo usuário; locais reais também modificam elementos e dano, iniciativa real precisa alterar turnos/pontos com segurança, e habilidades, HP e vitória ainda não foram habilitados. O sorteio experimental escolhe o Deck do atacante e não reivindica reproduzir todas as regras de seleção de Local do modo oficial.
+- **Estimativa geral: 56% (±10 p.p.)**. Ponto adicional conservador por resolver uma incompatibilidade de Deck em produção e conectar Local ao cálculo individual, sem declarar PvP pronto.
