@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [], mugicTrainingWallets = [], mugicTrainingSettlements = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -151,6 +151,16 @@
     $("lobby-burst-mugic-create").hidden=!canDeclareMugic;
     $("lobby-burst-mugic-reject").hidden=!canDeclareMugic;
     $("lobby-burst-mugic-cancel").hidden=!ownPendingMugic;
+    const myTrainingWallet=mugicTrainingWallets.find(x=>x.actor_id===userId);
+    const settled=mugicTrainingSettlements.some(x=>x.turn_no===match.turn_no);
+    $("lobby-mugic-token-wallet-prepare").hidden=!(room.mode==="1x1"
+      &&match.status==="active"&&loadouts.some(x=>x.actor_id===userId)
+      &&!myTrainingWallet);
+    $("lobby-mugic-token-settle").hidden=!(room.mode==="1x1"
+      &&myTurn&&priorityClosed&&ownPendingMugic
+      &&ownMugic.catalog_mugic_id==="301"
+      &&burstMugicCounterplans.some(x=>x.turn_no===match.turn_no)
+      &&!settled);
     $("lobby-burst-mugic-counterplan").hidden=!(
       myTurn&&priorityClosed&&ownPendingMugic
       &&ownMugic.catalog_mugic_id==="301"
@@ -436,6 +446,35 @@
     updateMatchUI();
     updateClashUI();
   }
+  async function refreshMugicTrainingTokens(){
+    const panel=$("lobby-mugic-tokens-panel");
+    if(!panel)return;
+    panel.hidden=!room||!match||room.mode!=="1x1";
+    if(panel.hidden){mugicTrainingWallets=[];mugicTrainingSettlements=[];return;}
+    const wallet=await api.from("chaotic_preview_mugic_token_wallets")
+      .select("actor_id,creature_name,starting_tokens,remaining_tokens")
+      .eq("lobby_id",room.id).limit(10);
+    if(wallet.error)throw new Error(wallet.error.message);
+    mugicTrainingWallets=wallet.data||[];
+    const settlements=await api.from("chaotic_preview_mugic_token_settlements")
+      .select("turn_no,attacker_id,defender_id,attacker_tokens_before,attacker_tokens_after,defender_tokens_before,defender_tokens_after,outcome,tokens_verified,training_tokens_debited,official_match_modified")
+      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(20);
+    if(settlements.error)throw new Error(settlements.error.message);
+    mugicTrainingSettlements=settlements.data||[];
+    const me=mugicTrainingWallets.find(x=>x.actor_id===userId);
+    $("lobby-mugic-token-wallet-history").textContent=me
+      ?me.creature_name+": "+me.remaining_tokens+"/"+me.starting_tokens+
+        " fichas restantes no TREINAMENTO (não altera fichas oficiais)."
+      :"Você ainda não preparou a carteira de fichas de treino; exige criatura 1x1 declarada.";
+    $("lobby-mugic-token-settlement-history").textContent=mugicTrainingSettlements.length
+      ?mugicTrainingSettlements.slice().reverse().map(x=>
+        "T"+x.turn_no+" · Criação: "+x.attacker_tokens_before+" → "+
+        x.attacker_tokens_after+" (−1); Rejeição: "+x.defender_tokens_before+
+        " → "+x.defender_tokens_after+" (−2). Negação simulada; fichas da "+
+        "partida real e cartas não alteradas.").join("\n")
+      :"Nenhum custo experimental de Mugic registrado.";
+    updateClashUI();
+  }
   async function refreshBurstMugicCounterplans(){
     const panel=$("lobby-burst-mugic-counter-preview");
     if(!panel)return;
@@ -475,7 +514,9 @@
         "T"+x.turn_no+" · "+x.mugic_name+" · "+
         (x.intent_status==="cancelled"
           ?"intenção cancelada: nenhuma carta consumida."
-          :"INTENÇÃO PENDENTE: cancele para permitir inspeção; efeito não executado.")+
+          :x.intent_status==="resolved_training"
+            ?"fichas de TREINAMENTO debitadas; sem efeito de Mugic real."
+            :"INTENÇÃO PENDENTE: cancele ou valide o custo experimental; efeito não executado.")+
         " Nenhuma ficha, carta ou HP oficial alterado.").join("\n")
       :"Nenhuma intenção Mugic registrada para sua conta.";
     updateClashUI();
@@ -980,6 +1021,7 @@
     await refreshBurstPriority();
     await refreshBurstMugicIntents();
     await refreshBurstMugicCounterplans();
+    await refreshMugicTrainingTokens();
     await refreshBurstEquipmentResponses();
     await refreshBurstOrderPlans();
     await refreshBurstEquipmentEffects();
@@ -1100,6 +1142,12 @@
           event:"*",schema:"public",table:"chaotic_preview_burst_mugic_counterplans",filter:"lobby_id=eq."+lobbyId
         },sync)
         .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_mugic_token_wallets",filter:"lobby_id=eq."+lobbyId
+        },sync)
+        .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_mugic_token_settlements",filter:"lobby_id=eq."+lobbyId
+        },sync)
+        .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_burst_order_plans",filter:"lobby_id=eq."+lobbyId
         },sync)
         .on("postgres_changes",{
@@ -1120,7 +1168,7 @@
     }, 6000);
   }
   function show() {
-    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = []; burstEquipmentResponses = []; burstEquipmentEffects = []; burstPriority = []; burstPriorityPasses = []; burstMugicIntents = []; burstMugicCounterplans = [];
+    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = []; burstEquipmentResponses = []; burstEquipmentEffects = []; burstPriority = []; burstPriorityPasses = []; burstMugicIntents = []; burstMugicCounterplans = []; mugicTrainingWallets = []; mugicTrainingSettlements = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -1268,9 +1316,17 @@
       '<p id="lobby-burst-mugic-history" class="lobby-events" aria-live="polite">Nenhuma intenção Mugic registrada.</p>',
       '<section id="lobby-burst-mugic-counter-preview" class="lobby-combat" hidden>',
       '<strong>🔁 Canção da Rejeição × Canção da Criação — revisão LIFO</strong>',
-      '<p>Após o atacante declarar Criação e o defensor declarar Rejeição, e ambos passarem prioridade, o atacante pode conferir uma ordem hipotética de contraposição. É necessário cancelar ambas as intenções para continuar o turno de treino. Custos/fichas não são pagos.</p>',
+      '<p>Após Criação e Rejeição serem declaradas, ambos passam a prioridade para conferir uma contraposição hipotética. Para continuar, cancele as duas intenções ou valide o desconto APENAS no saldo de treinamento.</p>',
       '<button id="lobby-burst-mugic-counterplan" type="button" hidden>Simular contraposição Mugic (sem aplicar)</button>',
       '<p id="lobby-burst-mugic-counter-history" class="lobby-events" aria-live="polite">Nenhum contra-plano preparado.</p>',
+      '<section id="lobby-mugic-tokens-panel" class="lobby-combat" hidden>',
+      '<strong>🎟️ Fichas de Mugic — somente treinamento (v0.1.30)</strong>',
+      '<p>Cada participante prepara suas fichas a partir da criatura original no Deck 1x1. Após Criação/Rejeição e o contra-plano, somente o atacante pode simular o pagamento. São descontados 1 e 2 pontos, respectivamente, sem tocar em fichas oficiais, cartas ou HP.</p>',
+      '<button id="lobby-mugic-token-wallet-prepare" type="button" hidden>Preparar minhas fichas de treinamento</button>',
+      '<button id="lobby-mugic-token-settle" type="button" hidden>Simular custos: Criação 1 / Rejeição 2</button>',
+      '<p id="lobby-mugic-token-wallet-history" class="lobby-events" aria-live="polite">Sem carteira de treino.</p>',
+      '<p id="lobby-mugic-token-settlement-history" class="lobby-events" aria-live="polite">Nenhum desconto de treino registrado.</p>',
+      '</section>',
       '</section>',
       '</section>',
       '</section>',
@@ -1558,6 +1614,27 @@
           "Ainda não foi conjurada, não gasta fichas e bloqueia dano até cancelar.");
       });
     }
+    $("lobby-mugic-token-wallet-prepare").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="1x1")return;
+      const state=await rpc("chaotic_prepare_preview_mugic_token_wallet",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refreshMugicTrainingTokens();
+      note(state.creature_name+": fichas no treinamento "+
+        state.remaining_tokens+"/"+state.starting_tokens+". Sem alterar o jogo oficial.");
+    });
+    $("lobby-mugic-token-settle").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="1x1"||match.current_player!==userId)return;
+      const result=await rpc("chaotic_simulate_preview_mugic_counter_cost",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refreshBurstMugicIntents();
+      await refreshMugicTrainingTokens();
+      note("Pagamento apenas no treino: Criação "+
+        result.attacker_tokens_before+"→"+result.attacker_tokens_after+
+        "; Rejeição "+result.defender_tokens_before+"→"+
+        result.defender_tokens_after+". Nenhuma carta ou ficha oficial consumida.");
+    });
     $("lobby-burst-mugic-counterplan").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="1x1"||match.current_player!==userId)return;
       const result=await rpc("chaotic_prepare_preview_mugic_counterplan",{
