@@ -12,7 +12,7 @@
 
 <script>
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js');
+    navigator.serviceWorker.register('sw.js?v=20261030.3');
   }
 </script>
 </head>
@@ -22,6 +22,10 @@
         <img src="logo.png" alt="Logo do Scanner" class="logo-scanner">
 
         <div class="tela-digital" id="tela-jogo">
+<div id="cloud-alert" class="cloud-alert" role="status" aria-live="polite" hidden>
+                <span id="cloud-alert-text"></span>
+                <button id="btn-alert-logout" type="button" hidden>Sair e tentar novamente</button>
+            </div>
             
             <div id="tela-menu">
                 <div class="menu-grade">
@@ -121,6 +125,12 @@
                 </div>
 
                 <div id="estatisticas-perfil" style="width: 100%; display: flex; justify-content: center;"></div>
+<section class="conta-perfil" aria-label="Conta e sincronização">
+                    <h4>CONTA E SINCRONIZAÇÃO</h4>
+                    <p id="cloud-status" role="status" aria-live="polite">Verificando conexão...</p>
+                    <button type="button" id="btn-importar-legado" class="botao-conta" hidden>Importar dados antigos deste aparelho</button>
+                    <button type="button" id="btn-sair-conta" class="botao-conta botao-conta-sair">Sair da conta</button>
+                </section>
                 <button class="btn-voltar-pequeno" id="btn-voltar-perfil" style="margin-top: 15px; margin-bottom: 15px;">Voltar</button>
 
                 <div id="modal-editar-perfil" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 100; justify-content: center; align-items: center; flex-direction: column; padding: 20px; box-sizing: border-box; border-radius: 10px;">
@@ -442,11 +452,14 @@
         
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.0/dist/umd/supabase.js"></script>
+    <script src="supabase-config.js"></script>
+    <script src="auth-client.js"></script>
     <script src="cartas.js"></script>
     <script src="efeitos.js"></script> 
     <script>window.chaoticAPI = {};</script>
     <script src="entrada-drome.js" defer></script>
-    <script type="module" src="script.js"></script>
-    <script type="module" src="batalha.js"></script>
+    <script type="module" src="full-game-bootstrap.js"></script>
+    
 </body>
 </html>
