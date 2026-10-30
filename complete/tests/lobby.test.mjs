@@ -35,10 +35,11 @@ function makeClient(userId) {
       throw Error("Unexpected RPC "+method);
     },
     from(table) {
-      assert.equal(table,"chaotic_lobbies");
+      assert.ok(["chaotic_lobbies","chaotic_match_turns"].includes(table));
       return {select(){return this;},eq(_field,id){this.id=id;return this;},
         async maybeSingle() {
           const room=rooms.get(this.id);
+          if(table==="chaotic_match_turns")return {data:null,error:null};
           return {data:room&&(room.host_id===userId||room.guest_id===userId)?{...room}:null,error:null};
         }};
     }

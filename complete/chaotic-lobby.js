@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, busy = false;
+  let room = null, poll = null, busy = false, match = null;
   const $ = id => document.getElementById(id);
   function halt() { if (poll !== null) { clearInterval(poll); poll = null; } }
   function note(message, error = false) {
@@ -28,6 +28,33 @@
     catch (error) { note(error.message || "Falha ao conectar com a sala.", true); }
     finally { busy = false; buttons.forEach(btn => { if (btn.isConnected) btn.disabled = false; }); }
   }
+  function updateMatchUI() {
+    const panel = $("lobby-turns");
+    if (!panel) return;
+    panel.hidden = !room || (room.status !== "ready" && !match);
+    if (!room || panel.hidden) return;
+    const active = match?.status === "active" && room.status === "ready"
+      && new Date(room.expires_at).getTime() > Date.now();
+    $("lobby-turn-state").textContent = !match
+      ? "Dois jogadores conectados. O anfitrião pode começar o teste."
+      : match.status === "finished" ? "Teste de turnos encerrado."
+      : !active ? "Sala encerrada ou expirada. Nenhuma jogada permitida."
+      : (match.current_player === userId
+        ? "Sua vez de agir. Turno " + match.turn_no + "."
+        : "Aguardando a vez do outro jogador. Turno " + match.turn_no + ".");
+    $("lobby-turn-count").textContent = match ? String(match.turn_no) : "—";
+    $("lobby-turn-start").hidden = !!match || room.host_id !== userId || room.status !== "ready";
+    $("lobby-turn-pass").hidden = !active || match.current_player !== userId;
+    $("lobby-turn-stop").hidden = !active;
+  }
+  async function refreshMatch() {
+    if (!room) { match = null; updateMatchUI(); return; }
+    const {data,error} = await api.from("chaotic_match_turns")
+      .select("lobby_id,host_id,guest_id,status,current_player,turn_no,last_player,updated_at")
+      .eq("lobby_id",room.id).maybeSingle();
+    if (error) throw new Error(error.message);
+    match = data; updateMatchUI();
+  }
   function updateRoomUI() {
     if (!$("lobby-create")) return;
     const panel = $("lobby-current"), creation = $("lobby-create"), join = $("lobby-join");
@@ -41,6 +68,7 @@
       : new Date(room.expires_at).getTime() <= Date.now() ? "Sala expirada. Crie outra."
       : "Aguardando outro jogador entrar com o código...";
     $("lobby-close").textContent = room.host_id === userId ? "Encerrar sala" : "Sair da sala";
+    updateMatchUI();
     if (room.status === "cancelled" || new Date(room.expires_at).getTime() <= Date.now()) halt();
   }
   async function refreshRoom() {
@@ -51,6 +79,7 @@
     if (error) { note("Falha ao atualizar sala: " + error.message, true); return; }
     if (!data) { room = null; halt(); updateRoomUI(); note("Sala não encontrada."); return; }
     room = data; updateRoomUI();
+    await refreshMatch();
   }
   function watch() {
     halt();
@@ -60,7 +89,7 @@
     }, 6000);
   }
   function show() {
-    halt(); room = null;
+    halt(); room = null; match = null;
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -82,6 +111,16 @@
       '<div id="lobby-current" hidden><p>Modo: <strong id="lobby-mode"></strong></p>',
       '<p>Código: <strong id="lobby-room-code"></strong></p>',
       '<p id="lobby-status" role="status"></p>',
+      '<section id="lobby-turns" class="lobby-turns" hidden>',
+      '<strong>⚔️ SINCRONIZAÇÃO DE TURNOS — TESTE</strong>',
+      '<p>Não utiliza cartas nem decide vitórias.</p>',
+      '<p id="lobby-turn-state" role="status"></p>',
+      '<p>Turno: <b id="lobby-turn-count">—</b></p>',
+      '<button id="lobby-turn-start" type="button" hidden>Iniciar teste de turnos</button>',
+      '<button id="lobby-turn-pass" type="button" hidden>Passar meu turno</button>',
+      '<button id="lobby-turn-stop" class="lobby-danger" type="button" hidden>Encerrar teste</button>',
+      '<button id="lobby-turn-refresh" class="lobby-outline" type="button">Atualizar turnos</button>',
+      '</section>',
       '<button id="lobby-copy" type="button">Copiar convite</button>',
       '<button id="lobby-refresh" type="button">Atualizar status</button>',
       '<button id="lobby-close" class="lobby-danger" type="button">Encerrar sala</button></div>',
@@ -112,12 +151,32 @@
       note("Convite copiado!");
     });
     $("lobby-refresh").onclick = () => action(refreshRoom);
+    $("lobby-turn-refresh").onclick = () => action(refreshRoom);
+    $("lobby-turn-start").onclick = () => action(async () => {
+      if (!room || room.host_id !== userId || room.status !== "ready") return;
+      match = await rpc("chaotic_start_match", { p_lobby_id: room.id });
+      updateMatchUI();
+      note("Teste de turnos iniciado. O anfitrião começa.");
+    });
+    $("lobby-turn-pass").onclick = () => action(async () => {
+      if (!room || !match || match.status !== "active" || match.current_player !== userId) return;
+      // O servidor rejeita turnos antigos e ações de quem não está jogando.
+      match = await rpc("chaotic_pass_turn", { p_lobby_id: room.id, p_expected_turn: match.turn_no });
+      updateMatchUI();
+      note("Turno registrado. O outro jogador já pode agir.");
+    });
+    $("lobby-turn-stop").onclick = () => action(async () => {
+      if (!room || match?.status !== "active") return;
+      match = await rpc("chaotic_stop_match", { p_lobby_id: room.id });
+      updateMatchUI();
+      note("Teste encerrado sem alterar cartas nem estatísticas.");
+    });
     $("lobby-close").onclick = () => action(async () => {
       if (!room) return;
       const method = room.host_id === userId ? "chaotic_close_lobby" : "chaotic_leave_lobby";
       const success = await rpc(method, { p_id: room.id });
       if (!success) throw new Error("A sala já pode ter sido encerrada. Atualize.");
-      halt(); room = null; updateRoomUI(); note("Você saiu da sala.");
+      halt(); room = null; match = null; updateRoomUI(); note("Você saiu da sala.");
     });
     $("lobby-back").onclick = () => {
       halt();
@@ -127,6 +186,7 @@
       }
       if (typeof window.abrirEntradaDrome === "function") window.abrirEntradaDrome();
     };
+    updateMatchUI();
     note("Salas privadas expiram após duas horas.");
   }
   window.abrirSalaPrivadaDrome = show;
