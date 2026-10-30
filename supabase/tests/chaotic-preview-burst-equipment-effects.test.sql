@@ -22,6 +22,9 @@ begin
  exception when raise_exception then
   if sqlerrm='Unknown effect was allowed' then raise;end if;
  end;
+ if position('chaotic_preview_burst_equipment_responses old_q' in
+   pg_get_functiondef('public.chaotic_queue_preview_burst_equipment(uuid,integer)'::regprocedure))=0
+ then raise exception 'Cross-turn duplicate equipment declaration guard absent';end if;
  if not (select relrowsecurity from pg_class
    where oid='public.chaotic_preview_burst_equipment_effects'::regclass) then
    raise exception 'Equipment effects RLS off';end if;
