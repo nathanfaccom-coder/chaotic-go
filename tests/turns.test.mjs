@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -57,6 +57,35 @@ function makeClient(actor) {
         values.push(record);declarations.set(room.id,values);
         return {data:record,error:null};
       }
+      if(name==="chaotic_place_preview_creature"){
+        const match=matches.get(room.id),my=board.get(room.id+"/"+actor);
+        const creature=(declarations.get(room.id)||[]).find(x=>x.actor_id===actor&&x.kind==="creature");
+        if(!match||match.status!=="active"||match.current_player!==actor||
+           match.turn_no!==args.p_expected_turn||!creature||my)
+          return {data:null,error:{message:"Posicionamento inválido"}};
+        if((room.mode==="1x1"&&creature.card_slot!==6)||
+           (room.mode==="3x3"&&(creature.card_slot<4||creature.card_slot>6))||
+           (room.mode==="6x6"&&(creature.card_slot<1||creature.card_slot>6)))
+          return {data:null,error:{message:"Hexágono do modo inválido"}};
+        const tile={lobby_id:room.id,actor_id:actor,card_id:creature.card_id,
+          position:creature.card_slot,moved_turn:0};
+        board.set(room.id+"/"+actor,tile);return {data:{...tile},error:null};
+      }
+      if(name==="chaotic_move_preview_creature"){
+        const match=matches.get(room.id),tile=board.get(room.id+"/"+actor);
+        if(!match||match.status!=="active"||match.current_player!==actor||
+          match.turn_no!==args.p_expected_turn||!tile||tile.moved_turn===match.turn_no)
+          return {data:null,error:{message:"Movimento fora de turno"}};
+        const neighbors={1:[2,4],2:[1,3,4,5],3:[2,5],
+          4:[1,2,5,6],5:[2,3,4,6],6:[4,5]};
+        const dest=args.p_target_slot;
+        if(!(neighbors[tile.position]||[]).includes(dest)||
+           (room.mode==="1x1"&&dest!==6)||
+           (room.mode==="3x3"&&(dest<4||dest>6)))
+          return {data:null,error:{message:"Hexágonos não adjacentes"}};
+        tile.position=dest;tile.moved_turn=match.turn_no;
+        return {data:{...tile},error:null};
+      }
       if(name==="chaotic_stop_match"){
         const state=matches.get(room.id);
         if(!state||!["host","guest"].some(a=>a===actor)||state.status!=="active")
@@ -79,7 +108,11 @@ function makeClient(actor) {
       assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
         then(resolve,reject) {
-          return Promise.resolve({data:[],error:null}).then(resolve,reject);
+          const room=rooms.get(this.id);
+          const allowed=room&&(room.host_id===actor||room.guest_id===actor);
+          const result=table==="chaotic_preview_board"&&allowed
+            ?[...board.values()].filter(x=>x.lobby_id===this.id).map(x=>({...x})):[];
+          return Promise.resolve({data:result,error:null}).then(resolve,reject);
         },
         order(){return this;},
         limit(size) {
@@ -175,4 +208,47 @@ test("ordered turns, replay prevention, unauthorized opponent and stop",async()=
   const noExtra = await makeClient("host").rpc("chaotic_pass_turn",{p_lobby_id:room.id,p_expected_turn:3});
   assert.ok(noExtra.error,"Finished test must reject further turns");
   assert.equal(journals.get(room.id).length,4);
+});
+
+test("preview board: 3x3 placement, adjacent move and one move per turn",async()=>{
+  const host=browser("board-host"),guest=browser("board-guest");
+  host("lobby-select-mode").value="3x3";
+  await host("lobby-create-btn").onclick();
+  const code=host("lobby-room-code").textContent;
+  guest("lobby-input-code").value=code;
+  await guest("lobby-join-btn").onclick();
+  await host("lobby-refresh").onclick();
+  await host("lobby-turn-start").onclick();
+  host("lobby-combat-kind").value="creature";
+  host("lobby-combat-deck").value="1";
+  host("lobby-combat-slot").value="4";
+  await host("lobby-combat-submit").onclick();
+  assert.equal(host("lobby-hex-place").hidden,false);
+  await host("lobby-hex-place").onclick();
+  assert.match(host("lobby-hex-host-4").textContent,/c4 · #1/);
+  assert.equal(host("lobby-hex-move").hidden,false);
+  const id=[...rooms.values()].find(x=>x.code===code).id;
+  const illegal=await makeClient("board-host").rpc("chaotic_move_preview_creature",{
+    p_lobby_id:id,p_expected_turn:1,p_target_slot:1
+  });
+  assert.ok(illegal.error,"3x3 must reject hex c1");
+  host("lobby-hex-destination").value="5";
+  await host("lobby-hex-move").onclick();
+  assert.match(host("lobby-hex-host-5").textContent,/c5 · #1/);
+  const replay=await makeClient("board-host").rpc("chaotic_move_preview_creature",{
+    p_lobby_id:id,p_expected_turn:1,p_target_slot:6
+  });
+  assert.ok(replay.error,"Same player must not move twice in a turn");
+  await host("lobby-turn-pass").onclick();
+  const enemy=await makeClient("board-host").rpc("chaotic_move_preview_creature",{
+    p_lobby_id:id,p_expected_turn:2,p_target_slot:6
+  });
+  assert.ok(enemy.error,"Not the host's turn");
+  await guest("lobby-turn-refresh").onclick();
+  await guest("lobby-turn-pass").onclick();
+  await host("lobby-turn-refresh").onclick();
+  host("lobby-hex-destination").value="6";
+  await host("lobby-hex-move").onclick();
+  assert.match(host("lobby-hex-host-6").textContent,/c6 · #1/);
+  assert.equal(board.get(id+"/board-host").moved_turn,3);
 });
