@@ -145,7 +145,7 @@ test("private room subscribes to current DROME tables and cleans up after closin
   const own=realtimeChannels.findLast(c=>c.userId==="live-host");
   assert.ok(own?.active);
   assert.deepEqual(own.listeners.map(x=>x.filter.table),
-    ["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts"]);
+    ["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances"]);
   const code=host.elem("lobby-room-code").textContent;
   guest.browser.window.abrirSalaPrivadaDrome();
   guest.elem("lobby-input-code").value=code;
