@@ -23,3 +23,9 @@ Esta branch recupera a base de 89 arquivos do repositório principal de origem, 
 - Compatibilidade da leitura de coleção de decks: DROME consulta `decks` e recebe os registros `decks/<modo>_<slot>` agrupados.
 - Simulação do adaptador validou salvar, listar, atualizar, excluir, isolamento por usuário e bloqueio de caminhos multiplayer inseguros (7 verificações).
 - Assets JS da prévia com parâmetro de versão para evitar cache desatualizado.
+
+## Salas privadas online (fase 1)
+- Banco: `public.chaotic_lobbies` com RLS por participante e quatro RPCs autenticadas (`chaotic_create_lobby`, `chaotic_join_lobby`, `chaotic_close_lobby`, `chaotic_leave_lobby`). Escritas diretas na tabela são proibidas para o cliente.
+- Novo botão **Sala privada (teste)** no DROME permite criar e entrar usando código aleatório de 12 caracteres. Atualização do status por consulta periódica.
+- Nenhuma luta ou troca acontece nessa sala, e os fluxos legados de matchmaking permanecem bloqueados.
+- Para teste real da união de dois jogadores, são necessárias duas contas distintas. Ainda não certificado em celulares diferentes.
