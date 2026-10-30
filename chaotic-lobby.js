@@ -351,8 +351,7 @@
     const discardSelect=$("lobby-hand-discard-slot");
     const oldChoice=discardSelect.value;
     discardSelect.innerHTML=remaining.map(x=>
-      '<option value="'+x.card_slot+'">Slot '+x.card_slot+
-      ' · carta #'+x.attack_instance_id+'</option>').join("");
+      '<option value="'+x.card_slot+'">Slot '+x.card_slot+'</option>').join("");
     if(remaining.some(x=>String(x.card_slot)===String(oldChoice)))
       discardSelect.value=oldChoice;
     $("lobby-hand-discard").hidden=!(myTurn&&wallet?.last_draw_turn===match.turn_no
