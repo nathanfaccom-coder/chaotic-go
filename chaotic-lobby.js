@@ -138,6 +138,13 @@
       &&activeBurst?.status==="awaiting_defender"
       &&activeBurst.defender_id===userId
       &&activeBurst.attacker_id===match.current_player);
+    const defendingUnit=loadouts.find(x=>x.actor_id===userId);
+    const amuletRevealed=!!defendingUnit&&
+      defendingUnit.equipment_name==="Amuleto do Vácuo"&&
+      equipmentReveals.some(x=>x.actor_id===userId
+        &&x.equipment_instance_id===defendingUnit.equipment_instance_id);
+    $("lobby-burst-air-immunity").hidden=$("lobby-burst-pass").hidden||
+      !(defendingUnit?.creature_name==="Rex"||amuletRevealed);
     const bothLoadouts=loadouts.some(x=>x.actor_id===room.host_id)
       && loadouts.some(x=>x.actor_id===room.guest_id);
     const confirmedSpend=handCards.some(x=>x.card_state==="spent"
@@ -307,7 +314,7 @@
     panel.hidden=!room||!match||room.mode!=="1x1";
     if(panel.hidden){burstWindows=[];return;}
     const {data,error}=await api.from("chaotic_preview_burst_windows")
-      .select("turn_no,attacker_id,defender_id,status,defender_response,burst_fully_resolved,final_damage_verified")
+      .select("turn_no,attacker_id,defender_id,status,defender_response,defensive_immunity_source,burst_fully_resolved,final_damage_verified")
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(20);
     if(error)throw new Error(error.message);
     burstWindows=data||[];
@@ -315,8 +322,13 @@
       ?burstWindows.slice().reverse().map(x=>
         "T"+x.turn_no+": "+(x.attacker_id===room.host_id?"Anfitrião":"Convidado")+
         " abriu Burst. "+(x.status==="defender_passed"
-          ?"Defensor escolheu PASSAR.":"Aguardando resposta do defensor.")+
-        " Nenhuma habilidade de resposta é executada; dano final NÃO resolvido."
+          ?"Defensor escolheu PASSAR."
+          :x.status==="defender_immunity_noted"
+            ?"Defensor reconheceu imunidade a Ar ("+
+              (x.defensive_immunity_source==="rex_air"?"Rex":"Amuleto do Vácuo revelado")+
+              ") no servidor."
+            :"Aguardando resposta do defensor.")+
+        " Esta é uma PRÉVIA defensiva; dano final NÃO resolvido."
       ).join("\n")
       :"Nenhuma janela Burst de teste aberta.";
     updateClashUI();
@@ -336,6 +348,7 @@
       burst_window_not_opened:"janela Burst não aberta",
       burst_defender_response_pending:"defensor ainda não respondeu",
       burst_defender_passed_preview_only:"defensor passou; demais respostas ainda indisponíveis",
+      burst_air_immunity_acknowledged_preview_only:"imunidade a Ar confirmada no teste; Burst completo pendente",
       creature_abilities_unresolved:"habilidades de criaturas pendentes",
       official_turn_and_hp_unintegrated:"combate oficial separado",
       card_ownership_not_authoritative:"emissão e posse de cartas não certificadas",
@@ -1003,6 +1016,7 @@
       '<p>O atacante abre a janela após validar a carta. O defensor pode PASSAR mesmo durante a vez do atacante. Não executa respostas, contra-ataques, habilidades nem dano final.</p>',
       '<button id="lobby-burst-open" type="button" hidden>Abrir janela de resposta Burst</button>',
       '<button id="lobby-burst-pass" type="button" hidden>Passar minha resposta ao Burst</button>',
+      '<button id="lobby-burst-air-immunity" type="button" hidden>Reconhecer imunidade a Ar (Rex / Amuleto)</button>',
       '<p id="lobby-burst-history" class="lobby-events" aria-live="polite">Nenhuma resposta de Burst registrada.</p>',
       '</section>',
       '<section id="lobby-hp-ledger" class="lobby-combat" hidden>',
@@ -1245,6 +1259,16 @@
       note(result.status==="defender_passed"
         ?"Resposta PASSAR registrada no servidor. O Burst completo ainda NÃO foi resolvido."
         :"Resposta não confirmada.");
+    });
+    $("lobby-burst-air-immunity").onclick = () => action(async()=>{
+      if(!room||!match||room.mode!=="1x1")return;
+      const result=await rpc("chaotic_acknowledge_preview_air_immunity",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refreshBurstWindows();
+      note("Imunidade a Ar registrada: "+
+        (result.defensive_immunity_source==="rex_air"?"Rex":"Amuleto do Vácuo")+
+        ". Não altera dano final, HP real ou efeitos oficiais.");
     });
     $("lobby-resolution-audit-capture").onclick = () => action(async()=>{
       if(!room||!match||room.mode!=="1x1"||match.current_player!==userId)return;
