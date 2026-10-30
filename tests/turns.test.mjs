@@ -2500,6 +2500,24 @@ test("Arpa Mágica grants +1 TRAINING token once after equipment reveal; origina
   assert.equal(mugicTrainingWallets.get(id+"/"+actor).bonus_tokens,1);
 });
 
+test("3x3 metadata keeps every one of the 15 original Attack names and flags dice-only effects",async()=>{
+  const original=await readFile(new URL("../cartas.js",import.meta.url),"utf8");
+  const migration=await readFile(new URL("../supabase/chaotic-preview-3x3-canonical-elemental-defender-inspection.sql",import.meta.url),"utf8");
+  const section=original.slice(original.indexOf("const ATAQUES = ["),
+    original.indexOf("// 3. BANCO DE DADOS: EQUIPAMENTOS")).split("/*")[0];
+  const originalEntries=[...section.matchAll(/id:\s*(1\d\d),[\s\S]*?nome:\s*"([^"]+)"/g)]
+    .map(m=>[m[1],m[2]]);
+  const sqlEntries=[...migration.matchAll(/^\s*\('(1\d\d)','([^']+)'/gm)]
+    .map(m=>[m[1],m[2]]);
+  assert.equal(originalEntries.length,15);
+  assert.equal(sqlEntries.length,15);
+  assert.deepEqual(sqlEntries,originalEntries,
+    "Canonical source metadata must track the original Attack IDs and names");
+  assert.match(migration,/\('104','Fogo Primordial 2\.0',5,0,0,0,'flat_fire_fields','six_sided_base_multiplier'\)/);
+  assert.match(migration,/\('101','Ácido Gástrico',5,5,0,0,'danoElemental','none'\)/);
+  assert.match(migration,/final_damage_calculated boolean not null default false check\(final_damage_calculated=false\)/);
+});
+
 test("3x3 defers defender pass until paid, while ordinary no-attack turns still advance",async()=>{
   const owner="guard3-host",opponent="guard3-guest";
   const host=browser(owner),guest=browser(opponent);
