@@ -1158,7 +1158,7 @@ test("1x1 DNA preview shows individual energy and never changes actual combat",a
   assert.equal(host("lobby-individual-damage-calculate").hidden,false);
   assert.equal(host("lobby-damage-calculate").hidden,true,"Legacy preview blocked");
   await host("lobby-individual-damage-calculate").onclick();
-  assert.match(host("lobby-individual-damage-history").textContent,/Energia individual inicial 65/);
+  assert.match(host("lobby-individual-damage-history").textContent,/Energia de referência da prévia 65/);
   assert.match(host("lobby-individual-damage-history").textContent,/65 → 60/);
   assert.match(host("lobby-individual-damage-history").textContent,/HP real inalterado/);
   const row=individualDamage.get(id+"/3");
