@@ -96,3 +96,11 @@ O service worker de lançamento não armazena telas autenticadas nem JavaScript 
 - O custo de ataque é extraído do modelo validado; **saldo de pontos de ataque, pontos ganhos, consumo do custo e cartas na mão NÃO estão sincronizados**. O jogo não deve autorizar uma jogada nem pagar recompensas com base nesta prévia.
 - A revelação neste teste não ativa magias, Burst, dano de equipamentos, HP, XP ou dinheiro. Não substituir o motor legado por essas funções de prévia.
 - Testes: `supabase/tests/chaotic-equipment-and-cost-preview.test.sql` é transacional com rollback; o GitHub Actions verifica o DROME, incluindo proprietários, turnos e tentativas duplicadas de revelação.
+
+## Mão e pontos de ataque de teste no Supabase (versão 0.1.11 — 30/10/2026)
+
+O 1x1 experimental agora possui `chaotic_preview_attack_wallets` e `chaotic_preview_attack_hand`, de leitura exclusiva para o dono via RLS. Após preparar sua criatura, o jogador pode preparar uma mão com **três primeiras cartas válidas do deck**, em ordem fixa de teste. Essa seleção **não substitui o embaralhamento e a compra aleatória oficiais**, nem autentica a origem da coleção: o álbum ainda é editável pelo usuário.
+
+O saldo inicial experimental é 3 pontos, acrescido de 1 em cada retorno à própria vez depois de preparar a mão. Uma carta adicional é comprada pelo servidor em turno posterior, até atingir cinco na mão. A função `chaotic_spend_preview_attack` verifica turno, dono, confronto, identificação da carta individual, mão e saldo antes de marcar a carta como usada e debitar pontos **somente na carteira de teste**. A prévia de DNA de dano agora exige que esse pagamento tenha sido registrado no mesmo turno. Assim, não é mais possível gerar uma nova prévia individual sem validar o gasto experimental.
+
+Os dados da mão de um jogador não são compartilhados com o adversário. Nenhuma dessas funções modifica energia real, pontos oficiais, XP, moedas, vitória, raridades ou cartas do álbum. Ainda faltam compra/embaralhamento aleatórios, geração de iniciativa, bloqueios de compra, efeitos de cartas e motor PvP definitivo. Verificação: `supabase/tests/chaotic-preview-attack-resources.test.sql` e testes Node do DROME.
