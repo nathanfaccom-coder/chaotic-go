@@ -539,10 +539,22 @@ function makeClient(actor) {
         const clash=clashes.get(key),attack=attackInstances.get(key);
         const attacker=loadouts.get(room.id+"/"+actor);
         const defender=loadouts.get(room.id+"/"+(clash?.defender_id||""));
+        const trainingResult=burstEquipmentEffects.get(key);
+        const queue=burstEquipmentResponses.get(key);
+        const trainingReady=!queue||(trainingResult
+          &&queue.defender_id===trainingResult.defender_id
+          &&queue.equipment_instance_id===trainingResult.equipment_instance_id
+          &&queue.creature_instance_id===defender?.card_instance_id
+          &&queue.equipment_name===defender?.equipment_name
+          &&burstOrderPlans.get(key)?.inspection_steps?.[0]?.stage==="inspect_queued_equipment_reveal");
+        const trainingWallet=hpWallets.get(room.id+"/"+(clash?.defender_id||""));
         if(room.mode!=="1x1"||!match||match.status!=="active"||
           match.current_player!==actor||match.turn_no!==args.p_expected_turn||
           burstWindows.get(key)?.status==="awaiting_defender"||
-          burstEquipmentResponses.has(key)||
+          !trainingReady||
+          (queue&&(!trainingWallet
+            ||trainingWallet.hp_remaining!==trainingResult.hp_after
+            ||trainingWallet.hp_max!==trainingResult.hp_max_after))||
           !clash||clash.attacker_id!==actor||!attack||attack.actor_id!==actor||
           !attacker||!defender||attack.attack_instance_id!==clash.attack_card||
           attacker.card_instance_id!==clash.attacker_card||
@@ -560,18 +572,22 @@ function makeClient(actor) {
         const hasWater=attack.catalog_attack_id==="101";
         const locationDelta=locId===502?(hasWind?5:0)-(hasWater?5:0):0;
         const magmaElemental=locId===503&&attack.catalog_attack_id==="101"?5:0;
+        const elementalBonus=hasWind?10:0;
+        const ring=trainingResult?.effect_code==="precious_ring_hp";
         const immune=hasWind&&(defender.creature_name==="Rex"||
           (defender.equipment_name==="Amuleto do Vácuo"&&
            equipmentReveals.has(room.id+"/"+defender.actor_id)));
-        const total=special?null:immune?0:Math.max(0,attack.base_damage+locationDelta+magmaElemental);
+        const total=special?null:immune?0:Math.max(0,attack.base_damage+locationDelta+
+          (ring?0:magmaElemental)+(ring?0:elementalBonus));
         const result={lobby_id:room.id,turn_no:match.turn_no,attacker_id:actor,
           defender_id:clash.defender_id,attack_instance_id:attack.attack_instance_id,
           catalog_attack_id:attack.catalog_attack_id,attack_name:attack.attack_name,
           attacker_instance_id:attacker.card_instance_id,
           defender_instance_id:defender.card_instance_id,
           attacker_name:attacker.creature_name,defender_name:defender.creature_name,
-          defender_energy_initial:defender.stats.e+locationEnergy,base_damage:attack.base_damage,
-          elemental_bonus:0,attribute_bonus:0,equipment_bonus:0,
+          defender_energy_initial:queue?trainingWallet.hp_remaining:defender.stats.e+locationEnergy,
+          base_damage:attack.base_damage,
+          elemental_bonus:ring?0:elementalBonus,attribute_bonus:0,equipment_bonus:0,
           location_id:locId,location_damage_delta:locationDelta,
           location_elemental_bonus:magmaElemental,location_energy_bonus:locationEnergy,
           attack_cost:attack.attack_cost,cost_status:"test_spent",
@@ -580,7 +596,8 @@ function makeClient(actor) {
           immunity_reason:immune?(defender.creature_name==="Rex"
             ?"Rex: imune a Ar":"Amuleto do Vácuo revelado: imune a Ar"):null,
           preview_subtotal:total,
-          preview_energy_remaining:total===null?null:Math.max(0,defender.stats.e+locationEnergy-total),
+          preview_energy_remaining:total===null?null:Math.max(0,
+            (queue?trainingWallet.hp_remaining:defender.stats.e+locationEnergy)-total),
           calculation_status:special?"special_resolution_required":"partial_estimate"};
         individualDamage.set(key,result);
         return {data:{...result},error:null};
@@ -1954,6 +1971,11 @@ test("Burst equipment "+scenario.name+" changes ONLY server training ledger",asy
   await host("lobby-combat-submit").onclick();
   await host("lobby-clash-open").onclick();
   await host("lobby-attack-instance-capture").onclick();
+  if(scenario.effect==="precious_ring_hp"){
+    const card=attackInstances.get(id+"/3");
+    card.catalog_attack_id="110";
+    card.attack_name="SONAR";
+  }
   await host("lobby-burst-open").onclick();
   await host("lobby-hand-spend").onclick();
   await guest("lobby-turn-refresh").onclick();
@@ -1990,8 +2012,17 @@ test("Burst equipment "+scenario.name+" changes ONLY server training ledger",asy
   assert.equal(host("lobby-burst-equipment-effect-apply").hidden,true);
   assert.ok((await makeClient(hostId).rpc("chaotic_apply_preview_burst_equipment_effect",{
     p_lobby_id:id,p_expected_turn:3})).error,"Effect cannot be replayed");
-  assert.equal(host("lobby-individual-damage-calculate").hidden,true,
-    "Equipment is still not fully resolved for final attack damage");
+  assert.equal(host("lobby-individual-damage-calculate").hidden,false,
+    "Server-applied training effects now permit a partial preview, never final damage");
+  await host("lobby-individual-damage-calculate").onclick();
+  const partial=individualDamage.get(id+"/3");
+  assert.equal(partial.defender_energy_initial,scenario.hp,
+    "Partial preview must start from the updated training wallet");
+  assert.equal(partial.calculation_status,"partial_estimate");
+  assert.equal(partial.preview_subtotal,5,
+    "Ring negates the SONAR Air bonus, and other equipment retains base damage");
+  assert.equal(partial.preview_energy_remaining,Math.max(0,scenario.hp-5));
+  assert.equal(partial.cost_status,"test_spent");
   await guest("lobby-turn-refresh").onclick();
   assert.match(guest("lobby-burst-equipment-effects-history").textContent,
     /EFEITO APLICADO SOMENTE AO TREINAMENTO/);
