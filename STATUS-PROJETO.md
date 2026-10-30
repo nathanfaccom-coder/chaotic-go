@@ -181,3 +181,11 @@ Números estimados para planejamento, não verificação automática de 64% das 
 - **Testes:** `supabase/tests/chaotic-preview-burst-training-damage-reconciliation.test.sql` passou no Supabase; cobre SONAR original de 10 Ar neutralizado pelo Anel, guarda de carta/equipamento, uso de HP de treinamento, atualização da Sabedoria, bloqueio antes da resolução e controle de acesso. **41 testes Node** passaram no fluxo de dois jogadores simulados com HP acumulado e proteção contra duplicação.
 - **Limites:** simulações parciais não resolvem Burst completo, contra-ataques, habilidades, imunidade definitiva, HP real, derrotas, vitória, XP, moedas ou economia. O usuário ainda não validou jogo 1x1 com duas contas reais em celulares distintos; disponibilidade do site publicado não foi verificada diretamente.
 - **Estimativa manual geral: 64% (±10 p.p.)**, avançando 1 ponto pela ligação de efeitos e dano experimentais — ainda sem reivindicar funcionamento de PvP oficial.
+
+
+## Versão 0.1.26 — trava antes de projetar HP após Burst (30/10/2026)
+- A função `chaotic_apply_preview_hp_projection` agora exige a sequência de Burst conferida no servidor quando existe janela aberta: identidade de atacante/defensor/ataque, resposta registrada e plano de inspeção coerente.
+- Se foi declarada uma revelação de equipamento, exige um efeito efetivamente aplicado ao **saldo isolado de treinamento**, com criatura, equipamento e HP conciliados. Impede aplicação prematura ou sobre um saldo que mudou após o cálculo.
+- Resposta PASSAR e imunidade passiva são caminhos distintos; nenhum deles é tratado como uma carta de contra-ataque. A pilha ainda **não executa habilidades nem magias** e não valida dano final.
+- Mudança aplicada via migração `chaotic_preview_burst_training_projection_gate` no Supabase, com teste SQL transacional aprovado; script reprodutível em `supabase/chaotic-preview-burst-training-projection-gate.sql`.
+- **Conclusão global mantida em 64% (estimativa manual ±10 p.p.).** A validação em dois celulares e o combate completo continuam pendentes. Nenhum item do álbum, Deck, DNA, HP oficial, recompensa ou vitória foi modificado.
