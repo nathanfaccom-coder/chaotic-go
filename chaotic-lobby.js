@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [], mugicTrainingWallets = [], mugicTrainingSettlements = [], trainingAbilityEvents = [], harpTrainingEvents = [], allies3x3 = [], transfers3x3 = [], hp3x3 = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [], mugicTrainingWallets = [], mugicTrainingSettlements = [], trainingAbilityEvents = [], harpTrainingEvents = [], allies3x3 = [], transfers3x3 = [], hp3x3 = [], board3x3 = [], moves3x3 = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -1112,6 +1112,12 @@
     $("lobby-3x3-prepare").hidden=!(myTurn&&own.length===0);
     const ownHP=hp3x3.filter(x=>x.actor_id===userId);
     $("lobby-3x3-hp-prepare").hidden=!(myTurn&&own.length===3&&ownHP.length===0);
+    const myBoard=board3x3.filter(x=>x.actor_id===userId);
+    const movedAlready=moves3x3.some(x=>x.actor_id===userId&&x.turn_no===match?.turn_no);
+    $("lobby-3x3-board-prepare").hidden=!(myTurn&&ownHP.length===3&&myBoard.length===0);
+    $("lobby-3x3-move").hidden=!(myTurn&&myBoard.length===3
+      &&!movedAlready&&!clashes.some(x=>x.turn_no===match?.turn_no)
+      &&!burstWindows.some(x=>x.turn_no===match?.turn_no));
     const options=$("lobby-3x3-receiver");
     // Values are fixed board positions; names and card IDs are never interpolated into HTML.
     const allowed=own.filter(x=>x.position!==donor?.position);
@@ -1140,6 +1146,20 @@
         " · HP de treino "+x.hp_remaining+"/"+x.hp_max+
         " · 0 ataques aplicados · nenhuma alteração no HP oficial.").join("\n")
       :"HP não preparado. Cada jogador deve iniciar suas três criaturas separadamente.";
+    $("lobby-3x3-board-history").textContent=board3x3.length
+      ?board3x3.slice().sort((a,b)=>a.actor_id===b.actor_id?
+        a.formation_slot-b.formation_slot:a.actor_id.localeCompare(b.actor_id)).map(x=>
+        (x.actor_id===userId?"Sua":"Adversária")+" c"+x.formation_slot+
+        " · hex "+x.hex_position+
+        (x.moved_turn===match?.turn_no?" · já moveu neste turno":"")+
+        " · só no treinamento.").join("\n")
+      :"Nenhum posicionamento experimental preparado.";
+    $("lobby-3x3-move-history").textContent=moves3x3.length
+      ?moves3x3.slice().sort((a,b)=>a.turn_no-b.turn_no).map(x=>
+        "T"+x.turn_no+" · "+(x.actor_id===userId?"Você":"Adversário")+
+        " · c"+x.formation_slot+": hex "+x.from_hex+" → "+x.to_hex+
+        ". Sem dano ou posição oficial alterada.").join("\n")
+      :"Nenhum movimento realizado.";
     $("lobby-3x3-transfer-history").textContent=transfers3x3.length
       ?transfers3x3.slice().sort((a,b)=>a.turn_no-b.turn_no).map(x=>
         "T"+x.turn_no+" · "+(x.actor_id===userId?"Você":"Adversário")+
@@ -1152,7 +1172,7 @@
   async function refresh3x3Allies(){
     if(!$("lobby-3x3-allies-panel"))return;
     if(!room||!match||room.mode!=="3x3"){
-      allies3x3=[];transfers3x3=[];hp3x3=[];update3x3UI();return;
+      allies3x3=[];transfers3x3=[];hp3x3=[];board3x3=[];moves3x3=[];update3x3UI();return;
     }
     const units=await api.from("chaotic_preview_3x3_allies")
       .select("actor_id,position,deck_slot,creature_instance_id,creature_name,starting_tokens,remaining_tokens,received_tokens")
@@ -1164,6 +1184,16 @@
       .eq("lobby_id",room.id).limit(6);
     if(hpResult.error)throw new Error(hpResult.error.message);
     hp3x3=hpResult.data||[];
+    const board=await api.from("chaotic_preview_3x3_board_positions")
+      .select("actor_id,formation_slot,creature_instance_id,hex_position,moved_turn,official_position_changed")
+      .eq("lobby_id",room.id).limit(6);
+    if(board.error)throw new Error(board.error.message);
+    board3x3=board.data||[];
+    const movements=await api.from("chaotic_preview_3x3_move_events")
+      .select("actor_id,turn_no,formation_slot,creature_instance_id,from_hex,to_hex,official_position_changed")
+      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(60);
+    if(movements.error)throw new Error(movements.error.message);
+    moves3x3=movements.data||[];
     const history=await api.from("chaotic_preview_3x3_token_transfers")
       .select("actor_id,turn_no,donor_position,receiver_position,donor_before,donor_after,receiver_before,receiver_after")
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(50);
@@ -1304,6 +1334,12 @@
           event:"*",schema:"public",table:"chaotic_preview_3x3_hp_wallets",filter:"lobby_id=eq."+lobbyId
         },sync)
         .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_3x3_board_positions",filter:"lobby_id=eq."+lobbyId
+        },sync)
+        .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_3x3_move_events",filter:"lobby_id=eq."+lobbyId
+        },sync)
+        .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_3x3_token_transfers",filter:"lobby_id=eq."+lobbyId
         },sync)
         .on("postgres_changes",{
@@ -1327,7 +1363,7 @@
     }, 6000);
   }
   function show() {
-    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = []; burstEquipmentResponses = []; burstEquipmentEffects = []; burstPriority = []; burstPriorityPasses = []; burstMugicIntents = []; burstMugicCounterplans = []; mugicTrainingWallets = []; mugicTrainingSettlements = []; trainingAbilityEvents = []; harpTrainingEvents = []; allies3x3 = []; transfers3x3 = []; hp3x3 = [];
+    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = []; burstEquipmentResponses = []; burstEquipmentEffects = []; burstPriority = []; burstPriorityPasses = []; burstMugicIntents = []; burstMugicCounterplans = []; mugicTrainingWallets = []; mugicTrainingSettlements = []; trainingAbilityEvents = []; harpTrainingEvents = []; allies3x3 = []; transfers3x3 = []; hp3x3 = []; board3x3 = []; moves3x3 = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -1499,7 +1535,7 @@
       '<p id="lobby-harp-token-history" class="lobby-events" aria-live="polite">Nenhuma Arpa usada no treinamento.</p>',
       '</section>',
       '<section id="lobby-3x3-allies-panel" class="lobby-combat" hidden>',
-      '<strong>🛡️ Formação 3x3 — treinamento separado (0.1.34)</strong>',
+      '<strong>🛡️ Formação 3x3 — treinamento separado (0.1.35)</strong>',
       '<p>Congele as 3 criaturas originais do Deck 3x3 escolhido, posições c4-c6. Somente depois, Alakazaz pode transferir 1 ficha de seu próprio saldo para outra criatura aliada, uma vez por turno. Nenhum saldo/carta do combate oficial é alterado.</p>',
       '<label for="lobby-3x3-deck">Deck 3x3 salvo</label>',
       '<select id="lobby-3x3-deck"><option value="1">Deck 1</option><option value="2">Deck 2</option><option value="3">Deck 3</option></select>',
@@ -1508,6 +1544,15 @@
       '<p>Depois de congelar c4–c6, prepare os três valores de HP individuais a partir do DNA salvo no álbum. Sem ataque, movimento, derrota ou bônus de Local nesta etapa.</p>',
       '<button id="lobby-3x3-hp-prepare" type="button" hidden>Preparar HP das três criaturas (teste)</button>',
       '<p id="lobby-3x3-hp-history" class="lobby-events" aria-live="polite">HP de treino ainda não preparado.</p>',
+      '<p>Após preparar o HP, posicione c4, c5 e c6 no seu próprio tabuleiro de SEIS hexágonos de treinamento. Escolha uma criatura e um destino adjacente vazio. Só 1 movimento por jogador e turno; colisão entre adversários e ataques ainda não existem.</p>',
+      '<button id="lobby-3x3-board-prepare" type="button" hidden>Preparar tabuleiro 3x3 de treino</button>',
+      '<p id="lobby-3x3-board-history" class="lobby-events" aria-live="polite">Tabuleiro não preparado.</p>',
+      '<label for="lobby-3x3-move-unit">Criatura que anda (slot original)</label>',
+      '<select id="lobby-3x3-move-unit"><option value="4">c4</option><option value="5">c5</option><option value="6">c6</option></select>',
+      '<label for="lobby-3x3-move-destination">Hexágono de destino</label>',
+      '<select id="lobby-3x3-move-destination"><option value="1">Hex 1</option><option value="2">Hex 2</option><option value="3">Hex 3</option><option value="4">Hex 4</option><option value="5">Hex 5</option><option value="6">Hex 6</option></select>',
+      '<button id="lobby-3x3-move" type="button" hidden>Mover criatura no tabuleiro de treino</button>',
+      '<p id="lobby-3x3-move-history" class="lobby-events" aria-live="polite">Nenhum movimento ainda.</p>',
       '<label for="lobby-3x3-receiver">Aliado que receberá 1 ficha:</label>',
       '<select id="lobby-3x3-receiver"></select>',
       '<button id="lobby-3x3-transfer" type="button" hidden>Alakazaz: transferir 1 ficha</button>',
@@ -1819,6 +1864,30 @@
       await refresh3x3Allies();
       note("HP inicializado individualmente em "+result.count+
         " criaturas c4–c6. Nenhum dano, HP oficial ou bônus de Local aplicado.");
+    });
+    $("lobby-3x3-board-prepare").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="3x3")return;
+      const result=await rpc("chaotic_prepare_preview_3x3_board",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refresh3x3Allies();
+      note("Tabuleiro experimental iniciado: "+result.creatures+
+        " criaturas no seu lado. Hex 1-6 não altera a posição oficial.");
+    });
+    $("lobby-3x3-move").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="3x3")return;
+      const unit=Number($("lobby-3x3-move-unit").value);
+      const destination=Number($("lobby-3x3-move-destination").value);
+      if(![4,5,6].includes(unit)||![1,2,3,4,5,6].includes(destination))
+        throw new Error("Escolha uma criatura e hexágono válidos.");
+      const moved=await rpc("chaotic_move_preview_3x3_unit",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no,
+        p_formation_slot:unit,p_target_hex:destination
+      });
+      await refresh3x3Allies();
+      note("Movimento experimental c"+moved.formation_slot+": hex "+
+        moved.from_hex+" → "+moved.to_hex+
+        ". Sem dano ou movimento no combate oficial.");
     });
     $("lobby-3x3-transfer").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3")return;
