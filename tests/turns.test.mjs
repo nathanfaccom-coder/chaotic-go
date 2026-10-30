@@ -1957,6 +1957,7 @@ test("Burst equipment "+scenario.name+" changes ONLY server training ledger",asy
   await guest("lobby-loadout-capture").onclick();
   const own=loadouts.get(id+"/"+guestId);
   own.equipment_name=scenario.name;
+  locations.set(id,{lobby_id:id,catalog_location_id:501});
   const wallet={lobby_id:id,actor_id:guestId,
     creature_instance_id:own.card_instance_id,
     hp_max:75,hp_remaining:65,projected_hits:0,location_id:501};
@@ -2025,6 +2026,24 @@ test("Burst equipment "+scenario.name+" changes ONLY server training ledger",asy
     "Ring negates the canonical 10-Air SONAR attack; other equipment retains base damage");
   assert.equal(partial.preview_energy_remaining,Math.max(0,scenario.hp-expectedPartial));
   assert.equal(partial.cost_status,"test_spent");
+  assert.equal(partial.elemental_bonus,
+    scenario.effect==="precious_ring_hp"?0:0,
+    "No effective elemental bonus remains after ring; regular fixture is neutral");
+  assert.equal(host("lobby-hp-apply").hidden,false);
+  await host("lobby-hp-apply").onclick();
+  const hit=hpEvents.get(id+"/3");
+  assert.equal(hit.hp_before,scenario.hp);
+  assert.equal(hit.hp_after,Math.max(0,scenario.hp-expectedPartial));
+  assert.equal(wallet.hp_remaining,hit.hp_after);
+  assert.equal(hit.official_hp_changed,false);
+  assert.equal(hit.final_damage_verified,false);
+  assert.ok((await makeClient(hostId).rpc("chaotic_apply_preview_hp_projection",{
+    p_lobby_id:id,p_expected_turn:3})).error,
+    "The same post-Burst attack must not subtract from training HP twice");
+  await guest("lobby-turn-refresh").onclick();
+  assert.match(guest("lobby-hp-summary").textContent,
+    new RegExp(String(hit.hp_after)+"/"+String(scenario.max)));
+  assert.equal(own.stats.e,65);
   await guest("lobby-turn-refresh").onclick();
   assert.match(guest("lobby-burst-equipment-effects-history").textContent,
     /EFEITO APLICADO SOMENTE AO TREINAMENTO/);
