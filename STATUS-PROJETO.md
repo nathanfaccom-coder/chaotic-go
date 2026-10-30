@@ -1,6 +1,6 @@
 # Chaotic GO — Status de conclusão e pendências (30/10/2026)
 
-Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 62% (incerteza aproximada ±10 pontos percentuais).**
+Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 63% (incerteza aproximada ±10 pontos percentuais).**
 
 ## Critérios ponderados
 
@@ -9,12 +9,12 @@ Este documento acompanha **prontidão para lançar o jogo completo com Supabase*
 | Motor legado, scanner, cartas, imagens, áudios e interfaces preservados | 25% | 90% | 22,5 p.p. |
 | Contas, migração de coleção, Decks e persistência privada Supabase | 15% | 75% | 11,25 p.p. |
 | Salas privadas, sincronização e protocolo de turnos | 10% | 70% | 7 p.p. |
-| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 56% | 14 p.p. |
+| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 60% | 15 p.p. |
 | Economia, amigos, trocas, recompensas e progressão integradas | 15% | 25% | 3,75 p.p. |
 | Testes ponta a ponta, dois dispositivos, mobile, segurança e publicação | 10% | 35% | 3,5 p.p. |
-| **Estimativa total** | **100%** | | **62 p.p.** |
+| **Estimativa total** | **100%** | | **63 p.p.** |
 
-Números estimados para planejamento, não verificação automática de 62% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
+Números estimados para planejamento, não verificação automática de 63% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
 
 ## Entregas já implementadas ou disponíveis
 - Jogo completo e recursos originais publicados no site; backup de branches anteriores.
@@ -159,3 +159,14 @@ Números estimados para planejamento, não verificação automática de 62% das 
 - **Verificação:** teste SQL `supabase/tests/chaotic-preview-burst-equipment-queue.test.sql` passou (identidade, permissão, no-execution e bloqueio do dano). **38/38 testes Node** passaram, inclusive dois jogadores simulados, bloqueio de ataque normal como resposta por ausência de RPC, proteção anti-duplicação, conferência LIFO e DNA original intacto.
 - **Ainda pendente:** execução real de efeitos de equipamento, múltiplas respostas, pilha executada, HP oficial, mortes, vitórias, recompensas, emissão segura de cartas e teste em dois dispositivos com contas reais.
 - **Estimativa geral: 62% (±10 p.p.)**. O ganho de um ponto é conservador pela primeira ação de Burst declarada e validada no servidor; a execução ainda está incompleta.
+
+## Versão 0.1.24 — três efeitos canônicos executados no saldo de treinamento (30/10/2026)
+
+- **Aplicação de efeito efetiva, mas somente no estado experimental:** a nova RPC `chaotic_apply_preview_burst_equipment_effect` só executa após o defensor declarar a revelação, escolher PASSAR, o atacante preparar a conferência inversa em `chaotic_preview_burst_order_plans` e o saldo de HP de teste estar inicializado com Local e DNA de ambos. Tudo validado e gravado em transação no Supabase.
+- **Anel Precioso (201):** reduz o HP **de teste** atual da criatura em 15, sem permitir valores negativos. **Bastão da Sabedoria (204):** registra +40 à Sabedoria **de teste**, sem modificar o DNA congelado da carta. **Bomba de Fogo (205):** aumenta em +5 o HP atual e máximo **de teste**; seu efeito de explosão após a morte ainda não está ativo.
+- **Estado persistente:** `chaotic_preview_hp_wallets` recebe as alterações de HP experimental; `chaotic_preview_burst_equipment_effects` grava instantâneos antes/depois de energia atual/máxima e Sabedoria, com `applied_to_training_ledger=true`, `applied_to_official_match=false`, `official_hp_changed=false` e `final_damage_verified=false`, protegidos por `CHECK` e RLS de leitura apenas para os participantes.
+- **Anti-replay:** o servidor impede que um mesmo equipamento seja aplicado novamente ou redeclarado em outra janela Burst; rejeita atacante indevido, defensor tentando executar, adversários não participantes, Local/HP ausentes, equipamento já revelado e efeitos ainda não suportados (ex.: Arpa Mágica).
+- **Sem falsa resolução de dano:** uma revelação de equipamento declarada continua na fila oficial `queued_unexecuted`; mesmo após a aplicação apenas experimental, a RPC de dano ainda bloqueia calcular o ataque relacionado porque falta executar o equipamento na pilha oficial. Não aplica imunidade do Anel, explosão da Bomba, vitória, derrota, cartas, moedas, XP ou recompensas.
+- **Interface/Realtime:** botões só aparecem ao atacante com plano válido, equipamento compatível e carteira experimental; histórico compartilhado mostra os saldos antes/depois e indica que não houve alteração oficial.
+- **Testes:** `supabase/tests/chaotic-preview-burst-equipment-effects.test.sql` passou (três efeitos, zero mínimo, equipamento não suportado, RLS, sem escritura oficial e proteção de redeclaração); **41 testes Node** passaram com três confrontos simulados completos (Anel, Bastão e Bomba), sem alterações do DNA original.
+- **Estimativa geral: 63% (±10 pontos percentuais).** O motor do combate oficial e o Burst multi-resposta continuam incompletos; a disponibilidade do site publicado e um combate real em dois celulares ainda não foram verificados.
