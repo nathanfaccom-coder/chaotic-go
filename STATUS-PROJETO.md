@@ -1,6 +1,6 @@
 # Chaotic GO — Status de conclusão e pendências (30/10/2026)
 
-Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 60% (incerteza aproximada ±10 pontos percentuais).**
+Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 61% (incerteza aproximada ±10 pontos percentuais).**
 
 ## Critérios ponderados
 
@@ -9,12 +9,12 @@ Este documento acompanha **prontidão para lançar o jogo completo com Supabase*
 | Motor legado, scanner, cartas, imagens, áudios e interfaces preservados | 25% | 90% | 22,5 p.p. |
 | Contas, migração de coleção, Decks e persistência privada Supabase | 15% | 75% | 11,25 p.p. |
 | Salas privadas, sincronização e protocolo de turnos | 10% | 70% | 7 p.p. |
-| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 48% | 12 p.p. |
+| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 52% | 13 p.p. |
 | Economia, amigos, trocas, recompensas e progressão integradas | 15% | 25% | 3,75 p.p. |
 | Testes ponta a ponta, dois dispositivos, mobile, segurança e publicação | 10% | 35% | 3,5 p.p. |
-| **Estimativa total** | **100%** | | **60 p.p.** |
+| **Estimativa total** | **100%** | | **61 p.p.** |
 
-Números estimados para planejamento, não verificação automática de 60% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
+Números estimados para planejamento, não verificação automática de 61% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
 
 ## Entregas já implementadas ou disponíveis
 - Jogo completo e recursos originais publicados no site; backup de branches anteriores.
@@ -129,3 +129,12 @@ Números estimados para planejamento, não verificação automática de 60% das 
 - **Limites explícitos:** não executa habilidades, interrupções, cartas de reação, inversão da pilha, Spedman, dano oficial, HP, vitórias ou recompensas. A única resposta validada é PASSAR. A imunidade de Rex e Amuleto do Vácuo permanece como estimativa pré-existente, não resultado final após Burst.
 - **Testes:** `supabase/tests/chaotic-preview-burst-response.test.sql` valida RLS, papéis, acesso, barreira de dano pendente, restrições imutáveis e estados da auditoria. Teste Node simula dois jogadores, anti-replay, negação ao atacante e estranho, bloqueio de dano antes do passe, retomada após passar e integridade dos turnos.
 - **Estimativa manual: 60% (±10 p.p.)**. O ponto acrescido reflete um protocolo interativo confirmado em banco e testes, não o lançamento de combate completo; ainda não houve partida ponta a ponta em dois dispositivos reais.
+
+## Versão 0.1.21 — Rex, Amuleto do Vácuo e proteção de resposta Burst (30/10/2026)
+- **Imunidade contra Ar validada no servidor (1x1, teste):** nova RPC `chaotic_acknowledge_preview_air_immunity` reconhece **Rex** como imune passivamente a ataques que possuam dano elemental de Ar, e **Amuleto do Vácuo** somente se a instância do equipamento correspondente à criatura estiver registrada como revelada. O servidor identifica o elemento no catálogo de ataques, não em dados fornecidos pela interface.
+- **Resposta exclusiva do defensor:** durante `awaiting_defender`, apenas a criatura atacada pode reconhecer a imunidade. A janela muda para `defender_immunity_noted`, guardando `defensive_immunity_source` como `rex_air` ou `vacuum_amulet_air`; não é possível reconhecer e depois passar, enviar duas respostas ou responder fora do turno. A leitura é protegida por RLS, sem escrita direta para usuários.
+- **Proteção do turno:** `chaotic_pass_turn` foi reforçado somente em 1x1 para rejeitar passagem do atacante enquanto a resposta Burst está pendente. A interface esconde o botão de passar; mesmo chamadas diretas à RPC são bloqueadas. Depois de PASSAR ou reconhecer imunidade, o turno pode avançar; sem janela de Burst o fluxo antigo continua.
+- **Prévia e auditoria:** o dano parcial apenas é liberado depois de resposta do defensor. A fórmula de equipamento/atributos já possuía imunidades de Rex e Amuleto para Ar e continua fazendo a conferência; o novo evento é reconhecimento público da proteção. A auditoria marca `burst_air_immunity_acknowledged_preview_only` e **continua com `burst_unresolved`, `final_damage_verified=false`**. Não aplica HP, vitória, habilidades, moedas, XP ou cartas.
+- **Limite de formato:** a troca tática de **Spedman** é uma ação que envolve um aliado e outro campeão; como esta prévia 1x1 só tem uma criatura por jogador, não foi habilitada indevidamente. Requer tabuleiros com equipes (3x3/6x6) e validação de fichas de habilidade antes da implementação.
+- **Testes:** `supabase/tests/chaotic-preview-burst-air-immunity.test.sql` passou no Supabase para Rex, Amuleto revelado/oculto, ataque sem Ar, papéis e bloqueio de turno; testes Node cobrem ambas as defesas e preservação do DNA, do HP real e do turno. Ainda falta testar dois jogadores reais em aparelhos diferentes.
+- **Estimativa manual de planejamento: 61% (±10 pontos percentuais).** O acréscimo decorre de validação de reação defensiva e bloqueio efetivo de corrida entre resposta/turno, não da liberação de dano final.
