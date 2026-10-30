@@ -1,6 +1,6 @@
 # Chaotic GO — Status de conclusão e pendências (30/10/2026)
 
-Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 56% (incerteza aproximada ±10 pontos percentuais).**
+Este documento acompanha **prontidão para lançar o jogo completo com Supabase**, não porcentagem de linhas escritas, número de commits ou cartas preservadas. A avaliação é manual e pode mudar após testes reais. **Estimativa atual: 57% (incerteza aproximada ±10 pontos percentuais).**
 
 ## Critérios ponderados
 
@@ -9,12 +9,12 @@ Este documento acompanha **prontidão para lançar o jogo completo com Supabase*
 | Motor legado, scanner, cartas, imagens, áudios e interfaces preservados | 25% | 90% | 22,5 p.p. |
 | Contas, migração de coleção, Decks e persistência privada Supabase | 15% | 75% | 11,25 p.p. |
 | Salas privadas, sincronização e protocolo de turnos | 10% | 70% | 7 p.p. |
-| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 32% | 8 p.p. |
+| PvP completo: posicionamento, dano real, efeitos, habilidades, vitória | 25% | 36% | 9 p.p. |
 | Economia, amigos, trocas, recompensas e progressão integradas | 15% | 25% | 3,75 p.p. |
 | Testes ponta a ponta, dois dispositivos, mobile, segurança e publicação | 10% | 35% | 3,5 p.p. |
-| **Estimativa total** | **100%** | | **56 p.p.** |
+| **Estimativa total** | **100%** | | **57 p.p.** |
 
-Números estimados para planejamento, não verificação automática de 56% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
+Números estimados para planejamento, não verificação automática de 57% das funcionalidades. O código original salvo no repositório não garante que cada uma de suas ações funcione após trocar de backend.
 
 ## Entregas já implementadas ou disponíveis
 - Jogo completo e recursos originais publicados no site; backup de branches anteriores.
@@ -83,3 +83,13 @@ Números estimados para planejamento, não verificação automática de 56% das 
 - **Verificação SQL:** `supabase/tests/chaotic-preview-location-initiative.test.sql` cobre os três Locais, desempate, atributos faltantes, acesso e permissão de escrita. Testes JavaScript têm caso de sorteio, sincronização com segundo jogador e proteção contra sorteio repetido; GitHub Actions acompanha mudanças de versão.
 - **Próximos bloqueios:** a validade do álbum/carta ainda depende de registros graváveis pelo usuário; locais reais também modificam elementos e dano, iniciativa real precisa alterar turnos/pontos com segurança, e habilidades, HP e vitória ainda não foram habilitados. O sorteio experimental escolhe o Deck do atacante e não reivindica reproduzir todas as regras de seleção de Local do modo oficial.
 - **Estimativa geral: 56% (±10 p.p.)**. Ponto adicional conservador por resolver uma incompatibilidade de Deck em produção e conectar Local ao cálculo individual, sem declarar PvP pronto.
+
+## Versão 0.1.16 — efeitos de Locais na prévia individual de dano (30/10/2026)
+- **O Túnel da Tempestade (502):** a simulação individual reconhece +5 em ataques com elemento Ar e −5 em ataques com elemento Água; os dois efeitos se somam caso um ataque tenha ambos, e o resultado não pode ser menor que zero.
+- **A Barragem de Magma (503):** criaturas sem Fogo natural recebem o elemento Fogo para a simulação de ataque; o servidor adiciona apenas o bônus elemental de Fogo que faltar, sem duplicar um elemento natural. Caso o defensor tenha Anel Precioso revelado, não aplica o novo bônus elemental.
+- **Cidade de Kiru (501):** criaturas da tribo Azul têm +10 de energia **na prévia defensiva**; o efeito não é aplicado à vida armazenada no álbum ou a qualquer batalha oficial. Os limites da tabela de teste foram ampliados para o caso de criaturas com até 500 de energia individual +10 de Kiru.
+- **Auditabilidade:** a tabela `chaotic_preview_individual_damage` ganhou `location_id`, `location_elemental_bonus`, `location_damage_delta` e `location_energy_bonus` para ambos os participantes verem cada parcela. Não existe desconto de HP real, XP, moedas ou vitórias.
+- **Validação da posse e do ataque preservada:** mantém a verificação do slot da carta capturada na mão de teste, custo já debitado e `spent_reason='attack'`; não admite um descarte voluntário como pagamento do ataque. Imunidades e efeitos especiais não resolvidos continuam bloqueando totals enganosos.
+- **Testes:** `supabase/tests/chaotic-preview-location-damage.test.sql` passou no Supabase para os três Locais, elementos naturais, segurança e pagamentos; **33/33 testes** JavaScript aprovados, incluindo fluxo 1x1 de Kiru em dois clientes simulados e DNA original intacto.
+- **Pendente:** o motor de habilidades, imunidades adicionais, equipamentos especiais e dano final em HP não foi migrado; a emissão das cartas ainda se baseia no álbum editável pelo cliente. É necessário testar dois usuários reais, com diferentes aparelhos e contas, antes de considerar o sistema competitivo pronto.
+- **Progresso geral estimado: 57% (±10 p.p.)** por adicionar bônus de Local validados no servidor à prévia individual; o PvP oficial permanece incompleto.
