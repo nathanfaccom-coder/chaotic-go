@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -198,6 +198,25 @@ function makeClient(actor) {
         attackInstances.set(key,snapshot);
         return {data:{...snapshot},error:null};
       }
+      if(name==="chaotic_capture_preview_initiative"){
+        const match=matches.get(room.id),key=room.id+"/"+args.p_expected_turn;
+        const clash=clashes.get(key),attacker=loadouts.get(room.id+"/"+actor);
+        const defender=loadouts.get(room.id+"/"+(clash?.defender_id||""));
+        if(room.mode!=="1x1"||!match||match.status!=="active"
+          ||match.current_player!==actor||match.turn_no!==args.p_expected_turn
+          ||!clash||clash.attacker_id!==actor||!attacker||!defender
+          ||attacker.card_instance_id!==clash.attacker_card
+          ||defender.card_instance_id!==clash.defender_card||initiatives.has(key))
+          return {data:null,error:{message:"Iniciativa não autorizada"}};
+        const winner=attacker.stats.v>=defender.stats.v?actor:clash.defender_id;
+        const item={lobby_id:room.id,turn_no:match.turn_no,attacker_id:actor,
+          defender_id:clash.defender_id,attacker_value:attacker.stats.v,
+          defender_value:defender.stats.v,winning_player:winner,
+          tie_favors_attacker:attacker.stats.v===defender.stats.v,
+          attribute_source:"no_location_speed_default"};
+        initiatives.set(key,item);
+        return {data:{...item},error:null};
+      }
       if(name==="chaotic_calculate_individual_preview"){
         const match=matches.get(room.id),key=room.id+"/"+args.p_expected_turn;
         const clash=clashes.get(key),attack=attackInstances.get(key);
@@ -336,7 +355,7 @@ function makeClient(actor) {
       throw Error(name);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
         then(resolve,reject) {
           const room=rooms.get(this.id);
@@ -373,6 +392,8 @@ function makeClient(actor) {
                             :table==="chaotic_preview_attack_hand"
                               ?[...hands.values()].flat().filter(x=>x.lobby_id===this.id&&x.actor_id===actor
                             &&x.card_state!=="deck")
+                              :table==="chaotic_preview_initiatives"
+                                ?[...initiatives.values()].filter(x=>x.lobby_id===this.id)
                         :(journals.get(this.id)||[])):[];
           return Promise.resolve({data:[...events].reverse().slice(0,size),error:null});
         },
@@ -968,4 +989,66 @@ test("1x1 test discard is private, one-time, and discarded cards reshuffle after
     p_lobby_id:id,p_expected_turn:3});
   assert.equal(repeat.data.drew_card,false,"No duplicate draw in same turn");
   assert.equal(repeat.data.recycled,false);
+});
+
+test("1x1 initiative snapshot uses individual Speed, tie to attacker, no turn or HP changes",async()=>{
+ const host=browser("init-host"),guest=browser("init-guest");
+ host("lobby-select-mode").value="1x1";
+ await host("lobby-create-btn").onclick();
+ const id=[...rooms.values()].find(r=>r.host_id==="init-host").id;
+ guest("lobby-input-code").value=host("lobby-room-code").textContent;
+ await guest("lobby-join-btn").onclick();
+ await host("lobby-refresh").onclick();
+ await host("lobby-turn-start").onclick();
+ host("lobby-combat-kind").value="creature";
+ host("lobby-combat-deck").value="1";
+ host("lobby-combat-slot").value="6";
+ await host("lobby-combat-submit").onclick();
+ await host("lobby-hex-place").onclick();
+ await host("lobby-loadout-capture").onclick();
+ await host("lobby-turn-pass").onclick();
+ await guest("lobby-turn-refresh").onclick();
+ guest("lobby-combat-kind").value="creature";
+ guest("lobby-combat-deck").value="1";
+ guest("lobby-combat-slot").value="6";
+ await guest("lobby-combat-submit").onclick();
+ await guest("lobby-hex-place").onclick();
+ await guest("lobby-loadout-capture").onclick();
+ await guest("lobby-turn-pass").onclick();
+ await host("lobby-turn-refresh").onclick();
+ host("lobby-combat-kind").value="attack";
+ host("lobby-combat-deck").value="1";
+ host("lobby-combat-slot").value="1";
+ await host("lobby-combat-submit").onclick();
+ assert.equal(host("lobby-initiative-preview-calculate").hidden,true);
+ await host("lobby-clash-open").onclick();
+ assert.equal(host("lobby-initiative-preview-calculate").hidden,false);
+ assert.ok((await makeClient("intruder").rpc("chaotic_capture_preview_initiative",{
+   p_lobby_id:id,p_expected_turn:3})).error);
+ await host("lobby-initiative-preview-calculate").onclick();
+ assert.equal(host("lobby-initiative-preview-calculate").hidden,true);
+ assert.match(host("lobby-initiative-history").textContent,/45 × defensor 45/);
+ assert.match(host("lobby-initiative-history").textContent,/empate favorece atacante/);
+ assert.equal(initiatives.get(id+"/3").winning_player,"init-host");
+ assert.equal(matches.get(id).current_player,"init-host");
+ assert.equal(matches.get(id).turn_no,3);
+ assert.equal(loadouts.get(id+"/init-guest").stats.e,65);
+ assert.ok((await makeClient("init-host").rpc("chaotic_capture_preview_initiative",{
+   p_lobby_id:id,p_expected_turn:3})).error,"Replay blocked");
+ await guest("lobby-turn-refresh").onclick();
+ assert.match(guest("lobby-initiative-history").textContent,/Anfitrião/);
+ const defender=loadouts.get(id+"/init-guest");
+ defender.stats.v=70;
+ await host("lobby-turn-pass").onclick();
+ await guest("lobby-turn-refresh").onclick();
+ await guest("lobby-turn-pass").onclick();
+ await host("lobby-turn-refresh").onclick();
+ host("lobby-combat-kind").value="attack";
+ host("lobby-combat-deck").value="1";
+ host("lobby-combat-slot").value="1";
+ await host("lobby-combat-submit").onclick();
+ await host("lobby-clash-open").onclick();
+ await host("lobby-initiative-preview-calculate").onclick();
+ assert.equal(initiatives.get(id+"/5").winning_player,"init-guest");
+ assert.equal(matches.get(id).current_player,"init-host");
 });
