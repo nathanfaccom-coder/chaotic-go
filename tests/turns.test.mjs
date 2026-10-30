@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map(),burstOrderPlans=new Map(),burstEquipmentResponses=new Map(),burstEquipmentEffects=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map(),burstOrderPlans=new Map(),burstPriority=new Map(),burstPriorityPasses=new Map(),burstEquipmentResponses=new Map(),burstEquipmentEffects=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -35,7 +35,10 @@ function makeClient(actor) {
         const state=matches.get(room.id);
         if(!state||state.status!=="active"||room.status!=="ready"
            ||state.current_player!==actor||state.turn_no!==args.p_expected_turn
-           ||(room.mode==="1x1"&&burstWindows.get(room.id+"/"+args.p_expected_turn)?.status==="awaiting_defender"))
+           ||(room.mode==="1x1"&&burstWindows.has(room.id+"/"+args.p_expected_turn)&&(
+              burstWindows.get(room.id+"/"+args.p_expected_turn)?.status==="awaiting_defender"
+              ||burstPriority.get(room.id+"/"+args.p_expected_turn)?.priority_status!=="closed_preview"
+              ||!burstOrderPlans.has(room.id+"/"+args.p_expected_turn))))
           return {data:null,error:{message:"Turno inválido"}};
         state.last_player=actor;state.current_player=actor===state.host_id?state.guest_id:state.host_id;
         state.turn_no++;
@@ -360,6 +363,37 @@ function makeClient(actor) {
         burstEquipmentEffects.set(key,entry);
         return {data:{...entry},error:null};
       }
+      if(name==="chaotic_open_preview_burst_priority"){
+        const m=matches.get(room.id),k=room.id+"/"+args.p_expected_turn,w=burstWindows.get(k);
+        if(room.mode!=="1x1"||room.status!=="ready"||!m||m.status!=="active"
+          ||m.current_player!==actor||m.turn_no!==args.p_expected_turn
+          ||w?.attacker_id!==actor||!["defender_passed","defender_immunity_noted"].includes(w?.status)
+          ||burstPriority.has(k)||burstOrderPlans.has(k)||individualDamage.has(k))
+          return {data:null,error:{message:"Cannot open priority"}};
+        const state={lobby_id:room.id,turn_no:m.turn_no,attacker_id:actor,
+          defender_id:w.defender_id,next_actor_id:actor,consecutive_passes:0,
+          priority_status:"awaiting_priority",official_match_modified:false,
+          burst_fully_resolved:false,final_damage_verified:false};
+        burstPriority.set(k,state);return {data:{...state},error:null};
+      }
+      if(name==="chaotic_pass_preview_burst_priority"){
+        const m=matches.get(room.id),k=room.id+"/"+args.p_expected_turn;
+        const state=burstPriority.get(k),w=burstWindows.get(k);
+        if(room.mode!=="1x1"||room.status!=="ready"||!m||m.status!=="active"
+          ||m.turn_no!==args.p_expected_turn||m.current_player!==w?.attacker_id
+          ||![m.host_id,m.guest_id].includes(actor)
+          ||state?.next_actor_id!==actor||state?.priority_status!=="awaiting_priority"
+          ||state.defender_id!==w.defender_id||burstOrderPlans.has(k)||individualDamage.has(k))
+          return {data:null,error:{message:"Priority is not yours"}};
+        const events=burstPriorityPasses.get(k)||[];
+        events.push({lobby_id:room.id,turn_no:m.turn_no,pass_seq:events.length+1,
+          actor_id:actor,action_type:"pass",official_match_modified:false});
+        burstPriorityPasses.set(k,events);
+        state.consecutive_passes=events.length;
+        state.priority_status=events.length===2?"closed_preview":"awaiting_priority";
+        state.next_actor_id=events.length===2?null:state.defender_id;
+        return {data:{...state},error:null};
+      }
       if(name==="chaotic_prepare_preview_burst_order"){
         const m=matches.get(room.id),key=room.id+"/"+args.p_expected_turn;
         const win=burstWindows.get(key),clash=clashes.get(key),attack=attackInstances.get(key),
@@ -372,6 +406,8 @@ function makeClient(actor) {
           ||clash?.attack_card!==win.attack_instance_id
           ||attack?.actor_id!==actor||attack?.attack_instance_id!==win.attack_instance_id
           ||burstOrderPlans.has(key)
+          ||burstPriority.get(key)?.priority_status!=="closed_preview"
+          ||burstPriorityPasses.get(key)?.length!==2
           ||(queued&&win.status==="defender_immunity_noted"))
           return {data:null,error:{message:"Sequência Burst não autorizada"}};
         const steps=win.status==="defender_immunity_noted"
@@ -551,6 +587,9 @@ function makeClient(actor) {
         if(room.mode!=="1x1"||!match||match.status!=="active"||
           match.current_player!==actor||match.turn_no!==args.p_expected_turn||
           burstWindows.get(key)?.status==="awaiting_defender"||
+          (burstWindows.has(key)&&(
+            burstPriority.get(key)?.priority_status!=="closed_preview"
+            ||!burstOrderPlans.has(key)))||
           !trainingReady||
           (queue&&(!trainingWallet
             ||trainingWallet.hp_remaining!==trainingResult.hp_after
@@ -708,7 +747,7 @@ function makeClient(actor) {
       throw Error(name);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits","chaotic_preview_burst_windows","chaotic_preview_burst_order_plans","chaotic_preview_burst_equipment_responses","chaotic_preview_burst_equipment_effects"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits","chaotic_preview_burst_windows","chaotic_preview_burst_priority","chaotic_preview_burst_priority_passes","chaotic_preview_burst_order_plans","chaotic_preview_burst_equipment_responses","chaotic_preview_burst_equipment_effects"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
         then(resolve,reject) {
           const room=rooms.get(this.id);
@@ -759,7 +798,11 @@ function makeClient(actor) {
                                           ?[...resolutionAudits.values()].filter(x=>x.lobby_id===this.id)
                                           :table==="chaotic_preview_burst_windows"
                                             ?[...burstWindows.values()].filter(x=>x.lobby_id===this.id)
-                                            :table==="chaotic_preview_burst_order_plans"
+                                            :table==="chaotic_preview_burst_priority"
+                                              ?[...burstPriority.values()].filter(x=>x.lobby_id===this.id)
+                                              :table==="chaotic_preview_burst_priority_passes"
+                                              ?[...burstPriorityPasses.values()].flat().filter(x=>x.lobby_id===this.id)
+                                              :table==="chaotic_preview_burst_order_plans"
                                               ?[...burstOrderPlans.values()].filter(x=>x.lobby_id===this.id)
                                               :table==="chaotic_preview_burst_equipment_responses"
                                                 ?[...burstEquipmentResponses.values()].filter(x=>x.lobby_id===this.id)
