@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -131,6 +131,8 @@
     const attackResolved=attackInstances.some(x=>x.turn_no===match.turn_no
       && x.actor_id===userId && x.attack_instance_id===clashToCalculate?.attack_card);
     const activeBurst=burstWindows.find(x=>x.turn_no===match.turn_no);
+    const pendingEquipment=burstEquipmentResponses.some(x=>
+      x.turn_no===match.turn_no&&x.resolution_status==="queued_unexecuted");
     $("lobby-burst-order-prepare").hidden=!(room.mode==="1x1"&&myTurn
       &&activeBurst&&["defender_passed","defender_immunity_noted"].includes(activeBurst.status)
       &&!burstOrderPlans.some(x=>x.turn_no===match.turn_no));
@@ -144,12 +146,17 @@
       &&activeBurst.defender_id===userId
       &&activeBurst.attacker_id===match.current_player);
     const defendingUnit=loadouts.find(x=>x.actor_id===userId);
+    $("lobby-burst-queue-equipment").hidden=$("lobby-burst-pass").hidden
+      ||!defendingUnit?.equipment_instance_id
+      ||equipmentReveals.some(x=>x.actor_id===userId)
+      ||pendingEquipment;
     const amuletRevealed=!!defendingUnit&&
       defendingUnit.equipment_name==="Amuleto do Vácuo"&&
       equipmentReveals.some(x=>x.actor_id===userId
         &&x.equipment_instance_id===defendingUnit.equipment_instance_id);
-    $("lobby-burst-air-immunity").hidden=$("lobby-burst-pass").hidden||
-      !(defendingUnit?.creature_name==="Rex"||amuletRevealed);
+    $("lobby-burst-air-immunity").hidden=$("lobby-burst-pass").hidden
+      ||pendingEquipment
+      ||!(defendingUnit?.creature_name==="Rex"||amuletRevealed);
     const bothLoadouts=loadouts.some(x=>x.actor_id===room.host_id)
       && loadouts.some(x=>x.actor_id===room.guest_id);
     const confirmedSpend=handCards.some(x=>x.card_state==="spent"
@@ -158,6 +165,7 @@
     $("lobby-individual-damage-calculate").hidden=!(room.mode==="1x1"
       &&myTurn&&clashToCalculate&&attackResolved&&bothLoadouts&&confirmedSpend
       &&activeBurst?.status!=="awaiting_defender"
+      &&!pendingEquipment
       &&!individualDamage.some(x=>x.turn_no===match.turn_no));
     const dmg=individualDamage.find(x=>x.turn_no===match.turn_no
       &&x.attacker_id===userId);
@@ -313,6 +321,26 @@
     }).join("\n"):"Nenhuma simulação individual.";
     updateClashUI();
   }
+  async function refreshBurstEquipmentResponses(){
+    const panel=$("lobby-burst-equipment-panel");
+    if(!panel)return;
+    panel.hidden=!room||!match||room.mode!=="1x1";
+    if(panel.hidden){burstEquipmentResponses=[];return;}
+    const {data,error}=await api.from("chaotic_preview_burst_equipment_responses")
+      .select("turn_no,defender_id,equipment_instance_id,equipment_name,resolution_status,equipment_actually_revealed")
+      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(20);
+    if(error)throw new Error(error.message);
+    burstEquipmentResponses=data||[];
+    $("lobby-burst-equipment-history").textContent=burstEquipmentResponses.length
+      ?burstEquipmentResponses.slice().reverse().map(x=>
+        "T"+x.turn_no+": "+
+        (x.defender_id===room.host_id?"Anfitrião":"Convidado")+
+        " declarou revelar "+x.equipment_name+
+        ". Ação na corrente, NÃO EXECUTADA; equipamento permanece oculto e efeitos não foram aplicados."
+      ).join("\n")
+      :"Nenhuma resposta de equipamento declarada.";
+    updateClashUI();
+  }
   async function refreshBurstOrderPlans(){
     const panel=$("lobby-burst-order-preview");
     if(!panel)return;
@@ -332,6 +360,9 @@
           step.order+"º "+(step.stage==="inspect_passive_air_immunity"
             ?"conferir "+(step.source==="rex_air"?"Rex":"Amuleto do Vácuo")
               +" (passivo, não é contra-ataque)"
+            :step.stage==="inspect_queued_equipment_reveal"
+              ?"conferir resposta: revelação pendente de "+step.equipment_name
+              +" (efeito não executado)"
             :"conferir a carta atacante")
         ).join(" → ")+
         ". Nada executado; dano final NÃO confirmado."
@@ -806,6 +837,7 @@
     await refreshHpLedger();
     await refreshEffectCandidates();
     await refreshBurstWindows();
+    await refreshBurstEquipmentResponses();
     await refreshBurstOrderPlans();
     await refreshResolutionAudits();
   }
@@ -914,6 +946,9 @@
         .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_burst_order_plans",filter:"lobby_id=eq."+lobbyId
         },sync)
+        .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_burst_equipment_responses",filter:"lobby_id=eq."+lobbyId
+        },sync)
         .subscribe(status=>{
           if(status==="CHANNEL_ERROR"||status==="TIMED_OUT")
             console.warn("DROME: canal em tempo real temporariamente indisponível; consultas periódicas seguem ativas.");
@@ -926,7 +961,7 @@
     }, 6000);
   }
   function show() {
-    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = [];
+    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = []; burstEquipmentResponses = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -1053,6 +1088,11 @@
       '<button id="lobby-burst-open" type="button" hidden>Abrir janela de resposta Burst</button>',
       '<button id="lobby-burst-pass" type="button" hidden>Passar minha resposta ao Burst</button>',
       '<button id="lobby-burst-air-immunity" type="button" hidden>Reconhecer imunidade a Ar (Rex / Amuleto)</button>',
+      '<section id="lobby-burst-equipment-panel">',
+      '<p>Respostas válidas podem incluir revelar equipamento. Ataques normais NÃO podem ser usados em resposta. O equipamento só produzirá efeitos após uma futura resolução completa.</p>',
+      '<button id="lobby-burst-queue-equipment" type="button" hidden>Declarar revelação de meu equipamento no Burst</button>',
+      '<p id="lobby-burst-equipment-history" class="lobby-events">Nenhuma resposta de equipamento declarada.</p>',
+      '</section>',
       '<p id="lobby-burst-history" class="lobby-events" aria-live="polite">Nenhuma resposta de Burst registrada.</p>',
       '<section id="lobby-burst-order-preview" hidden>',
       '<strong>🔁 Ordem de inspeção — Burst (somente teste)</strong>',
@@ -1311,6 +1351,15 @@
       note("Imunidade a Ar registrada: "+
         (result.defensive_immunity_source==="rex_air"?"Rex":"Amuleto do Vácuo")+
         ". Não altera dano final, HP real ou efeitos oficiais.");
+    });
+    $("lobby-burst-queue-equipment").onclick = () => action(async()=>{
+      if(!room||!match||room.mode!=="1x1")return;
+      const r=await rpc("chaotic_queue_preview_burst_equipment",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refreshBurstEquipmentResponses();
+      note("Revelação de "+r.equipment_name+
+        " declarada no servidor, mas NÃO EXECUTADA. Você ainda deve PASSAR no Burst.");
     });
     $("lobby-burst-order-prepare").onclick = () => action(async()=>{
       if(!room||!match||room.mode!=="1x1"||match.current_player!==userId)return;
