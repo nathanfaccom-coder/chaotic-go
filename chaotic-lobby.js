@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -105,6 +105,11 @@
     const adjacent=!!mine&&!!other&&contactBetweenSides(room.mode,mine.position,other.position);
     $("lobby-clash-open").hidden=!(myTurn&&attack&&adjacent&&!already);
     const clashToCalculate=clashes.find(x=>x.turn_no===match.turn_no && x.attacker_id===userId);
+    $("lobby-location-capture").hidden=!(room.mode==="1x1"
+      &&myTurn&&clashToCalculate
+      &&loadouts.some(x=>x.actor_id===room.host_id)
+      &&loadouts.some(x=>x.actor_id===room.guest_id)
+      &&roomLocations.length===0&&initiatives.length===0);
     $("lobby-initiative-preview-calculate").hidden=!(room.mode==="1x1"
       &&myTurn&&clashToCalculate
       &&loadouts.some(x=>x.actor_id===clashToCalculate.attacker_id
@@ -253,23 +258,44 @@
     }).join("\n"):"Nenhuma simulação individual.";
     updateClashUI();
   }
+  async function refreshRoomLocations(){
+    const panel=$("lobby-location-preview");
+    if(!panel)return;
+    panel.hidden=!room||!match||room.mode!=="1x1";
+    if(panel.hidden){roomLocations=[];return;}
+    const {data,error}=await api.from("chaotic_preview_room_locations")
+      .select("catalog_location_id,location_name,attribute_code,selected_by,selected_turn")
+      .eq("lobby_id",room.id).limit(1);
+    if(error)throw new Error(error.message);
+    roomLocations=data||[];
+    const location=roomLocations[0];
+    $("lobby-location-history").textContent=location
+      ?location.location_name+" · atributo de iniciativa: "+
+        ({s:"Sabedoria",p:"Poder",v:"Velocidade",c:"Coragem"}[location.attribute_code]||"Não validado")+
+        " · selecionado no servidor (apenas teste)."
+      :"Nenhum Local sorteado; sem Local, a prévia usa Velocidade.";
+    updateClashUI();
+  }
   async function refreshInitiatives(){
     const panel=$("lobby-initiative-preview");
     if(!panel)return;
     panel.hidden=!room||!match||room.mode!=="1x1";
     if(panel.hidden){initiatives=[];return;}
     const {data,error}=await api.from("chaotic_preview_initiatives")
-      .select("turn_no,attacker_id,defender_id,attacker_value,defender_value,winning_player,tie_favors_attacker,attribute_source")
+      .select("turn_no,attacker_id,defender_id,attacker_value,defender_value,winning_player,tie_favors_attacker,attribute_code,attribute_source,location_id")
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(12);
     if(error)throw new Error(error.message);
     initiatives=data||[];
     $("lobby-initiative-history").textContent=initiatives.length
       ?initiatives.slice().reverse().map(x=>
-        "T"+x.turn_no+": Velocidade atacante "+x.attacker_value+
-        " × defensor "+x.defender_value+" → "+
+        "T"+x.turn_no+": "+
+        ({s:"Sabedoria",p:"Poder",v:"Velocidade",c:"Coragem"}[x.attribute_code]||"Atributo")+
+        " atacante "+x.attacker_value+" × defensor "+x.defender_value+" → "+
         (x.winning_player===room.host_id?"Anfitrião":"Convidado")+
         (x.tie_favors_attacker?" (empate favorece atacante)":"")+
-        " · PRÉVIA SEM LOCAL: nenhuma mudança de turno ou pontos."
+        (x.attribute_source==="preview_location_deck"
+          ?" · Local do Deck confirmado.":" · SEM LOCAL: fallback de Velocidade.")+
+        " Nenhuma mudança de turno ou pontos."
       ).join("\n")
       :"Nenhuma iniciativa de teste calculada.";
     updateClashUI();
@@ -563,6 +589,7 @@
     await refreshAttackResources();
     await refreshAttackInstances();
     await refreshClashes();
+    await refreshRoomLocations();
     await refreshInitiatives();
     await refreshBaseDamage();
     await refreshModifiers();
@@ -653,6 +680,9 @@
         .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_initiatives",filter:"lobby_id=eq."+lobbyId
         },sync)
+        .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_room_locations",filter:"lobby_id=eq."+lobbyId
+        },sync)
         .subscribe(status=>{
           if(status==="CHANNEL_ERROR"||status==="TIMED_OUT")
             console.warn("DROME: canal em tempo real temporariamente indisponível; consultas periódicas seguem ativas.");
@@ -665,7 +695,7 @@
     }, 6000);
   }
   function show() {
-    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = [];
+    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -774,9 +804,15 @@
       '</div>',
       '<p id="lobby-clash-status" role="status"></p>',
       '<button id="lobby-clash-open" type="button" hidden>Registrar confronto</button>',
+      '<section id="lobby-location-preview" class="lobby-combat" hidden>',
+      '<strong>🗺️ LOCAL DO COMBATE — 1x1 (TESTE)</strong>',
+      '<p>O servidor sorteia um Local entre as cartas do Deck do atacante. A escolha fica fixa nesta sala. Ainda não aplica bônus ou efeitos reais do Local.</p>',
+      '<button id="lobby-location-capture" type="button" hidden>Sortear Local do meu Deck no servidor</button>',
+      '<p id="lobby-location-history" class="lobby-events">Nenhum Local sorteado.</p>',
+      '</section>',
       '<section id="lobby-initiative-preview" class="lobby-combat" hidden>',
       '<strong>⚡ INICIATIVA COM DNA INDIVIDUAL — TESTE</strong>',
-      '<p>Compara Velocidade das criaturas preparadas e favorece o atacante no empate. O Local ainda não está sincronizado: a prévia NÃO muda turnos nem concede pontos.</p>',
+      '<p>Compara o atributo do Local sorteado (Sabedoria, Poder ou Velocidade). Sem Local sorteado, usa Velocidade como fallback. O empate favorece o atacante. NÃO muda turnos nem concede pontos.</p>',
       '<button id="lobby-initiative-preview-calculate" type="button" hidden>Conferir iniciativa no servidor</button>',
       '<p id="lobby-initiative-history" class="lobby-events" aria-live="polite">Nenhuma iniciativa calculada.</p>',
       '</section>',
@@ -950,6 +986,16 @@
         ?"Bônus de catálogo conferidos; ainda não é dano final e não altera energia."
         :"Carta com efeitos ou referência incompleta: dano final não calculado.");
     });
+    $("lobby-location-capture").onclick = () => action(async()=>{
+      if(!room||!match||room.mode!=="1x1"||match.status!=="active"
+        ||match.current_player!==userId)return;
+      const loc=await rpc("chaotic_capture_preview_room_location",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refreshRoomLocations();
+      note("Local do Deck sorteado no servidor: "+loc.location_name+
+        ". Atributo da iniciativa preparado; efeitos reais desligados.");
+    });
     $("lobby-initiative-preview-calculate").onclick = () => action(async()=>{
       if(!room||!match||room.mode!=="1x1"||match.status!=="active"
         ||match.current_player!==userId)return;
@@ -957,8 +1003,10 @@
         p_lobby_id:room.id,p_expected_turn:match.turn_no
       });
       await refreshInitiatives();
-      note("Iniciativa de teste: "+r.attacker_value+" × "+r.defender_value+
-        ". Sem local definido, a vez real e os pontos permanecem iguais.");
+      note("Iniciativa de teste ("+
+        ({s:"Sabedoria",p:"Poder",v:"Velocidade",c:"Coragem"}[r.attribute_code]||"Atributo")+
+        "): "+r.attacker_value+" × "+r.defender_value+
+        ". A vez real e os pontos permanecem iguais.");
     });
     $("lobby-individual-damage-calculate").onclick = () => action(async()=>{
       if(!room||!match||room.mode!=="1x1"||match.status!=="active"
