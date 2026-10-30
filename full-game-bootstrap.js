@@ -31,7 +31,7 @@
     importer.hidden=true;
     await import("./script.js?v=full-2");
     await import("./batalha.js?v=full-2");
-    await import("./chaotic-lobby.js?v=full-5");
-    inform("Conta conectada. Decks, salas privadas e turnos de teste disponíveis.");
+    await import("./chaotic-lobby.js?v=full-6");
+    inform("Conta conectada. Prévia de Decks, turnos e escolhas de cartas disponível.");
   }catch(e){console.error(e);inform("Falha na inicialização: "+e.message,true);}
 })();
