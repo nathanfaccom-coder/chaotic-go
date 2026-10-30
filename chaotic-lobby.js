@@ -1111,19 +1111,15 @@
       &&x.actor_id===userId);
     $("lobby-3x3-prepare").hidden=!(myTurn&&own.length===0);
     const options=$("lobby-3x3-receiver");
-    // Using only DOM-safe textContent, not card data in HTML.
+    // Values are fixed board positions; names and card IDs are never interpolated into HTML.
+    const allowed=own.filter(x=>x.position!==donor?.position);
     const existing=options.value;
-    options.textContent="";
-    for(const ally of own.filter(x=>x.position!==donor?.position)){
-      const option=document.createElement("option");
-      option.value=String(ally.position);
-      option.textContent="c"+ally.position+" · "+ally.creature_name+
-        " ("+ally.remaining_tokens+" fichas)";
-      options.appendChild(option);
-    }
-    if([...options.options].some(x=>x.value===existing))options.value=existing;
+    options.innerHTML='<option value="4">Aliado c4</option>'+
+      '<option value="5">Aliado c5</option><option value="6">Aliado c6</option>';
+    options.value=allowed.some(x=>String(x.position)===existing)?existing:
+      String(allowed[0]?.position||4);
     $("lobby-3x3-transfer").hidden=!(myTurn&&donor&&donor.remaining_tokens>0
-      &&!priorTransfer&&options.options.length>0
+      &&!priorTransfer&&allowed.length>0
       &&!clashes.some(x=>x.turn_no===match?.turn_no)
       &&!burstWindows.some(x=>x.turn_no===match?.turn_no));
     $("lobby-3x3-allies-history").textContent=allies3x3.length
