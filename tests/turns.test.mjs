@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -237,6 +237,62 @@ function makeClient(actor) {
         initiatives.set(key,item);
         return {data:{...item},error:null};
       }
+      if(name==="chaotic_prepare_preview_hp"){
+        const match=matches.get(room.id),loc=locations.get(room.id);
+        const host=loadouts.get(room.id+"/"+room.host_id);
+        const guest=loadouts.get(room.id+"/"+room.guest_id);
+        if(room.mode!=="1x1"||!match||match.status!=="active"
+          ||match.turn_no!==args.p_expected_turn||match.current_player!==actor
+          ||!loc||!host||!guest
+          ||hpWallets.has(room.id+"/"+room.host_id)
+          ||hpWallets.has(room.id+"/"+room.guest_id)
+          ||[...individualDamage.values()].some(x=>x.lobby_id===room.id))
+          return {data:null,error:{message:"HP de teste não inicializado"}};
+        const hpFor=x=>x.stats.e+(loc.catalog_location_id===501&&x.tribe==="Azul"?10:0);
+        for(const [who,unit] of [[room.host_id,host],[room.guest_id,guest]]){
+          const max=hpFor(unit);
+          hpWallets.set(room.id+"/"+who,{lobby_id:room.id,actor_id:who,
+            creature_instance_id:unit.card_instance_id,
+            location_id:loc.catalog_location_id,hp_max:max,hp_remaining:max,
+            projected_hits:0});
+        }
+        return {data:{status:"initialized_hypothetical",
+          host_hp:hpFor(host),guest_hp:hpFor(guest),
+          location_id:loc.catalog_location_id,official_hp_changed:false},error:null};
+      }
+      if(name==="chaotic_apply_preview_hp_projection"){
+        const match=matches.get(room.id),key=room.id+"/"+args.p_expected_turn;
+        const dmg=individualDamage.get(key),attack=attackInstances.get(key);
+        const card=hands.get(room.id+"/"+actor)?.find(x=>
+          x.attack_instance_id===dmg?.attack_instance_id);
+        const a=hpWallets.get(room.id+"/"+actor);
+        const d=hpWallets.get(room.id+"/"+(dmg?.defender_id||""));
+        if(room.mode!=="1x1"||!match||match.status!=="active"
+          ||match.turn_no!==args.p_expected_turn||match.current_player!==actor
+          ||!dmg||dmg.attacker_id!==actor||!d
+          ||!a||a.hp_remaining<=0||d.hp_remaining<=0
+          ||attack?.attack_instance_id!==dmg.attack_instance_id
+          ||attack?.catalog_attack_id!==dmg.catalog_attack_id
+          ||card?.spent_reason!=="attack"||card?.spent_turn!==args.p_expected_turn
+          ||dmg.calculation_status!=="partial_estimate"
+          ||dmg.cost_status!=="test_spent"
+          ||d.location_id!==dmg.location_id
+          ||hpEvents.has(key))
+          return {data:null,error:{message:"Aplicação de HP hipotético não autorizada"}};
+        const before=d.hp_remaining;
+        d.hp_remaining=Math.max(0,before-dmg.preview_subtotal);
+        d.projected_hits+=1;
+        const ev={lobby_id:room.id,turn_no:args.p_expected_turn,
+          attacker_id:actor,victim_id:dmg.defender_id,hp_before:before,
+          hp_after:d.hp_remaining,indicative_damage:dmg.preview_subtotal,
+          hypothetical_applied_damage:before-d.hp_remaining,
+          official_hp_changed:false,final_damage_verified:false};
+        hpEvents.set(key,ev);
+        return {data:{projection:"hypothetical_partial_damage",turn_no:args.p_expected_turn,
+          victim_id:dmg.defender_id,hp_before:before,hp_after:d.hp_remaining,
+          indicative_damage:dmg.preview_subtotal,official_hp_changed:false,
+          final_damage_verified:false},error:null};
+      }
       if(name==="chaotic_capture_preview_effect_candidate"){
         const m=matches.get(room.id),k=room.id+"/"+args.p_expected_turn;
         const d=individualDamage.get(k),a=attackInstances.get(k),cl=clashes.get(k);
@@ -416,7 +472,7 @@ function makeClient(actor) {
       throw Error(name);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
         then(resolve,reject) {
           const room=rooms.get(this.id);
@@ -459,6 +515,10 @@ function makeClient(actor) {
                                   ?[...locations.values()].filter(x=>x.lobby_id===this.id)
                                   :table==="chaotic_preview_effect_candidates"
                                     ?[...effectCandidates.values()].filter(x=>x.lobby_id===this.id)
+                                    :table==="chaotic_preview_hp_wallets"
+                                      ?[...hpWallets.values()].filter(x=>x.lobby_id===this.id)
+                                      :table==="chaotic_preview_hp_events"
+                                        ?[...hpEvents.values()].filter(x=>x.lobby_id===this.id)
                         :(journals.get(this.id)||[])):[];
           return Promise.resolve({data:[...events].reverse().slice(0,size),error:null});
         },
