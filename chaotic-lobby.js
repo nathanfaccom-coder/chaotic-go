@@ -418,6 +418,7 @@
         ". Nada executado; dano final NÃO confirmado."
       ).join("\n")
       :"Nenhuma sequência de inspeção preparada.";
+    updateMatchUI();
     updateClashUI();
   }
   async function refreshBurstPriority(){
