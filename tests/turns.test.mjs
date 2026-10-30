@@ -1809,6 +1809,90 @@ async function completePriority(host,guest,exerciseMugic=false){
   assert.equal(host("lobby-burst-order-prepare").hidden,false);
 }
 
+test("Burst 1x1 inspects Creation countered by Rejection in LIFO without consumption",async()=>{
+  const host=browser("mugic-lifo-host"),guest=browser("mugic-lifo-guest");
+  host("lobby-select-mode").value="1x1";
+  await host("lobby-create-btn").onclick();
+  const code=host("lobby-room-code").textContent;
+  const id=[...rooms.values()].find(x=>x.code===code).id;
+  guest("lobby-input-code").value=code;
+  await guest("lobby-join-btn").onclick();
+  await host("lobby-refresh").onclick();
+  await host("lobby-turn-start").onclick();
+  host("lobby-combat-kind").value="creature";
+  host("lobby-combat-deck").value="1";
+  host("lobby-combat-slot").value="6";
+  await host("lobby-combat-submit").onclick();
+  await host("lobby-hex-place").onclick();
+  await host("lobby-loadout-capture").onclick();
+  await host("lobby-turn-pass").onclick();
+  await guest("lobby-turn-refresh").onclick();
+  guest("lobby-combat-kind").value="creature";
+  guest("lobby-combat-deck").value="1";
+  guest("lobby-combat-slot").value="6";
+  await guest("lobby-combat-submit").onclick();
+  await guest("lobby-hex-place").onclick();
+  await guest("lobby-loadout-capture").onclick();
+  await guest("lobby-turn-pass").onclick();
+  await host("lobby-turn-refresh").onclick();
+  await host("lobby-hand-prepare").onclick();
+  host("lobby-combat-kind").value="attack";
+  host("lobby-combat-deck").value="1";
+  host("lobby-combat-slot").value="1";
+  await host("lobby-combat-submit").onclick();
+  await host("lobby-clash-open").onclick();
+  assert.equal(host("lobby-burst-open").hidden,true);
+  await host("lobby-attack-instance-capture").onclick();
+  assert.equal(host("lobby-burst-open").hidden,false);
+  await host("lobby-burst-open").onclick();
+  await guest("lobby-turn-refresh").onclick();
+  await guest("lobby-burst-pass").onclick();
+  await host("lobby-turn-refresh").onclick();
+  await host("lobby-burst-priority-open").onclick();
+  assert.equal(host("lobby-burst-mugic-create").hidden,false);
+  await host("lobby-burst-mugic-create").onclick();
+  const creation=burstMugicIntents.get(id+"/3/mugic-lifo-host");
+  assert.equal(creation?.catalog_mugic_id,"301");
+  assert.equal(creation.consumes_tokens,false);
+  assert.equal(host("lobby-burst-mugic-counterplan").hidden,true);
+  assert.ok((await makeClient("mugic-lifo-host").rpc("chaotic_prepare_preview_mugic_counterplan",{
+    p_lobby_id:id,p_expected_turn:3})).error,"Cannot counter before two passes");
+  await host("lobby-burst-priority-pass").onclick();
+  await guest("lobby-turn-refresh").onclick();
+  assert.equal(guest("lobby-burst-mugic-reject").hidden,false);
+  await guest("lobby-burst-mugic-reject").onclick();
+  assert.equal(guest("lobby-burst-mugic-history").textContent.includes("Canção da Criação"),false,
+    "Opponent must not see private Creation before counterplan");
+  await guest("lobby-burst-priority-pass").onclick();
+  assert.ok((await makeClient("mugic-lifo-guest").rpc("chaotic_prepare_preview_mugic_counterplan",{
+    p_lobby_id:id,p_expected_turn:3})).error,"Defender cannot forge the review");
+  await host("lobby-turn-refresh").onclick();
+  assert.equal(host("lobby-burst-mugic-counterplan").hidden,false);
+  assert.equal(host("lobby-burst-order-prepare").hidden,true);
+  await host("lobby-burst-mugic-counterplan").onclick();
+  const plan=burstMugicCounterplans.get(id+"/3");
+  assert.equal(plan?.inspection_steps[0].name,"Canção da Rejeição");
+  assert.equal(plan.inspection_steps[1].name,"Canção da Criação");
+  assert.equal(plan.hypothetical_creation_negated,true);
+  assert.equal(plan.token_balance_verified,false);
+  assert.equal(plan.effect_executed,false);
+  assert.equal(plan.consumes_cards,false);
+  assert.equal(plan.consumes_tokens,false);
+  assert.match(host("lobby-burst-mugic-counter-history").textContent,/INSPEÇÃO LIFO/);
+  assert.ok((await makeClient("mugic-lifo-host").rpc("chaotic_prepare_preview_mugic_counterplan",{
+    p_lobby_id:id,p_expected_turn:3})).error,"Cannot repeat the review");
+  await guest("lobby-turn-refresh").onclick();
+  assert.match(guest("lobby-burst-mugic-counter-history").textContent,/Rejeição/);
+  await host("lobby-burst-mugic-cancel").onclick();
+  await guest("lobby-burst-mugic-cancel").onclick();
+  await host("lobby-turn-refresh").onclick();
+  assert.equal(host("lobby-burst-order-prepare").hidden,false,
+    "Both Mugic intentions cancelled before original experimental attack");
+  await host("lobby-burst-order-prepare").onclick();
+  assert.equal(burstOrderPlans.get(id+"/3").burst_stack_executed,false);
+  assert.equal(matches.get(id).current_player,"mugic-lifo-host");
+});
+
 test("1x1 Burst defender may pass during attacker's turn but cannot resolve damage",async()=>{
   const host=browser("burst-host"),guest=browser("burst-guest");
   host("lobby-select-mode").value="1x1";
