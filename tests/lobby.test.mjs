@@ -51,10 +51,14 @@ function makeClient(userId) {
       throw Error("Unexpected RPC "+method);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board"].includes(table));
       return {select(){return this;},eq(_field,id){this.id=id;return this;},
         order(){return this;},
         limit(){return Promise.resolve({data:[],error:null});},
+        then(resolve,reject) {
+          if(table==="chaotic_preview_board")return Promise.resolve({data:[],error:null}).then(resolve,reject);
+          return Promise.resolve({data:[],error:null}).then(resolve,reject);
+        },
         async maybeSingle() {
           const room=rooms.get(this.id);
           if(table==="chaotic_match_turns")return {data:null,error:null};
@@ -69,6 +73,7 @@ function makeBrowser(userId) {
   function elem(id) {
     if(!elements.has(id))elements.set(id,{
       id,textContent:"",value:"",style:{},hidden:false,
+      classList:{toggle(){},add(){},remove(){}},
       disabled:false,isConnected:true,onclick:null,
       set innerHTML(value) {
         this._html=value;
@@ -140,7 +145,7 @@ test("private room subscribes to four channels and cleans up after closing",asyn
   const own=realtimeChannels.findLast(c=>c.userId==="live-host");
   assert.ok(own?.active);
   assert.deepEqual(own.listeners.map(x=>x.filter.table),
-    ["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations"]);
+    ["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board"]);
   const code=host.elem("lobby-room-code").textContent;
   guest.browser.window.abrirSalaPrivadaDrome();
   guest.elem("lobby-input-code").value=code;
