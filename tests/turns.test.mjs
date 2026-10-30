@@ -779,3 +779,69 @@ test("1x1 equipment reveal can be done once by owner on own turn, with no HP mut
     {p_lobby_id:id,p_expected_turn:2});
   assert.ok(wrongTurn.error);
 });
+
+
+test("1x1 server-owned resource hand rejects wrong actor, insufficient points and replay",async()=>{
+ const host=browser("resource-host"),guest=browser("resource-guest");
+ host("lobby-select-mode").value="1x1";
+ await host("lobby-create-btn").onclick();
+ const code=host("lobby-room-code").textContent;
+ guest("lobby-input-code").value=code;
+ await guest("lobby-join-btn").onclick();
+ await host("lobby-refresh").onclick();
+ await host("lobby-turn-start").onclick();
+ const id=[...rooms.values()].find(x=>x.code===code).id;
+ host("lobby-combat-kind").value="creature";
+ host("lobby-combat-deck").value="1";
+ host("lobby-combat-slot").value="6";
+ await host("lobby-combat-submit").onclick();
+ await host("lobby-hex-place").onclick();
+ await host("lobby-loadout-capture").onclick();
+ assert.equal(host("lobby-hand-prepare").hidden,false);
+ await host("lobby-hand-prepare").onclick();
+ assert.equal(host("lobby-hand-prepare").hidden,true);
+ assert.equal(hands.get(id+"/resource-host").filter(x=>x.card_state==="hand").length,3);
+ assert.equal(wallets.get(id+"/resource-host").spent_points,0);
+ assert.equal(host("lobby-hand-spend").hidden,true);
+ assert.ok((await makeClient("resource-guest").rpc("chaotic_spend_preview_attack",{
+   p_lobby_id:id,p_expected_turn:1})).error);
+ assert.ok((await makeClient("resource-host").rpc("chaotic_prepare_preview_hand",{
+   p_lobby_id:id,p_expected_turn:1})).error);
+ await host("lobby-turn-pass").onclick();
+ await guest("lobby-turn-refresh").onclick();
+ guest("lobby-combat-kind").value="creature";
+ guest("lobby-combat-deck").value="1";
+ guest("lobby-combat-slot").value="6";
+ await guest("lobby-combat-submit").onclick();
+ await guest("lobby-hex-place").onclick();
+ await guest("lobby-loadout-capture").onclick();
+ await guest("lobby-turn-pass").onclick();
+ await host("lobby-turn-refresh").onclick();
+ assert.equal(host("lobby-hand-sync").hidden,false);
+ await host("lobby-hand-sync").onclick();
+ assert.equal(host("lobby-hand-sync").hidden,true);
+ assert.equal(hands.get(id+"/resource-host").filter(x=>x.card_state==="hand").length,4);
+ host("lobby-combat-kind").value="attack";
+ host("lobby-combat-slot").value="1";
+ await host("lobby-combat-submit").onclick();
+ await host("lobby-clash-open").onclick();
+ await host("lobby-attack-instance-capture").onclick();
+ const attack=attackInstances.get(id+"/3");
+ attack.attack_cost=9;
+ assert.ok((await makeClient("resource-host").rpc("chaotic_spend_preview_attack",{
+   p_lobby_id:id,p_expected_turn:3})).error,"Insufficient points rejected");
+ assert.equal(wallets.get(id+"/resource-host").spent_points,0);
+ assert.equal(hands.get(id+"/resource-host")[0].card_state,"hand");
+ attack.attack_cost=1;
+ const wrong=await makeClient("resource-guest").rpc("chaotic_spend_preview_attack",{
+   p_lobby_id:id,p_expected_turn:3});
+ assert.ok(wrong.error,"Opponent cannot spend during host turn");
+ await host("lobby-hand-spend").onclick();
+ assert.equal(wallets.get(id+"/resource-host").spent_points,1);
+ assert.equal(hands.get(id+"/resource-host")[0].card_state,"spent");
+ assert.equal(hands.get(id+"/resource-host")[0].spent_turn,3);
+ assert.match(host("lobby-attack-resource-summary").textContent,/pontos 3/);
+ assert.ok((await makeClient("resource-host").rpc("chaotic_spend_preview_attack",{
+   p_lobby_id:id,p_expected_turn:3})).error,"Card replay rejected");
+ assert.equal(loadouts.get(id+"/resource-guest").stats.e,65);
+});
