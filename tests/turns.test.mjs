@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map(),burstOrderPlans=new Map(),burstPriority=new Map(),burstPriorityPasses=new Map(),burstEquipmentResponses=new Map(),burstEquipmentEffects=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map(),burstOrderPlans=new Map(),burstPriority=new Map(),burstPriorityPasses=new Map(),burstMugicIntents=new Map(),burstEquipmentResponses=new Map(),burstEquipmentEffects=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -38,7 +38,9 @@ function makeClient(actor) {
            ||(room.mode==="1x1"&&burstWindows.has(room.id+"/"+args.p_expected_turn)&&(
               burstWindows.get(room.id+"/"+args.p_expected_turn)?.status==="awaiting_defender"
               ||burstPriority.get(room.id+"/"+args.p_expected_turn)?.priority_status!=="closed_preview"
-              ||!burstOrderPlans.has(room.id+"/"+args.p_expected_turn))))
+              ||!burstOrderPlans.has(room.id+"/"+args.p_expected_turn)
+              ||[...burstMugicIntents.values()].some(x=>x.lobby_id===room.id
+                &&x.turn_no===args.p_expected_turn&&x.intent_status==="queued_unexecuted"))))
           return {data:null,error:{message:"Turno inválido"}};
         state.last_player=actor;state.current_player=actor===state.host_id?state.guest_id:state.host_id;
         state.turn_no++;
@@ -394,6 +396,37 @@ function makeClient(actor) {
         state.next_actor_id=events.length===2?null:state.defender_id;
         return {data:{...state},error:null};
       }
+      if(name==="chaotic_queue_preview_burst_mugic"){
+        const m=matches.get(room.id),k=room.id+"/"+args.p_expected_turn;
+        const w=burstWindows.get(k),p=burstPriority.get(k),unit=loadouts.get(room.id+"/"+actor);
+        const id=args.p_catalog_mugic_id;
+        if(!m||m.status!=="active"||room.mode!=="1x1"||room.status!=="ready"
+          ||m.turn_no!==args.p_expected_turn||![m.host_id,m.guest_id].includes(actor)
+          ||w?.attacker_id!==m.current_player
+          ||!["defender_passed","defender_immunity_noted"].includes(w?.status)
+          ||p?.priority_status!=="awaiting_priority"||p.next_actor_id!==actor
+          ||!unit||!["301","302"].includes(id)
+          ||burstOrderPlans.has(k)||individualDamage.has(k)
+          ||burstMugicIntents.has(k+"/"+actor))
+          return {data:null,error:{message:"Mugic original indisponível no Deck de treinamento"}};
+        const entry={lobby_id:room.id,turn_no:m.turn_no,actor_id:actor,
+          card_instance_id:"test-mugic-"+id,catalog_mugic_id:id,
+          mugic_name:id==="301"?"Canção da Criação":"Canção da Rejeição",
+          intent_status:"queued_unexecuted",consumes_card:false,consumes_tokens:false,
+          applied_to_official_match:false,effect_executed:false};
+        burstMugicIntents.set(k+"/"+actor,entry);
+        return {data:{...entry},error:null};
+      }
+      if(name==="chaotic_cancel_preview_burst_mugic"){
+        const m=matches.get(room.id),k=room.id+"/"+args.p_expected_turn;
+        const entry=burstMugicIntents.get(k+"/"+actor);
+        if(!m||m.status!=="active"||m.turn_no!==args.p_expected_turn
+          ||entry?.intent_status!=="queued_unexecuted"
+          ||burstOrderPlans.has(k)||individualDamage.has(k))
+          return {data:null,error:{message:"Intenção não cancelável"}};
+        entry.intent_status="cancelled";
+        return {data:{...entry},error:null};
+      }
       if(name==="chaotic_prepare_preview_burst_order"){
         const m=matches.get(room.id),key=room.id+"/"+args.p_expected_turn;
         const win=burstWindows.get(key),clash=clashes.get(key),attack=attackInstances.get(key),
@@ -408,6 +441,8 @@ function makeClient(actor) {
           ||burstOrderPlans.has(key)
           ||burstPriority.get(key)?.priority_status!=="closed_preview"
           ||burstPriorityPasses.get(key)?.length!==2
+          ||[...burstMugicIntents.values()].some(x=>x.lobby_id===room.id
+            &&x.turn_no===args.p_expected_turn&&x.intent_status==="queued_unexecuted")
           ||(queued&&win.status==="defender_immunity_noted"))
           return {data:null,error:{message:"Sequência Burst não autorizada"}};
         const steps=win.status==="defender_immunity_noted"
@@ -589,7 +624,9 @@ function makeClient(actor) {
           burstWindows.get(key)?.status==="awaiting_defender"||
           (burstWindows.has(key)&&(
             burstPriority.get(key)?.priority_status!=="closed_preview"
-            ||!burstOrderPlans.has(key)))||
+            ||!burstOrderPlans.has(key)))
+          ||[...burstMugicIntents.values()].some(x=>x.lobby_id===room.id
+            &&x.turn_no===args.p_expected_turn&&x.intent_status==="queued_unexecuted")||
           !trainingReady||
           (queue&&(!trainingWallet
             ||trainingWallet.hp_remaining!==trainingResult.hp_after
@@ -803,7 +840,8 @@ function makeClient(actor) {
                                               :table==="chaotic_preview_burst_priority_passes"
                                               ?[...burstPriorityPasses.values()].flat().filter(x=>x.lobby_id===this.id)
                                               :table==="chaotic_preview_burst_mugic_intents"
-                                              ?[]
+                                              ?[...burstMugicIntents.values()].filter(x=>
+                                                x.lobby_id===this.id&&x.actor_id===actor)
                                               :table==="chaotic_preview_burst_order_plans"
                                               ?[...burstOrderPlans.values()].filter(x=>x.lobby_id===this.id)
                                               :table==="chaotic_preview_burst_equipment_responses"
@@ -1706,9 +1744,18 @@ test("1x1 conditional Vinha effect is predicted for next opponent turn but NEVER
 });
 
 
-async function completePriority(host,guest){
+async function completePriority(host,guest,exerciseMugic=false){
   assert.equal(host("lobby-burst-priority-open").hidden,false);
   await host("lobby-burst-priority-open").onclick();
+  if(exerciseMugic){
+    assert.equal(host("lobby-burst-mugic-reject").hidden,false);
+    await host("lobby-burst-mugic-reject").onclick();
+    assert.match(host("lobby-burst-mugic-history").textContent,/INTENÇÃO PENDENTE/);
+    assert.equal(host("lobby-burst-mugic-cancel").hidden,false);
+    await host("lobby-burst-mugic-cancel").onclick();
+    assert.match(host("lobby-burst-mugic-history").textContent,/intenção cancelada/);
+    assert.equal(host("lobby-burst-mugic-reject").hidden,true);
+  }
   assert.equal(host("lobby-burst-priority-pass").hidden,false);
   await host("lobby-burst-priority-pass").onclick();
   assert.equal(host("lobby-burst-priority-pass").hidden,true,"Attacker cannot repeat PASS");
@@ -1797,7 +1844,7 @@ test("1x1 Burst defender may pass during attacker's turn but cannot resolve dama
     p_lobby_id:id,p_expected_turn:3})).error,"Cannot prepare before both priority passes");
   assert.ok((await makeClient("burst-guest").rpc("chaotic_prepare_preview_burst_order",{
     p_lobby_id:id,p_expected_turn:3})).error,"Defender cannot forge attacker plan");
-  await completePriority(host,guest);
+  await completePriority(host,guest,true);
   await host("lobby-burst-order-prepare").onclick();
   const plan=burstOrderPlans.get(id+"/3");
   assert.equal(plan.inspection_step_count,1,"PASS is not a counter-card");
