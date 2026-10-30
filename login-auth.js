@@ -14,7 +14,7 @@ $("btn-entrar").onclick=async ()=>{
     feedback("Validando credenciais...");
     const {error}=await ChaoticAuth.getClient().auth.signInWithPassword({email,password});
     if(error) throw error;
-    window.location.replace("scanner-v2.html");
+    window.location.replace("scanner-completo.html");
   } catch(e) { feedback("Não foi possível entrar: "+e.message); }
 };
 $("btn-cadastrar").onclick=async ()=>{
@@ -26,7 +26,7 @@ $("btn-cadastrar").onclick=async ()=>{
     feedback("Criando conta...");
     const {data,error}=await ChaoticAuth.getClient().auth.signUp({email,password,options:{data:{username},emailRedirectTo:new URL("login.html",window.location.href).href}});
     if(error) throw error;
-    if(data.session) window.location.replace("scanner-v2.html");
+    if(data.session) window.location.replace("scanner-completo.html");
     else { show("");feedback("Cadastro recebido. Confira seu e-mail para confirmar a conta antes de entrar."); }
   } catch(e){feedback("Não foi possível cadastrar: "+e.message);}
 };
@@ -39,5 +39,5 @@ $("btn-recuperar-senha").onclick=async ()=>{
     feedback("Se o e-mail estiver cadastrado, você receberá um link para redefinir a senha.");
   } catch(e){feedback(e.message);}
 };
-(async()=>{try{if(await ChaoticAuth.currentUser()) location.replace("scanner-v2.html");}catch(e){feedback(e.message);}})();
+(async()=>{try{if(await ChaoticAuth.currentUser()) location.replace("scanner-completo.html");}catch(e){feedback(e.message);}})();
 })();
