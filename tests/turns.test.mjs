@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -238,6 +238,32 @@ function makeClient(actor) {
         initiatives.set(key,item);
         return {data:{...item},error:null};
       }
+      if(name==="chaotic_open_preview_burst"){
+        const m=matches.get(room.id),k=room.id+"/"+args.p_expected_turn;
+        const cl=clashes.get(k),atk=attackInstances.get(k);
+        if(room.mode!=="1x1"||room.status!=="ready"||!m||m.status!=="active"
+          ||m.turn_no!==args.p_expected_turn||m.current_player!==actor
+          ||cl?.attacker_id!==actor||!cl?.defender_id||atk?.actor_id!==actor
+          ||atk?.attack_instance_id!==cl?.attack_card
+          ||individualDamage.has(k)||burstWindows.has(k))
+          return {data:null,error:{message:"Abertura de Burst não permitida"}};
+        const item={lobby_id:room.id,turn_no:m.turn_no,attacker_id:actor,
+          defender_id:cl.defender_id,attack_instance_id:cl.attack_card,
+          status:"awaiting_defender",defender_response:null,
+          burst_fully_resolved:false,final_damage_verified:false};
+        burstWindows.set(k,item);
+        return {data:{...item},error:null};
+      }
+      if(name==="chaotic_pass_preview_burst"){
+        const m=matches.get(room.id),k=room.id+"/"+args.p_expected_turn;
+        const win=burstWindows.get(k);
+        if(room.mode!=="1x1"||room.status!=="ready"||!m||m.status!=="active"
+          ||m.turn_no!==args.p_expected_turn||win?.status!=="awaiting_defender"
+          ||win.defender_id!==actor||win.attacker_id!==m.current_player)
+          return {data:null,error:{message:"Somente defensor pode PASSAR"}};
+        win.status="defender_passed";win.defender_response="pass";
+        return {data:{...win},error:null};
+      }
       if(name==="chaotic_audit_preview_damage"){
         const m=matches.get(room.id),k=room.id+"/"+args.p_expected_turn;
         const d=individualDamage.get(k),atk=attackInstances.get(k),cl=clashes.get(k);
@@ -271,6 +297,10 @@ function makeClient(actor) {
         blockers.push(attackSpecial[atk.catalog_attack_id]||
           "hand_draw_heal_or_other_action_unresolved");
         if(!d.location_id)blockers.push("location_not_selected");
+        const win=burstWindows.get(k);
+        blockers.push(!win?"burst_window_not_opened":
+          win.status==="awaiting_defender"?"burst_defender_response_pending":
+          "burst_defender_passed_preview_only");
         if(a.equipment_name||v.equipment_name)
           blockers.push("equipment_full_effects_unresolved");
         const out={lobby_id:room.id,turn_no:m.turn_no,actor_id:actor,
@@ -518,7 +548,7 @@ function makeClient(actor) {
       throw Error(name);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits","chaotic_preview_burst_windows"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
         then(resolve,reject) {
           const room=rooms.get(this.id);
@@ -567,6 +597,8 @@ function makeClient(actor) {
                                         ?[...hpEvents.values()].filter(x=>x.lobby_id===this.id)
                                         :table==="chaotic_preview_resolution_audits"
                                           ?[...resolutionAudits.values()].filter(x=>x.lobby_id===this.id)
+                                          :table==="chaotic_preview_burst_windows"
+                                            ?[...burstWindows.values()].filter(x=>x.lobby_id===this.id)
                         :(journals.get(this.id)||[])):[];
           return Promise.resolve({data:[...events].reverse().slice(0,size),error:null});
         },
@@ -1460,4 +1492,77 @@ test("1x1 conditional Vinha effect is predicted for next opponent turn but NEVER
   assert.equal(matches.get(id).current_player,"effect-guest","Candidate cannot skip an actual turn");
   assert.equal(matches.get(id).turn_no,4);
   assert.equal(loadouts.get(id+"/effect-guest").stats.e,65);
+});
+
+test("1x1 Burst defender may pass during attacker's turn but cannot resolve damage",async()=>{
+  const host=browser("burst-host"),guest=browser("burst-guest");
+  host("lobby-select-mode").value="1x1";
+  await host("lobby-create-btn").onclick();
+  const code=host("lobby-room-code").textContent;
+  const id=[...rooms.values()].find(x=>x.code===code).id;
+  guest("lobby-input-code").value=code;
+  await guest("lobby-join-btn").onclick();
+  await host("lobby-refresh").onclick();
+  await host("lobby-turn-start").onclick();
+  host("lobby-combat-kind").value="creature";
+  host("lobby-combat-deck").value="1";
+  host("lobby-combat-slot").value="6";
+  await host("lobby-combat-submit").onclick();
+  await host("lobby-hex-place").onclick();
+  await host("lobby-loadout-capture").onclick();
+  await host("lobby-turn-pass").onclick();
+  await guest("lobby-turn-refresh").onclick();
+  guest("lobby-combat-kind").value="creature";
+  guest("lobby-combat-deck").value="1";
+  guest("lobby-combat-slot").value="6";
+  await guest("lobby-combat-submit").onclick();
+  await guest("lobby-hex-place").onclick();
+  await guest("lobby-loadout-capture").onclick();
+  await guest("lobby-turn-pass").onclick();
+  await host("lobby-turn-refresh").onclick();
+  await host("lobby-hand-prepare").onclick();
+  host("lobby-combat-kind").value="attack";
+  host("lobby-combat-deck").value="1";
+  host("lobby-combat-slot").value="1";
+  await host("lobby-combat-submit").onclick();
+  await host("lobby-clash-open").onclick();
+  assert.equal(host("lobby-burst-open").hidden,true);
+  await host("lobby-attack-instance-capture").onclick();
+  assert.equal(host("lobby-burst-open").hidden,false);
+  await host("lobby-burst-open").onclick();
+  assert.equal(burstWindows.get(id+"/3").status,"awaiting_defender");
+  assert.equal(host("lobby-burst-open").hidden,true);
+  assert.ok((await makeClient("burst-host").rpc("chaotic_pass_preview_burst",{
+    p_lobby_id:id,p_expected_turn:3})).error,"Attacker cannot pass as defender");
+  assert.ok((await makeClient("intruder").rpc("chaotic_pass_preview_burst",{
+    p_lobby_id:id,p_expected_turn:3})).error,"Third party cannot respond");
+  assert.ok((await makeClient("burst-host").rpc("chaotic_open_preview_burst",{
+    p_lobby_id:id,p_expected_turn:3})).error,"Cannot open the same Burst twice");
+  await guest("lobby-turn-refresh").onclick();
+  assert.equal(guest("lobby-burst-pass").hidden,false,
+    "Defender may pass even though not current player");
+  await guest("lobby-burst-pass").onclick();
+  const win=burstWindows.get(id+"/3");
+  assert.equal(win.status,"defender_passed");
+  assert.equal(win.defender_response,"pass");
+  assert.equal(win.burst_fully_resolved,false);
+  assert.equal(win.final_damage_verified,false);
+  assert.equal(matches.get(id).current_player,"burst-host");
+  assert.equal(guest("lobby-burst-pass").hidden,true);
+  assert.ok((await makeClient("burst-guest").rpc("chaotic_pass_preview_burst",{
+    p_lobby_id:id,p_expected_turn:3})).error,"Pass is one-time");
+  await host("lobby-turn-refresh").onclick();
+  assert.match(host("lobby-burst-history").textContent,/PASSAR/);
+  await host("lobby-hand-spend").onclick();
+  await host("lobby-individual-damage-calculate").onclick();
+  await host("lobby-resolution-audit-capture").onclick();
+  const audit=resolutionAudits.get(id+"/3");
+  assert.ok(audit.blocker_codes.includes("burst_defender_passed_preview_only"));
+  assert.ok(audit.blocker_codes.includes("burst_unresolved"));
+  assert.equal(audit.final_damage_verified,false);
+  assert.match(host("lobby-resolution-audit-history").textContent,/defensor passou/);
+  await host("lobby-turn-pass").onclick();
+  assert.ok((await makeClient("burst-guest").rpc("chaotic_pass_preview_burst",{
+    p_lobby_id:id,p_expected_turn:3})).error,"Stale Burst cannot be passed");
+  assert.equal(matches.get(id).current_player,"burst-guest");
 });
