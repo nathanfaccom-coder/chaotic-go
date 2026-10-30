@@ -3,6 +3,8 @@ on:
   push:
     branches:
       - feature/chaotic-completo-supabase
+      - main
+      - feature/contas-e-salvamento-supabase
   workflow_dispatch:
 permissions:
   contents: read
@@ -18,6 +20,9 @@ jobs:
         run: node --test tests/*.test.mjs
       - name: Verificar sintaxe dos módulos de jogo
         run: |
+          node --check legacy-merge-core.js
+          node --check legacy-import.js
+          node --check player-backup.js
           node --check supabase-game-bridge.js
           node --check chaotic-lobby.js
           node --check full-game-bootstrap.js
