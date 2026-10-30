@@ -318,6 +318,7 @@
     if(error)throw new Error(error.message);
     attackInstances=data||[];
     updateAttackInstanceUI();
+    updateClashUI();
   }
   function updateBoardUI() {
     const box=$("lobby-hex-board");
