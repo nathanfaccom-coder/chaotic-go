@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -131,8 +131,18 @@
     const attackResolved=attackInstances.some(x=>x.turn_no===match.turn_no
       && x.actor_id===userId && x.attack_instance_id===clashToCalculate?.attack_card);
     const activeBurst=burstWindows.find(x=>x.turn_no===match.turn_no);
-    const pendingEquipment=burstEquipmentResponses.some(x=>
+    const queuedEquipment=burstEquipmentResponses.find(x=>
       x.turn_no===match.turn_no&&x.resolution_status==="queued_unexecuted");
+    const pendingEquipment=!!queuedEquipment;
+    const activePlan=burstOrderPlans.find(x=>x.turn_no===match.turn_no);
+    const resolvedEquipment=burstEquipmentEffects.some(x=>x.turn_no===match.turn_no);
+    const defenderHp=hpWallets.find(x=>x.actor_id===queuedEquipment?.defender_id);
+    const supportedGear=["anel precioso","bastão da sabedoria","bastao da sabedoria","bomba de fogo"]
+      .includes((queuedEquipment?.equipment_name||"").toLocaleLowerCase("pt-BR"));
+    $("lobby-burst-equipment-effect-apply").hidden=!(room.mode==="1x1"&&myTurn
+      &&activeBurst?.status==="defender_passed"&&queuedEquipment
+      &&activePlan?.inspection_steps?.[0]?.stage==="inspect_queued_equipment_reveal"
+      &&defenderHp&&supportedGear&&!resolvedEquipment);
     $("lobby-burst-order-prepare").hidden=!(room.mode==="1x1"&&myTurn
       &&activeBurst&&["defender_passed","defender_immunity_noted"].includes(activeBurst.status)
       &&!burstOrderPlans.some(x=>x.turn_no===match.turn_no));
@@ -321,6 +331,27 @@
     }).join("\n"):"Nenhuma simulação individual.";
     updateClashUI();
   }
+  async function refreshBurstEquipmentEffects(){
+    const panel=$("lobby-burst-equipment-effects-panel");
+    if(!panel)return;
+    panel.hidden=!room||!match||room.mode!=="1x1";
+    if(panel.hidden){burstEquipmentEffects=[];return;}
+    const {data,error}=await api.from("chaotic_preview_burst_equipment_effects")
+      .select("turn_no,defender_id,equipment_name,effect_code,hp_before,hp_after,hp_max_before,hp_max_after,wisdom_before,wisdom_after,applied_to_training_ledger,official_hp_changed")
+      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(20);
+    if(error)throw new Error(error.message);
+    burstEquipmentEffects=data||[];
+    $("lobby-burst-equipment-effects-history").textContent=burstEquipmentEffects.length
+      ?burstEquipmentEffects.slice().reverse().map(x=>
+        "T"+x.turn_no+" · "+(x.defender_id===room.host_id?"Anfitrião":"Convidado")+
+        " · "+x.equipment_name+" · HP teste "+x.hp_before+"/"+x.hp_max_before+
+        " → "+x.hp_after+"/"+x.hp_max_after+
+        " · Sabedoria teste "+x.wisdom_before+" → "+x.wisdom_after+
+        ". EFEITO APLICADO SOMENTE AO TREINAMENTO; equipamento e HP oficiais inalterados."
+      ).join("\n")
+      :"Nenhum equipamento resolvido no saldo de treinamento.";
+    updateClashUI();
+  }
   async function refreshBurstEquipmentResponses(){
     const panel=$("lobby-burst-equipment-panel");
     if(!panel)return;
@@ -336,7 +367,9 @@
         "T"+x.turn_no+": "+
         (x.defender_id===room.host_id?"Anfitrião":"Convidado")+
         " declarou revelar "+x.equipment_name+
-        ". Ação na corrente, NÃO EXECUTADA; equipamento permanece oculto e efeitos não foram aplicados."
+        (burstEquipmentEffects.some(e=>e.turn_no===x.turn_no)
+          ?". Efeito simulado no saldo de treinamento; equipamento original ainda NÃO revelado."
+          :". Ação na corrente ainda NÃO executada no combate oficial.")
       ).join("\n")
       :"Nenhuma resposta de equipamento declarada.";
     updateClashUI();
@@ -839,6 +872,7 @@
     await refreshBurstWindows();
     await refreshBurstEquipmentResponses();
     await refreshBurstOrderPlans();
+    await refreshBurstEquipmentEffects();
     await refreshResolutionAudits();
   }
   function updateRoomUI() {
@@ -949,6 +983,9 @@
         .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_burst_equipment_responses",filter:"lobby_id=eq."+lobbyId
         },sync)
+        .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_burst_equipment_effects",filter:"lobby_id=eq."+lobbyId
+        },sync)
         .subscribe(status=>{
           if(status==="CHANNEL_ERROR"||status==="TIMED_OUT")
             console.warn("DROME: canal em tempo real temporariamente indisponível; consultas periódicas seguem ativas.");
@@ -961,7 +998,7 @@
     }, 6000);
   }
   function show() {
-    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = []; burstEquipmentResponses = [];
+    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = []; burstEquipmentResponses = []; burstEquipmentEffects = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -1099,6 +1136,12 @@
       '<p>A resposta do defensor é conferida antes do ataque. PASSAR não vira carta de resposta; Rex e Amuleto são passivos, não contra-ataques.</p>',
       '<button id="lobby-burst-order-prepare" type="button" hidden>Preparar sequência de verificação no servidor</button>',
       '<p id="lobby-burst-order-history" class="lobby-events" aria-live="polite">Nenhuma sequência preparada.</p>',
+      '<section id="lobby-burst-equipment-effects-panel">',
+      '<strong>🛡️ Aplicação experimental dos equipamentos</strong>',
+      '<p>Após PASSAR, preparar a ordem inversa e iniciar o HP de teste com Local: Anel Precioso (−15 HP), Bastão da Sabedoria (+40 Sabedoria), Bomba de Fogo (+5 HP atual/máximo). Outros equipamentos aguardam implementação. Só altera o estado do treino, nunca o combate oficial.</p>',
+      '<button id="lobby-burst-equipment-effect-apply" type="button" hidden>Aplicar efeito ao HP/atributos de TESTE</button>',
+      '<p id="lobby-burst-equipment-effects-history" class="lobby-events">Nenhum efeito de treinamento resolvido.</p>',
+      '</section>',
       '</section>',
       '</section>',
       '<section id="lobby-hp-ledger" class="lobby-combat" hidden>',
@@ -1369,6 +1412,18 @@
       await refreshBurstOrderPlans();
       note("Ordem de inspeção preparada em "+r.inspection_step_count+
         " etapa(s). Nenhuma ação executada ou dano oficial confirmado.");
+    });
+    $("lobby-burst-equipment-effect-apply").onclick = () => action(async()=>{
+      if(!room||!match||room.mode!=="1x1"||match.current_player!==userId)return;
+      const r=await rpc("chaotic_apply_preview_burst_equipment_effect",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refreshHpLedger();
+      await refreshBurstEquipmentEffects();
+      await refreshBurstEquipmentResponses();
+      note(r.equipment_name+" aplicado ao TREINO: HP "+r.hp_before+" → "+r.hp_after+
+        ", Sabedoria "+r.wisdom_before+" → "+r.wisdom_after+
+        ". HP oficial e cartas originais intactos.");
     });
     $("lobby-resolution-audit-capture").onclick = () => action(async()=>{
       if(!room||!match||room.mode!=="1x1"||match.current_player!==userId)return;
