@@ -1748,3 +1748,32 @@ html, body {
 }
 .lobby-combat label {color:#d8e8ff;}
 .lobby-combat #lobby-combat-history {max-height:150px;}
+
+
+/* Ferramentas de segurança de progresso no Perfil. */
+.legacy-import-panel {
+  width: min(92%, 370px);
+  margin: 12px auto;
+  padding: 14px;
+  box-sizing: border-box;
+  border: 1px solid #5dbc80;
+  background: #0c2114;
+  border-radius: 9px;
+  color: #e5f9e8;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  font: 12px/1.5 monospace;
+}
+.legacy-import-panel[hidden]{display:none!important;}
+.legacy-import-panel h4{margin:0;color:#97f5ad;}
+.legacy-import-panel p{margin:0;overflow-wrap:anywhere;}
+.legacy-import-panel label{color:#c4efd0;}
+.legacy-import-panel input {
+  width:100%;min-width:0;box-sizing:border-box;
+  padding:10px;border:1px solid #65b377;border-radius:6px;
+  background:#050d07;color:white;font:inherit;
+}
+.legacy-import-panel button{width:100%;box-sizing:border-box;}
+.legacy-import-panel button[hidden]{display:none!important;}
+.legacy-import-panel button:disabled{opacity:.55;}
