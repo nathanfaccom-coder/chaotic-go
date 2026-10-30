@@ -78,3 +78,14 @@ O service worker de lançamento não armazena telas autenticadas nem JavaScript 
 - O botão **Preparar ficha da minha criatura** e as duas fichas aparecem em DROME → Sala privada (teste), com sincronização Realtime.
 - **Não aplica dano/efeitos ou recompensas** e **não prova posse antifraude**: a coleção atual é gravável pelo próprio jogador. Antes de ativar PvP competitivo, será necessário criar emissão/transação autoritativa para cartas capturadas e resolver os IDs de instância dos ataques ao catálogo.
 - A avaliação de prontidão do projeto continua 53%: mais uma dependência foi atendida, mas o combate completo ainda não foi habilitado nem validado em dois dispositivos.
+
+
+## Cálculo experimental com DNA individual no 1x1 (versão 0.1.9 — 30/10/2026)
+- A nova tabela `chaotic_preview_individual_damage` e a RPC `chaotic_calculate_individual_preview` exigem duas criaturas com fichas individuais congeladas, ataque individual validado, contato no tabuleiro e turno atual do atacante.
+- A conta parte do **dano base do modelo** associado à carta realmente capturada, aplica os elementos base da espécie da criatura atacante e compara atributos `c/p/s/v` de ambas as cartas capturadas quando a carta de ataque exigir essa regra.
+- A **energia inicial individual** `e` do defensor é usada apenas para exibir uma simulação de quanto sobraria após o subtotal. **Não existe alteração de HP, cartas, posicionamento, XP, moedas, vitória ou derrota.** Não é energia atual depois de múltiplas ações.
+- Os ataques Fogo Primordial 2.0, Purgatório e Esqueleto permanecem com `special_resolution_required` e **não exibem subtotal de dano**, pois dependem de dado ou cemitério ainda não portados nesta API.
+- Interface: **DROME → Sala privada (teste) → 1x1 → Simular dano com DNA no servidor**. As prévias antigas de catálogo permanecem no código, mas seus botões são ocultados no 1x1 para não confundir IDs de instâncias com IDs de modelos.
+- Segurança: tabela com RLS apenas para participantes, proibição de INSERT/UPDATE/DELETE pelo navegador, RPC de escrita autorizada apenas para usuário autenticado no turno válido e bloqueio de cálculos repetidos.
+- Testes do GitHub e transação SQL com rollback cobrem bônus elementais, comparação de DNA, ataques especiais e bloqueios básicos de acesso. **Ainda não houve teste ponta a ponta com duas contas em aparelhos reais.**
+- Pendência crítica: a existência da carta no álbum/deck ainda não comprova emissão legítima, pois o cliente pode editar o próprio álbum. Por isso, manter combate e recompensas competitivas indisponíveis até construir emissão autoritativa e portar custos, imunidades, equipamentos, magias, locais, efeitos e vitória.
