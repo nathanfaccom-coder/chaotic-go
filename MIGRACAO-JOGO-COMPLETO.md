@@ -17,4 +17,9 @@ Esta branch recupera a base de 89 arquivos do repositório principal de origem, 
 - Verificação de integridade de dados e operações concorrentes, RLS, e proteção anti-trapaça antes de habilitar economia e trocas online.
 - A segurança do Supabase reportou aviso de **proteção contra senhas vazadas desativada**; configurar no dashboard quando disponível.
 
-**Status:** branch de desenvolvimento, sem GitHub Pages ativo e sem alteração da `main`. Não representa um jogo funcionalmente testado. O site atual publicado continua na branch `feature/contas-e-salvamento-supabase`.
+**Status:** preview isolado em `https://nathanfaccom-coder.github.io/chaotic-go/complete/login-completo.html`, preservando a versão original na raiz e sem alterar `main`. Testes sintáticos e de simulação de banco não substituem testes reais com usuário logado.
+
+## Progresso adicional
+- Compatibilidade da leitura de coleção de decks: DROME consulta `decks` e recebe os registros `decks/<modo>_<slot>` agrupados.
+- Simulação do adaptador validou salvar, listar, atualizar, excluir, isolamento por usuário e bloqueio de caminhos multiplayer inseguros (7 verificações).
+- Assets JS da prévia com parâmetro de versão para evitar cache desatualizado.
