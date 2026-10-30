@@ -4,7 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
-const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map();
+const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map();
 let seq=0;
 function makeClient(actor) {
   return {
@@ -98,6 +98,54 @@ function makeClient(actor) {
         equipmentReveals.set(key,item);
         return {data:{...item},error:null};
       }
+      if(name==="chaotic_prepare_preview_hand"){
+        const match=matches.get(room.id),player=loadouts.get(room.id+"/"+actor),k=room.id+"/"+actor;
+        if(room.mode!=="1x1"||!match||match.status!=="active"||
+          match.current_player!==actor||match.turn_no!==args.p_expected_turn||
+          !player||wallets.has(k))
+          return {data:null,error:{message:"Mão inválida"}};
+        wallets.set(k,{lobby_id:room.id,actor_id:actor,deck_slot:1,
+          prepared_turn:match.turn_no,last_draw_turn:match.turn_no,spent_points:0});
+        const cards=[...Array(20)].map((_,i)=>({
+          lobby_id:room.id,actor_id:actor,card_slot:i+1,
+          attack_instance_id:String(105+i),
+          card_state:i<3?"hand":"deck",spent_turn:null}));
+        hands.set(k,cards);
+        return {data:{cards_in_hand:3,cards_in_deck:17,points:3},error:null};
+      }
+      if(name==="chaotic_sync_preview_hand"){
+        const match=matches.get(room.id),k=room.id+"/"+actor,wallet=wallets.get(k);
+        if(!wallet||!match||match.current_player!==actor||
+          match.turn_no!==args.p_expected_turn||(match.turn_no-wallet.prepared_turn)%2!==0)
+          return {data:null,error:{message:"Sincronização inválida"}};
+        const points=3+Math.floor((match.turn_no-wallet.prepared_turn)/2)-wallet.spent_points;
+        let drew=false;
+        if(wallet.last_draw_turn<match.turn_no){
+          const list=hands.get(k),available=list.filter(x=>x.card_state==="hand");
+          const next=list.find(x=>x.card_state==="deck");
+          if(next&&available.length<5){next.card_state="hand";drew=true;}
+          wallet.last_draw_turn=match.turn_no;
+        }
+        return {data:{available_points:points,drew_card:drew},error:null};
+      }
+      if(name==="chaotic_spend_preview_attack"){
+        const match=matches.get(room.id),k=room.id+"/"+actor;
+        const wallet=wallets.get(k),attack=attackInstances.get(room.id+"/"+args.p_expected_turn);
+        const clash=clashes.get(room.id+"/"+args.p_expected_turn);
+        const card=hands.get(k)?.find(x=>x.card_slot===attack?.card_slot);
+        const balance=wallet&&match?3+Math.floor((match.turn_no-wallet.prepared_turn)/2)
+          -wallet.spent_points:-1;
+        if(!match||match.current_player!==actor||match.turn_no!==args.p_expected_turn
+          ||!wallet||wallet.last_draw_turn!==args.p_expected_turn||!attack
+          ||!clash||clash.attacker_id!==actor
+          ||!card||card.attack_instance_id!==attack.attack_instance_id
+          ||card.card_state!=="hand"||balance<attack.attack_cost)
+          return {data:null,error:{message:"Custo ou mão inválida"}};
+        card.card_state="spent";card.spent_turn=match.turn_no;
+        wallet.spent_points+=attack.attack_cost;
+        return {data:{attack_name:attack.attack_name,spent_cost:attack.attack_cost,
+          points_left:balance-attack.attack_cost},error:null};
+      }
       if(name==="chaotic_capture_preview_attack"){
         const match=matches.get(room.id),key=room.id+"/"+args.p_expected_turn;
         const chosen=(declarations.get(room.id)||[]).find(x=>
@@ -108,6 +156,7 @@ function makeClient(actor) {
           return {data:null,error:{message:"Instância de ataque não autorizada"}};
         const snapshot={lobby_id:room.id,turn_no:match.turn_no,actor_id:actor,
           attack_instance_id:chosen.card_id,catalog_attack_id:"105",
+          deck_slot:chosen.deck_slot,card_slot:chosen.card_slot,
           attack_name:"Vento Forte",attack_cost:1,base_damage:5};
         attackInstances.set(key,snapshot);
         return {data:{...snapshot},error:null};
@@ -122,7 +171,10 @@ function makeClient(actor) {
           !clash||clash.attacker_id!==actor||!attack||attack.actor_id!==actor||
           !attacker||!defender||attack.attack_instance_id!==clash.attack_card||
           attacker.card_instance_id!==clash.attacker_card||
-          defender.card_instance_id!==clash.defender_card||individualDamage.has(key))
+          defender.card_instance_id!==clash.defender_card||individualDamage.has(key)||
+          !hands.get(room.id+"/"+actor)?.some(x=>x.card_slot===attack.card_slot
+            &&x.attack_instance_id===attack.attack_instance_id
+            &&x.card_state==="spent"&&x.spent_turn===args.p_expected_turn))
           return {data:null,error:{message:"Prévia individual negada"}};
         const special=attack.catalog_attack_id==="104";
         const total=special?null:attack.base_damage;
@@ -131,7 +183,7 @@ function makeClient(actor) {
           attacker_name:attacker.creature_name,defender_name:defender.creature_name,
           defender_energy_initial:defender.stats.e,base_damage:attack.base_damage,
           elemental_bonus:0,attribute_bonus:0,equipment_bonus:0,
-          attack_cost:attack.attack_cost,cost_status:"not_verified",
+          attack_cost:attack.attack_cost,cost_status:"test_spent",
           attacker_equipment_revealed:equipmentReveals.has(room.id+"/"+actor),
           defender_equipment_revealed:equipmentReveals.has(room.id+"/"+clash.defender_id),
           preview_subtotal:total,
@@ -246,7 +298,7 @@ function makeClient(actor) {
       throw Error(name);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
         then(resolve,reject) {
           const room=rooms.get(this.id);
@@ -278,6 +330,10 @@ function makeClient(actor) {
                         ?[...individualDamage.values()].filter(x=>x.lobby_id===this.id)
                         :table==="chaotic_preview_equipment_reveals"
                           ?[...equipmentReveals.values()].filter(x=>x.lobby_id===this.id)
+                          :table==="chaotic_preview_attack_wallets"
+                            ?[...wallets.values()].filter(x=>x.lobby_id===this.id&&x.actor_id===actor)
+                            :table==="chaotic_preview_attack_hand"
+                              ?[...hands.values()].flat().filter(x=>x.lobby_id===this.id&&x.actor_id===actor)
                         :(journals.get(this.id)||[])):[];
           return Promise.resolve({data:[...events].reverse().slice(0,size),error:null});
         },
