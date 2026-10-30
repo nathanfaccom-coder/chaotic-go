@@ -8,6 +8,10 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+# Run only the newest validation per branch to prevent dozens of stale queues.
+concurrency:
+  group: chaotic-validation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   validate:
     runs-on: ubuntu-latest
