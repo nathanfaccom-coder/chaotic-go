@@ -647,6 +647,7 @@ test("1x1 attack instance snapshot is bound to declaration, turn and owner",asyn
   await host("lobby-combat-submit").onclick();
   await host("lobby-hex-place").onclick();
   await host("lobby-loadout-capture").onclick();
+  await host("lobby-hand-prepare").onclick();
   await host("lobby-turn-pass").onclick();
   await guest("lobby-turn-refresh").onclick();
   guest("lobby-combat-kind").value="creature";
@@ -657,6 +658,7 @@ test("1x1 attack instance snapshot is bound to declaration, turn and owner",asyn
   await guest("lobby-loadout-capture").onclick();
   await guest("lobby-turn-pass").onclick();
   await host("lobby-turn-refresh").onclick();
+  await host("lobby-hand-sync").onclick();
   assert.equal(host("lobby-attack-instance-capture").hidden,true);
   host("lobby-combat-kind").value="attack";
   host("lobby-combat-slot").value="1";
@@ -693,6 +695,7 @@ test("1x1 DNA preview shows individual energy and never changes actual combat",a
   await host("lobby-combat-submit").onclick();
   await host("lobby-hex-place").onclick();
   await host("lobby-loadout-capture").onclick();
+  await host("lobby-hand-prepare").onclick();
   await host("lobby-turn-pass").onclick();
   await guest("lobby-turn-refresh").onclick();
   guest("lobby-combat-kind").value="creature";
@@ -703,6 +706,7 @@ test("1x1 DNA preview shows individual energy and never changes actual combat",a
   await guest("lobby-loadout-capture").onclick();
   await guest("lobby-turn-pass").onclick();
   await host("lobby-turn-refresh").onclick();
+  await host("lobby-hand-sync").onclick();
   host("lobby-combat-kind").value="attack";
   host("lobby-combat-slot").value="1";
   await host("lobby-combat-submit").onclick();
@@ -710,6 +714,10 @@ test("1x1 DNA preview shows individual energy and never changes actual combat",a
   assert.equal(host("lobby-individual-damage-calculate").hidden,true,
     "Must validate captured attack first");
   await host("lobby-attack-instance-capture").onclick();
+  assert.equal(host("lobby-individual-damage-calculate").hidden,true,
+    "No DNA simulation before confirming attack cost");
+  assert.equal(host("lobby-hand-spend").hidden,false);
+  await host("lobby-hand-spend").onclick();
   assert.equal(host("lobby-individual-damage-calculate").hidden,false);
   assert.equal(host("lobby-damage-calculate").hidden,true,"Legacy preview blocked");
   await host("lobby-individual-damage-calculate").onclick();
@@ -723,6 +731,8 @@ test("1x1 DNA preview shows individual energy and never changes actual combat",a
   assert.equal(matches.get(id).turn_no,3);
   assert.equal(clashes.get(id+"/3").result,"awaiting_original_engine");
   assert.equal(loadouts.get(id+"/dna-preview-guest").stats.e,65);
+  assert.equal(wallets.get(id+"/dna-preview-host").spent_points,1);
+  assert.equal(hands.get(id+"/dna-preview-host")[0].card_state,"spent");
   assert.ok((await makeClient("dna-preview-host").rpc("chaotic_calculate_individual_preview",
     {p_lobby_id:id,p_expected_turn:3})).error,"No repeated simulation");
   assert.ok((await makeClient("stranger").rpc("chaotic_calculate_individual_preview",
