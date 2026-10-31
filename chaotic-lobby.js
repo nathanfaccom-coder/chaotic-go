@@ -1481,6 +1481,8 @@
         x.card_slot+" ("+x.attack_instance_id+")").join(", ")+
        ". Cartas do monte: "+hand3x3.filter(x=>x.card_state==="deck").length+
        ". No descarte: "+hand3x3.filter(x=>x.card_state==="spent").length+
+       ". Temporariamente emprestadas (fora do monte e da mão): "+
+         hand3x3.filter(x=>x.actor_id===userId&&x.card_state==="loaned").length+
        ". Reciclagens: "+ownHandWallet.recycle_cycles+
        ". Pontos atuais previstos: "+(3+Math.floor((match.turn_no-ownHandWallet.prepared_turn)/2))+
        " (menos "+ownHandWallet.spent_points+" pontos gastos no TREINO)."
