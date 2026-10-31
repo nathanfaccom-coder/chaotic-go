@@ -2963,7 +2963,10 @@
     if (document.hidden || !room || $("tela-entrada-drome")?.style.display !== "flex") return;
     refreshRoom().catch(error => note("Falha na reconexão: " + error.message, true));
   }
-  document.addEventListener("visibilitychange", refreshWhenVisible);
-  window.addEventListener("online", refreshWhenVisible);
+  // Lightweight Node test harnesses do not implement DOM event listeners.
+  if (typeof document.addEventListener === "function")
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+  if (typeof window.addEventListener === "function")
+    window.addEventListener("online", refreshWhenVisible);
   window.abrirSalaPrivadaDrome = show;
 })();
