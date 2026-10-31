@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [], mugicTrainingWallets = [], mugicTrainingSettlements = [], trainingAbilityEvents = [], harpTrainingEvents = [], allies3x3 = [], transfers3x3 = [], hp3x3 = [], board3x3 = [], moves3x3 = [], contacts3x3 = [], attackProjections3x3 = [], hand3x3 = [], handWallet3x3 = [], costChecks3x3 = [], attackSpends3x3 = [], discard3x3 = [], drawEvents3x3 = [], defenseWindows3x3 = [], elementalInspections3x3 = [], creatureChecks3x3 = [], privateEquipmentChecks3x3 = [], dynamicElementChecks3x3 = [], trainingDamage3x3 = [], trainingKnockouts3x3 = [], trainingOutcomes3x3 = [], trainingAttackLocks3x3 = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [], mugicTrainingWallets = [], mugicTrainingSettlements = [], trainingAbilityEvents = [], harpTrainingEvents = [], allies3x3 = [], transfers3x3 = [], hp3x3 = [], board3x3 = [], moves3x3 = [], contacts3x3 = [], attackProjections3x3 = [], hand3x3 = [], handWallet3x3 = [], costChecks3x3 = [], attackSpends3x3 = [], discard3x3 = [], drawEvents3x3 = [], defenseWindows3x3 = [], elementalInspections3x3 = [], creatureChecks3x3 = [], privateEquipmentChecks3x3 = [], dynamicElementChecks3x3 = [], trainingDamage3x3 = [], trainingKnockouts3x3 = [], trainingOutcomes3x3 = [], trainingAttackLocks3x3 = [], sonarSearchEvents3x3 = [], sonarSearchChoices3x3 = [], sonarChoiceKey3x3 = "";
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -1143,6 +1143,22 @@
       &&defenseWindowThisTurn.attacker_id===userId
       &&["101","105","107","110","111","112","113","114"].includes(currentProjection?.catalog_attack_id)
       &&!trainingDamage3x3.some(x=>x.turn_no===match.turn_no));
+    const sonarHitThisTurn=trainingDamage3x3.some(x=>x.turn_no===match?.turn_no
+      &&x.catalog_attack_id==="110"&&x.attacker_id===userId);
+    const sonarSearchComplete=sonarSearchEvents3x3.some(x=>x.turn_no===match?.turn_no
+      &&x.actor_id===userId);
+    const canSearchSonar=myTurn&&sonarHitThisTurn&&!sonarSearchComplete;
+    const sonarLookupReady=sonarChoiceKey3x3===(room.id+":"+match?.turn_no);
+    $("lobby-3x3-sonar-list").hidden=!canSearchSonar;
+    $("lobby-3x3-sonar-choose").hidden=!(canSearchSonar&&sonarLookupReady&&sonarSearchChoices3x3.length>0);
+    $("lobby-3x3-sonar-empty").hidden=!(canSearchSonar&&sonarLookupReady&&sonarSearchChoices3x3.length===0);
+    $("lobby-3x3-sonar-search-history").textContent=sonarSearchEvents3x3.length
+      ?sonarSearchEvents3x3.slice().sort((a,b)=>a.turn_no-b.turn_no).map(x=>
+        "T"+x.turn_no+": busca SONAR "+
+        (x.search_succeeded?"concluída: "+x.attack_name+" (slot "+x.searched_card_slot+
+          ") entrou na sua mão privada.":"encerrada sem carta elegível ou sem espaço na mão.")+
+        " Total após: "+x.hand_count_after+". Somente treino.").join("\n")
+      :"Nenhuma busca SONAR finalizada na sua mão.";
     $("lobby-3x3-defense-pass").hidden=!(!!current&&!!defenseWindowThisTurn
       &&defenseWindowThisTurn.status==="awaiting_defender"
       &&defenseWindowThisTurn.defender_id===userId
@@ -1425,7 +1441,7 @@
   async function refresh3x3Allies(){
     if(!$("lobby-3x3-allies-panel"))return;
     if(!room||!match||room.mode!=="3x3"){
-      allies3x3=[];transfers3x3=[];hp3x3=[];board3x3=[];moves3x3=[];contacts3x3=[];attackProjections3x3=[];hand3x3=[];handWallet3x3=[];costChecks3x3=[];attackSpends3x3=[];discard3x3=[];drawEvents3x3=[];defenseWindows3x3=[];elementalInspections3x3=[];creatureChecks3x3=[];privateEquipmentChecks3x3=[];dynamicElementChecks3x3=[];trainingDamage3x3=[];trainingKnockouts3x3=[];trainingOutcomes3x3=[];trainingAttackLocks3x3=[];update3x3UI();return;
+      allies3x3=[];transfers3x3=[];hp3x3=[];board3x3=[];moves3x3=[];contacts3x3=[];attackProjections3x3=[];hand3x3=[];handWallet3x3=[];costChecks3x3=[];attackSpends3x3=[];discard3x3=[];drawEvents3x3=[];defenseWindows3x3=[];elementalInspections3x3=[];creatureChecks3x3=[];privateEquipmentChecks3x3=[];dynamicElementChecks3x3=[];trainingDamage3x3=[];trainingKnockouts3x3=[];trainingOutcomes3x3=[];trainingAttackLocks3x3=[];sonarSearchEvents3x3=[];sonarSearchChoices3x3=[];sonarChoiceKey3x3="";update3x3UI();return;
     }
     const units=await api.from("chaotic_preview_3x3_allies")
       .select("actor_id,position,deck_slot,creature_instance_id,creature_name,starting_tokens,remaining_tokens,received_tokens")
@@ -1502,6 +1518,12 @@
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
     if(trainingDmg.error)throw new Error(trainingDmg.error.message);
     trainingDamage3x3=trainingDmg.data||[];
+    const sonarRows=await api.from("chaotic_preview_3x3_sonar_search_events")
+      .select("turn_no,actor_id,searched_card_slot,attack_name,search_succeeded,hand_count_after")
+      .eq("lobby_id",room.id).eq("actor_id",userId)
+      .order("turn_no",{ascending:false}).limit(30);
+    if(sonarRows.error)throw new Error(sonarRows.error.message);
+    sonarSearchEvents3x3=sonarRows.data||[];
     const locks=await api.from("chaotic_preview_3x3_training_attack_locks")
       .select("inflicted_turn,attacker_id,defender_id,catalog_attack_id,blocked_turn_count,last_blocked_turn,blocks_draw,training_only")
       .eq("lobby_id",room.id).order("inflicted_turn",{ascending:false}).limit(40);
@@ -1962,6 +1984,13 @@
       '<p>Após o passe defensivo, pode resolver no TREINO: Ácido Gástrico (101: 10 + Fogo/Água natural), Vento Forte (105), Armadilha de Vinha (107: 5 + Terra natural; bloqueia atacar e comprar cartas no turno rival seguinte), MÃO ELETRÔNICA (111), MÃO MÃO (112), PURGATÓRIO (113) e ESQUELETO (114). Para 101 e 107, ambos os campeões devem estar sem equipamento e não podem depender de elementos dinâmicos; Naty fica excluída. No 107, habilidades/Mugics ainda não são executados no treino. SONAR (110): dano natural Terra/Ar de até 20; Rex cancela o golpe inteiro por conter Ar. Busca de carta custo até 1 PENDENTE; atacante sem equipamento, sem Naty e sem bônus dinâmico de Guru. Nenhuma carta oficial é alterada.</p>',
       '<button id="lobby-3x3-training-damage" type="button" hidden>Atacante: resolver ataque de TREINO (101, 105, 107, 110, 111, 112, 113, 114)</button>',
       '<p id="lobby-3x3-training-damage-history" class="lobby-events" aria-live="polite">Nenhum dano de treino aplicado.</p>',
+      '<p>Busca PRIVADA do SONAR (110): após aplicar o dano, consulte as cartas do seu monte com custo até 1 e escolha uma para entrar na sua mão (limite 5). Não altera as cartas originais.</p>',
+      '<button id="lobby-3x3-sonar-list" type="button" hidden>SONAR: consultar cartas elegíveis do meu monte</button>',
+      '<select id="lobby-3x3-sonar-choice" aria-label="Carta de ataque elegível do SONAR"></select>',
+      '<button id="lobby-3x3-sonar-choose" type="button" hidden>SONAR: adicionar carta escolhida à mão privada</button>',
+      '<button id="lobby-3x3-sonar-empty" type="button" hidden>SONAR: encerrar busca sem carta elegível</button>',
+      '<p id="lobby-3x3-sonar-options" class="lobby-events" aria-live="polite">Consulte as opções após o dano SONAR.</p>',
+      '<p id="lobby-3x3-sonar-search-history" class="lobby-events" aria-live="polite">Nenhuma busca SONAR finalizada.</p>',
       '<p id="lobby-3x3-training-attack-locks" class="lobby-events" aria-live="polite">Nenhum bloqueio de ataque registrado.</p>',
       '<p id="lobby-3x3-knockout-history" class="lobby-events" aria-live="polite">Nenhum nocaute de treino.</p>',
       '<p id="lobby-3x3-training-outcome" class="lobby-events" aria-live="polite">Sem resultado de equipe no treino.</p>',
@@ -2442,6 +2471,52 @@
       await refresh3x3Allies();
       note("Conferência PRIVADA: "+(verified.equipment_name||"slot sem equipamento")+
         ". Nenhuma carta revelada ao atacante, nenhum efeito/HP aplicado.");
+    });
+    $("lobby-3x3-sonar-list").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
+      const result=await rpc("chaotic_resolve_preview_3x3_sonar_search",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no,
+        p_card_slot:null,p_lookup_only:true
+      });
+      sonarSearchChoices3x3=Array.isArray(result.choices)?result.choices:[];
+      sonarChoiceKey3x3=room.id+":"+match.turn_no;
+      const input=$("lobby-3x3-sonar-choice");
+      input.replaceChildren();
+      for(const option of sonarSearchChoices3x3){
+        const entry=document.createElement("option");
+        entry.value=String(option.card_slot);
+        entry.textContent=option.attack_name+" · custo "+option.attack_cost+
+          " · slot "+option.card_slot;
+        input.appendChild(entry);
+      }
+      $("lobby-3x3-sonar-options").textContent=sonarSearchChoices3x3.length
+        ?"Escolha uma carta do seu monte. Espaços na mão: "+(5-result.hand_count)+"."
+        :"Não há carta de custo até 1 no monte ou a mão já tem 5 cartas.";
+      update3x3UI();
+    });
+    $("lobby-3x3-sonar-choose").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
+      const selected=Number($("lobby-3x3-sonar-choice").value);
+      if(!sonarSearchChoices3x3.some(x=>x.card_slot===selected))
+        throw new Error("Selecione uma carta elegível do SONAR.");
+      const receipt=await rpc("chaotic_resolve_preview_3x3_sonar_search",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no,
+        p_card_slot:selected,p_lookup_only:false
+      });
+      sonarSearchChoices3x3=[];sonarChoiceKey3x3="";
+      await refresh3x3Allies();
+      note("SONAR: "+receipt.attack_name+" entrou na sua mão privada. "+
+        "Cartas na mão: "+receipt.hand_count_after+". Nenhuma carta original consumida.");
+    });
+    $("lobby-3x3-sonar-empty").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
+      const receipt=await rpc("chaotic_resolve_preview_3x3_sonar_search",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no,
+        p_card_slot:null,p_lookup_only:false
+      });
+      sonarSearchChoices3x3=[];sonarChoiceKey3x3="";
+      await refresh3x3Allies();
+      note("SONAR: busca encerrada sem nova carta. Mão: "+receipt.hand_count_after+".");
     });
     $("lobby-3x3-training-damage").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
