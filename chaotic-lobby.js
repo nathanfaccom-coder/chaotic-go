@@ -1810,7 +1810,9 @@
       borrowedPlan3x3=planResult.data?.[0]||null;
     }
     borrowedPriority3x3=null;
-    if(contacts3x3.some(x=>x.turn_no===match?.turn_no)){
+    if(contacts3x3.some(x=>x.turn_no===match?.turn_no)
+      && (borrowedAttacks3x3.length>0
+        || hand3x3.some(x=>x.actor_id===userId&&x.card_state==="loaned"))){
       borrowedPriority3x3=await rpc("chaotic_get_preview_3x3_borrowed_105_priority",{
         p_lobby_id:room.id
       });
