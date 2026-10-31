@@ -42,7 +42,7 @@ jobs:
           status="$(jq -r '.status // "unknown"' /tmp/chaotic-pages.json)"
           source="$(jq -r '.build_type // (.source.branch // "unknown")' /tmp/chaotic-pages.json)"
           printf 'Endereço: %s\nStatus: %s\nOrigem: %s\n' "$url" "$status" "$source" >> "$GITHUB_STEP_SUMMARY"
-          echo "GitHub Pages status=$status build_type=$source URL=$url"
+          echo "GitHub Pages status=$status build_type=$source branch=$(jq -r '.source.branch // "none"' /tmp/chaotic-pages.json) path=$(jq -r '.source.path // "none"' /tmp/chaotic-pages.json) URL=$url"
           if [[ "$url" != https://* ]]; then
             echo "::error::Pages não retornou uma URL HTTPS válida."
             exit 1
