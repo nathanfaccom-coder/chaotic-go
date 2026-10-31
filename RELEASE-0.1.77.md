@@ -13,7 +13,7 @@
 - `supabase/tests/chaotic-preview-3x3-borrowed-quote-v0177.test.sql`: **PASS**, no Supabase real com transação revertida. Validou privilégios, ausência de escrita SQL direta e rejeição de chamadas anônimas, de usuário sem sala e de turno inválido.
 - `tests/black-hand-borrowed-quote-v0177.test.mjs`: cinco testes de regressão de acesso privado, custo/dano-base, integridade das cartas, ligação com a interface e cache.
 - `tests/black-hand-borrowed-inspection-v0176.test.mjs`: verificação de versão ajustada para acompanhar novas versões sem diminuir a cobertura anterior.
-- O teste positivo de ponta a ponta da nova RPC **com um empréstimo real ativo** ainda não foi feito; o teste anterior v0.1.76 cobre inspeção de cartão temporário com dados sintéticos. Também não houve homologação em dois celulares reais.
+- **Teste positivo em Supabase aprovado:** `supabase/tests/chaotic-preview-3x3-borrowed-quote-positive-live-v0177.test.sql` criou um empréstimo temporário sintético de Vento Forte (105), comprovou custo 1, dano-base 5, HP hipotético 20→15 e bloqueio do dono original. Toda a transação foi revertida sem alterar contas ou cartas reais. Ainda não houve teste ponta a ponta de execução de Mão Negra (102) nem homologação em dois celulares reais.
 
 ## Limitações e próximo passo
 **A Mão Negra (102) ainda não é jogável.** A função de empréstimo interna permanece revogada a usuários do navegador e o gasto 102 continua proibido no servidor. Para habilitar a mecânica, falta criar uma transação autorizada atômica que **pague 102, escolha/empreste carta adversária, contabilize seu uso com custo e efeitos corretos, e devolva a posse ao dono** com antirreplay e tratamento de encerramento de sala. A função de prévia não deve ser usada como autorização para debitá-la.
