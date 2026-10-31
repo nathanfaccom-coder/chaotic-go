@@ -112,7 +112,7 @@ test("v0.1.82: private status now reflects actual event while UI retains nonleth
   "lobby-3x3-borrowed-settle-base",
   "chaotic_settle_preview_3x3_borrowed_105_base",
   "borrowedPlan3x3?.state===\"defender_passed_preview\"",
-  "Revelação opcional NÃO executada",
+  "Agora escolha uma revelação opcional",
   "Carta original devolvida ao dono",
   "SEM equipamento"
  ])assert.ok(ui.includes(x),x);
