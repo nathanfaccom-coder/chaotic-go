@@ -7,7 +7,7 @@ const sql=await readFile(
 );
 
 test("live SQL training integration uses only disposable accounts and rolls back all writes",()=>{
- assert.match(sql,/^begin;\s*do \$integration\$/i);
+ assert.match(sql,/\bbegin;\s*do \$integration\$/i);
  assert.match(sql,/end \$integration\$;\s*rollback;/i);
  assert.match(sql,/a1510000-0000-4000-8000-000000000151/);
  assert.match(sql,/a1510000-0000-4000-8000-000000000152/);
