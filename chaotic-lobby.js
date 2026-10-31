@@ -1304,6 +1304,9 @@
       :currentProjection
         ?"Ataque tem resolução experimental 3x3. Confirme custo e defesa antes do dano."
         :"Projeção disponível para os ataques originais. Pagamento exige resolução experimental implementada.";
+    const hand102Button=$("lobby-3x3-black-hand-readiness");
+    if(hand102Button)hand102Button.hidden=!(myTurn&&currentProjection?.catalog_attack_id==="102"
+      &&!alreadySpent&&checkpointForTurn);
     const defenseWindowThisTurn=defenseWindows3x3.find(x=>x.turn_no===match?.turn_no);
     $("lobby-3x3-defense-open").hidden=!(myTurn&&alreadySpent&&!defenseWindowThisTurn);
     $("lobby-3x3-training-damage").hidden=!(myTurn&&!!defenseWindowThisTurn
@@ -2259,6 +2262,8 @@
       '<button id="lobby-3x3-attack-project" type="button" hidden>Conferir ataque e calcular dano-base (sem aplicar)</button>',
       '<p id="lobby-3x3-attack-history" class="lobby-events" aria-live="polite">Nenhuma projeção de ataque.</p>',
       '<p id="lobby-3x3-support-hint" class="lobby-events" role="status" aria-live="polite">Confira quais ataques têm dano experimental antes de gastar pontos.</p>',
+      '<button id="lobby-3x3-black-hand-readiness" type="button" hidden>Mão Negra (102): conferir espaço para carta roubada — sem gastar</button>',
+      '<p id="lobby-3x3-black-hand-info" class="lobby-events" role="status" aria-live="polite">Mão Negra: a transferência e o uso de cartas ainda não estão habilitados.</p>',
       '<p>Nova mão PRIVADA no 3x3: o servidor embaralha os ataques do seu Deck e compra as três primeiras cartas. A cada turno seu, pode comprar uma carta adicional até cinco na mão. O custo é somente CONFERIDO; não desconta pontos nem descarta cartas.</p>',
       '<button id="lobby-3x3-hand-prepare" type="button" hidden>Embaralhar e preparar minha mão 3x3</button>',
       '<button id="lobby-3x3-hand-sync" type="button" hidden>Comprar carta do novo turno 3x3</button>',
@@ -2700,6 +2705,27 @@
       await refresh3x3Allies();
       note("Contato sem pagamento cancelado no turno "+result.turn_no+
         ". Nenhum ponto, carta ou HP foi alterado. Criaturas já reveladas permanecem visíveis.");
+    });
+    $("lobby-3x3-black-hand-readiness").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
+      const expectedTurn=match.turn_no;
+      const state=await rpc("chaotic_preview_3x3_black_hand_readiness",{
+        p_lobby_id:room.id,p_expected_turn:expectedTurn
+      });
+      const reasons={
+        eligible_for_future_borrow:"Condições iniciais conferidas. Ainda não é possível roubar, pagar ou usar a carta nesta versão.",
+        prepare_your_hand:"Prepare e sincronize sua mão privada antes de receber outra carta.",
+        opponent_hand_not_prepared:"O adversário ainda precisa preparar a própria mão de treinamento.",
+        your_hand_is_full:"Não haverá espaço após pagar a Mão Negra; não é possível receber a carta.",
+        original_102_not_in_hand:"A carta Mão Negra original não está mais na sua mão privada.",
+        opponent_hand_empty:"O adversário não tem carta na mão para ser roubada."
+      };
+      const message=(reasons[state.status]||"Condições ainda não satisfeitas.")+
+        " Espaços previstos após consumir a carta Mão Negra: "+state.own_free_slots+
+        ". A identidade da carta adversária permanece secreta e nenhum recurso foi gasto.";
+      const info=$("lobby-3x3-black-hand-info");
+      if(info)info.textContent=message;
+      note(message);
     });
     $("lobby-3x3-attack-project").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;

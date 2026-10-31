@@ -62,17 +62,20 @@ test("v0.1.73: live rollback test exercised denied non-Air, two redraws and anti
  assert.ok(live.includes(marker),marker);
  assert.doesNotMatch(live,/\bcommit\s*;/i);
 });
-test("v0.1.73: DROME supports TORNADO; old cards and Android cache remain versioned",()=>{
+test("v0.1.73+: DROME keeps TORNADO working with consistent newer cache versions",()=>{
  for(const marker of [
- 'resolvableTrainingAttacks3x3=new Set(["101","104","105","107","108","109"',
  "chaotic_apply_preview_3x3_training_tornado_109",
  "tornado_shuffled_count,tornado_drawn_count,base_damage",
  "TORNADO: ",
  "TORNADO (109): custo 0, dano 0"])
  assert.ok(ui.includes(marker),marker);
- assert.match(index,/VERSÃO 0\.1\.73/);
- assert.match(index,/sw\.js\?v=release-73/);
- assert.match(sw,/chaotic-go-release-20261031-73/);
- assert.match(scanner,/full-game-bootstrap\.js\?v=release-73/);
- assert.match(boot,/chaotic-lobby\.js\?v=release-73/);
+ assert.match(ui,/resolvableTrainingAttacks3x3=new Set\([^)]*"109"/);
+ const displayed=index.match(/VERSÃO 0\.1\.(\d+)/);
+ const worker=index.match(/sw\.js\?v=release-(\d+)/);
+ const cache=sw.match(/chaotic-go-release-\d{8}-(\d+)/);
+ const scan=scanner.match(/full-game-bootstrap\.js\?v=release-(\d+)/);
+ const lobby=boot.match(/chaotic-lobby\.js\?v=release-(\d+)/);
+ assert.ok(displayed&&worker&&cache&&scan&&lobby);
+ assert.ok(Number(displayed[1])>=73);
+ for(const ref of [worker,cache,scan,lobby])assert.equal(ref[1],displayed[1]);
 });
