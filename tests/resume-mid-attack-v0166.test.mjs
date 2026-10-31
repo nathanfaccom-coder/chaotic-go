@@ -56,10 +56,13 @@ test("v0.1.66: UI displays recovery instructions but does not replay actions",()
   assert.match(ui,/checkpoint\.your_action_required/);
   assert.match(ui,/checkpoint\?\.turn_no===match\?\.turn_no/);
 });
-test("v0.1.66: version and module caches aligned for published scanner",()=>{
-  assert.match(index,/VERSÃO 0\.1\.66/);
-  assert.match(index,/sw\.js\?v=release-66/);
-  assert.match(sw,/chaotic-go-release-20261031-66/);
-  assert.match(bootstrap,/chaotic-lobby\.js\?v=release-66/);
-  assert.match(scanner,/full-game-bootstrap\.js\?v=release-66/);
+test("v0.1.66+: cache and loaded game module versions stay aligned",()=>{
+  const visible=index.match(/VERSÃO 0\.1\.(\d+)/);
+  const loader=index.match(/sw\.js\?v=release-(\d+)/);
+  const cache=sw.match(/chaotic-go-release-\d{8}-(\d+)/);
+  const scannerLoader=scanner.match(/full-game-bootstrap\.js\?v=release-(\d+)/);
+  const lobbyLoader=bootstrap.match(/chaotic-lobby\.js\?v=release-(\d+)/);
+  assert.ok(visible&&loader&&cache&&scannerLoader&&lobbyLoader);
+  assert.ok(Number(visible[1])>=66);
+  for(const item of [loader,cache,scannerLoader,lobbyLoader])assert.equal(item[1],visible[1]);
 });
