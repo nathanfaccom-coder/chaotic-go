@@ -2716,11 +2716,12 @@
         eligible_for_future_borrow:"Condições iniciais conferidas. Ainda não é possível roubar, pagar ou usar a carta nesta versão.",
         prepare_your_hand:"Prepare e sincronize sua mão privada antes de receber outra carta.",
         opponent_hand_not_prepared:"O adversário ainda precisa preparar a própria mão de treinamento.",
-        your_hand_is_full:"Sua mão já está cheia; não é possível acrescentar outra carta.",
+        your_hand_is_full:"Não haverá espaço após pagar a Mão Negra; não é possível receber a carta.",
+        original_102_not_in_hand:"A carta Mão Negra original não está mais na sua mão privada.",
         opponent_hand_empty:"O adversário não tem carta na mão para ser roubada."
       };
       const message=(reasons[state.status]||"Condições ainda não satisfeitas.")+
-        " Espaços disponíveis na sua mão: "+state.own_free_slots+
+        " Espaços previstos após consumir a carta Mão Negra: "+state.own_free_slots+
         ". A identidade da carta adversária permanece secreta e nenhum recurso foi gasto.";
       const info=$("lobby-3x3-black-hand-info");
       if(info)info.textContent=message;
