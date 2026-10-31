@@ -41,11 +41,13 @@
     if (!panel) return;
     panel.hidden = !room || (room.status !== "ready" && !match);
     if (!room || panel.hidden) return;
+    const trainingComplete=room.mode==="3x3"&&trainingOutcomes3x3.length>0;
     const active = match?.status === "active" && room.status === "ready"
-      && new Date(room.expires_at).getTime() > Date.now();
+      && new Date(room.expires_at).getTime() > Date.now()&&!trainingComplete;
     $("lobby-turn-state").textContent = !match
       ? "Dois jogadores conectados. O anfitrião pode começar o teste."
       : match.status === "finished" ? "Teste de turnos encerrado."
+      : trainingComplete ? "Treinamento 3x3 concluído! As três criaturas de uma equipe chegaram a 0 HP. Resultado experimental, sem XP ou vitória oficial."
       : !active ? "Sala encerrada ou expirada. Nenhuma jogada permitida."
       : (match.current_player === userId
         ? "Sua vez de agir. Turno " + match.turn_no + "."
@@ -1103,7 +1105,8 @@
     panel.hidden=!room||room.mode!=="3x3";
     if(panel.hidden)return;
     const current=match?.status==="active"&&room.status==="ready"
-      &&new Date(room.expires_at).getTime()>Date.now();
+      &&new Date(room.expires_at).getTime()>Date.now()
+      &&trainingOutcomes3x3.length===0;
     const myTurn=!!current&&match.current_player===userId;
     const own=allies3x3.filter(x=>x.actor_id===userId).sort((a,b)=>a.position-b.position);
     const donor=own.find(x=>x.creature_name==="Alakazaz");
@@ -1176,15 +1179,31 @@
       &&canDiscard&&!contactAlready&&!currentProjection&&!alreadySpent
       &&!clashes.some(x=>x.turn_no===match?.turn_no)
       &&!burstWindows.some(x=>x.turn_no===match?.turn_no));
-    const attackPositions=board3x3.filter(x=>x.actor_id===userId&&[4,5].includes(x.hex_position));
-    const defensePositions=board3x3.filter(x=>x.actor_id!==userId&&[4,5].includes(x.hex_position));
+    // Defeated training units retain their original slots for history, but cannot act.
+    const livingOwn=new Set(hp3x3.filter(x=>x.actor_id===userId&&x.hp_remaining>0).map(x=>x.position));
+    const livingEnemy=new Set(hp3x3.filter(x=>x.actor_id!==userId&&x.hp_remaining>0).map(x=>x.position));
+    const availableMoves=myBoard.filter(x=>livingOwn.has(x.formation_slot));
+    const updateSlotChoices=(id,eligible)=>{
+      const select=$(id);
+      const previous=select.value;
+      select.innerHTML=eligible.map(x=>'<option value="'+x+'">c'+x+'</option>').join("");
+      select.value=eligible.includes(Number(previous))?previous:
+        (eligible.length?String(eligible[0]):"");
+    };
+    updateSlotChoices("lobby-3x3-move-unit",availableMoves.map(x=>x.formation_slot));
+    const attackPositions=board3x3.filter(x=>x.actor_id===userId
+      &&livingOwn.has(x.formation_slot)&&[4,5].includes(x.hex_position));
+    const defensePositions=board3x3.filter(x=>x.actor_id!==userId
+      &&livingEnemy.has(x.formation_slot)&&[4,5].includes(x.hex_position));
+    updateSlotChoices("lobby-3x3-contact-attacker",attackPositions.map(x=>x.formation_slot));
+    updateSlotChoices("lobby-3x3-contact-defender",defensePositions.map(x=>x.formation_slot));
     $("lobby-3x3-contact").hidden=!(myTurn&&myBoard.length===3
       &&board3x3.length===6&&attackPositions.length>0&&defensePositions.length>0
       &&!contactAlready&&!clashes.some(x=>x.turn_no===match?.turn_no)
       &&!burstWindows.some(x=>x.turn_no===match?.turn_no));
     $("lobby-3x3-board-prepare").hidden=!(myTurn&&ownHP.length===3&&myBoard.length===0);
     $("lobby-3x3-move").hidden=!(myTurn&&myBoard.length===3
-      &&!movedAlready&&!contactAlready&&!clashes.some(x=>x.turn_no===match?.turn_no)
+      &&availableMoves.length>0&&!movedAlready&&!contactAlready&&!clashes.some(x=>x.turn_no===match?.turn_no)
       &&!burstWindows.some(x=>x.turn_no===match?.turn_no));
     const options=$("lobby-3x3-receiver");
     // Values are fixed board positions; names and card IDs are never interpolated into HTML.
