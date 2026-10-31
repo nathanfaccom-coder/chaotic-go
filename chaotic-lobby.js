@@ -1297,7 +1297,9 @@
     const supportedAttack=!!currentProjection
       &&resolvableTrainingAttacks3x3.has(currentProjection.catalog_attack_id);
     const supportHint=$("lobby-3x3-support-hint");
-    if(supportHint) supportHint.textContent=currentProjection&&!supportedAttack
+    if(supportHint) supportHint.textContent=currentProjection?.catalog_attack_id==="102"
+      ?"Mão Negra (102): confira custo 0, pague somente no treino, abra a janela de reação e aguarde o passe do defensor. O roubo aleatório é confirmado pelo servidor; a carta recebida ainda não pode ser usada."
+      :currentProjection&&!supportedAttack
       ?("Ataque "+currentProjection.attack_name+
         " disponível somente para projeção; ainda não há resolução experimental 3x3. "+
         "Nenhum ponto pode ser gasto. Use Cancelar contato para escolher outra carta.")
@@ -1308,6 +1310,21 @@
     if(hand102Button)hand102Button.hidden=!(myTurn&&currentProjection?.catalog_attack_id==="102"
       &&!alreadySpent&&checkpointForTurn);
     const defenseWindowThisTurn=defenseWindows3x3.find(x=>x.turn_no===match?.turn_no);
+    const blackHandPaid=attackSpends3x3.find(x=>x.turn_no===match?.turn_no
+      &&x.actor_id===userId&&currentProjection?.catalog_attack_id==="102");
+    const blackHandPaymentButton=$("lobby-3x3-black-hand-pay");
+    if(blackHandPaymentButton)blackHandPaymentButton.hidden=!(myTurn
+      &&!attackLockedThisTurn&&!!costThisTurn?.can_afford
+      &&currentProjection?.catalog_attack_id==="102"
+      &&!alreadySpent&&ownHandWallet?.last_draw_turn===match?.turn_no
+      &&hand3x3.some(x=>x.actor_id===userId
+        &&x.card_slot===currentProjection.attack_card_slot
+        &&x.attack_instance_id===currentProjection.attack_instance_id&&x.card_state==="hand"));
+    const blackHandResolveButton=$("lobby-3x3-black-hand-resolve");
+    if(blackHandResolveButton)blackHandResolveButton.hidden=!(myTurn&&!!blackHandPaid
+      &&!blackHandPaid.training_damage_applied
+      &&defenseWindowThisTurn?.status==="defender_passed_preview"
+      &&defenseWindowThisTurn.attacker_id===userId);
     $("lobby-3x3-defense-open").hidden=!(myTurn&&alreadySpent&&!defenseWindowThisTurn);
     $("lobby-3x3-training-damage").hidden=!(myTurn&&!!defenseWindowThisTurn
       &&defenseWindowThisTurn.status==="defender_passed_preview"
@@ -1746,7 +1763,7 @@
     if(checks.error)throw new Error(checks.error.message);
     costChecks3x3=checks.data||[];
     const spendResult=await api.from("chaotic_preview_3x3_attack_spends")
-      .select("turn_no,actor_id,attack_deck_slot,card_slot,attack_instance_id,training_attack_cost,points_before,points_after,training_points_paid,training_card_spent,official_match_modified")
+      .select("turn_no,actor_id,attack_deck_slot,card_slot,attack_instance_id,training_attack_cost,points_before,points_after,training_points_paid,training_card_spent,training_damage_applied,resolution_status,official_match_modified")
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
     if(spendResult.error)throw new Error(spendResult.error.message);
     attackSpends3x3=spendResult.data||[];
@@ -2322,7 +2339,8 @@
       '<p id="lobby-3x3-attack-history" class="lobby-events" aria-live="polite">Nenhuma projeção de ataque.</p>',
       '<p id="lobby-3x3-support-hint" class="lobby-events" role="status" aria-live="polite">Confira quais ataques têm dano experimental antes de gastar pontos.</p>',
       '<button id="lobby-3x3-black-hand-readiness" type="button" hidden>Mão Negra (102): conferir espaço para carta roubada — sem gastar</button>',
-      '<p id="lobby-3x3-black-hand-info" class="lobby-events" role="status" aria-live="polite">Mão Negra: a transferência e o uso de cartas ainda não estão habilitados.</p>',
+      '<p id="lobby-3x3-black-hand-info" class="lobby-events" role="status" aria-live="polite">Mão Negra: roubo experimental disponível após custo e passe defensivo; usar a carta emprestada ainda está bloqueado.</p>',
+      '<button id="lobby-3x3-black-hand-pay" type="button" hidden>Mão Negra (102): pagar custo 0 no TREINO</button>',
       '<p>Nova mão PRIVADA no 3x3: o servidor embaralha os ataques do seu Deck e compra as três primeiras cartas. A cada turno seu, pode comprar uma carta adicional até cinco na mão. O custo é somente CONFERIDO; não desconta pontos nem descarta cartas.</p>',
       '<button id="lobby-3x3-hand-prepare" type="button" hidden>Embaralhar e preparar minha mão 3x3</button>',
       '<button id="lobby-3x3-hand-sync" type="button" hidden>Comprar carta do novo turno 3x3</button>',
@@ -2347,6 +2365,7 @@
       '<p>Janela defensiva 3x3: após pagar o ataque no treinamento, o atacante abre a janela. O DEFENSOR pode PASSAR durante a vez adversária. O atacante não consegue avançar seu turno enquanto não houver resposta. O passe não equivale a resolver equipamentos, Magias, Mugics ou dano.</p>',
       '<button id="lobby-3x3-defense-open" type="button" hidden>Abrir resposta do defensor 3x3</button>',
       '<button id="lobby-3x3-defense-pass" type="button" hidden>Defensor: passar reação (SEM dano)</button>',
+      '<button id="lobby-3x3-black-hand-resolve" type="button" hidden>Mão Negra: roubar 1 ataque aleatório após o passe</button>',
       '<p id="lobby-3x3-defense-history" class="lobby-events" aria-live="polite">Nenhuma janela de defesa 3x3.</p>',
       '<p>Após o passe defensivo, pode resolver no TREINO: Ácido Gástrico (101: 10 + Fogo/Água natural), Vento Forte (105), Armadilha de Vinha (107: 5 + Terra natural; bloqueia atacar e comprar cartas no turno rival seguinte), MÃO ELETRÔNICA (111), MÃO MÃO (112), PURGATÓRIO (113) e ESQUELETO (114). Para 101 e 107, ambos os campeões devem estar sem equipamento e não podem depender de elementos dinâmicos; Naty fica excluída. No 107, habilidades/Mugics ainda não são executados no treino. SONAR (110): dano natural Terra/Ar de até 20; Rex cancela o golpe inteiro por conter Ar. Busca privada de carta com custo até 1 DISPONÍVEL após o dano, pelo botão SONAR; atacante sem equipamento, sem Naty e sem bônus dinâmico de Guru. Nenhuma carta oficial é alterada.</p>',
       '<button id="lobby-3x3-training-damage" type="button" hidden>Atacante: resolver ataque de TREINO (101, 104, 105, 107–115)</button>',
@@ -2788,6 +2807,29 @@
       $("lobby-3x3-borrowed-quote-result").textContent=msg;
       note(msg);
     });
+    $("lobby-3x3-black-hand-pay").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
+      const expectedTurn=match.turn_no;
+      await require3x3Phase(expectedTurn,["awaiting_payment"],true);
+      const paid=await rpc("chaotic_pay_preview_3x3_black_hand",{
+        p_lobby_id:room.id,p_expected_turn:expectedTurn
+      });
+      await refresh3x3Allies();
+      note("Mão Negra (102) paga só no TREINO: "+paid.points_before+
+        " → "+paid.points_after+" pontos. Abra a reação do defensor; ainda NÃO houve roubo.");
+    });
+    $("lobby-3x3-black-hand-resolve").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
+      const expectedTurn=match.turn_no;
+      const result=await rpc("chaotic_resolve_preview_3x3_black_hand",{
+        p_lobby_id:room.id,p_expected_turn:expectedTurn
+      });
+      await refresh3x3Allies();
+      const loan=Array.isArray(result.borrowed_attacks)
+        ?result.borrowed_attacks.find(x=>x.custody_id===result.custody_id):null;
+      note("Mão Negra: ataque aleatório "+(loan?.attack_name||"recebido")+
+        " emprestado pelo servidor. A carta original pertence ao dono; seu uso ainda está DESABILITADO.");
+    });
     $("lobby-3x3-black-hand-readiness").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
       const expectedTurn=match.turn_no;
@@ -2795,7 +2837,7 @@
         p_lobby_id:room.id,p_expected_turn:expectedTurn
       });
       const reasons={
-        eligible_for_future_borrow:"Condições iniciais conferidas. Ainda não é possível roubar, pagar ou usar a carta nesta versão.",
+        eligible_for_future_borrow:"Condições iniciais conferidas. Você pode pagar a Mão Negra e solicitar a reação do defensor. O ataque emprestado recebido ainda não é utilizável.",
         prepare_your_hand:"Prepare e sincronize sua mão privada antes de receber outra carta.",
         opponent_hand_not_prepared:"O adversário ainda precisa preparar a própria mão de treinamento.",
         your_hand_is_full:"Não haverá espaço após pagar a Mão Negra; não é possível receber a carta.",

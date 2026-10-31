@@ -54,7 +54,7 @@ test("v0.1.74: DROME accurately labels nonplayable Mão Negra without revealing 
  "lobby-3x3-black-hand-info",
  "chaotic_preview_3x3_black_hand_readiness",
  "eligible_for_future_borrow",
- "Ainda não é possível roubar, pagar ou usar a carta",
+ "O ataque emprestado recebido ainda não é utilizável.",
  "A identidade da carta adversária permanece secreta",
  'currentProjection?.catalog_attack_id==="102"'])
  assert.ok(ui.includes(marker),marker);

@@ -67,5 +67,5 @@ test("v0.1.75+: latest PWA cache aligned and 102 still unplayable",()=>{
  assert.ok(displayed&&workerTag&&cache&&scan&&lobby);
  assert.ok(Number(displayed[1])>=75);
  for(const ref of [workerTag,cache,scan,lobby])assert.equal(ref[1],displayed[1]);
- assert.ok(ui.includes("Ainda não é possível roubar, pagar ou usar a carta"));
+ assert.ok(ui.includes("O ataque emprestado recebido ainda não é utilizável."));
 });
