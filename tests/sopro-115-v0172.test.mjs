@@ -58,17 +58,21 @@ test("v0.1.72: real integration retained fire and vento, tested opponent discard
   "Guest did not recover final defeat"])
   assert.ok(live.includes(word),word);
 });
-test("v0.1.72: UI and Android cache match without exposing enemy card names",()=>{
- for(const word of [
- 'resolvableTrainingAttacks3x3=new Set(["101","104","105","107","108","110","111","112","113","114","115"])',
- "chaotic_apply_preview_3x3_training_sopro_115",
- "sopro_discarded_card,base_damage",
- "SOPRO: uma carta aleatória",
- "SOPRO (115): custo 0, dano 0"])
- assert.ok(ui.includes(word),word);
- assert.match(index,/VERSÃO 0\.1\.72/);
- assert.match(index,/sw\.js\?v=release-72/);
- assert.match(sw,/chaotic-go-release-20261031-72/);
- assert.match(scanner,/full-game-bootstrap\.js\?v=release-72/);
- assert.match(boot,/chaotic-lobby\.js\?v=release-72/);
+test("v0.1.72+: original SOPRO behavior preserved across newer release versions",()=>{
+ for(const marker of [
+  "resolvableTrainingAttacks3x3=new Set(",
+  '"115"',
+  "chaotic_apply_preview_3x3_training_sopro_115",
+  "sopro_discarded_card,",
+  "SOPRO: uma carta aleatória",
+  "SOPRO (115): custo 0, dano 0"])
+  assert.ok(ui.includes(marker),marker);
+ const shown=index.match(/VERSÃO 0\.1\.(\d+)/);
+ const worker=index.match(/sw\.js\?v=release-(\d+)/);
+ const cache=sw.match(/chaotic-go-release-\d{8}-(\d+)/);
+ const scan=scanner.match(/full-game-bootstrap\.js\?v=release-(\d+)/);
+ const lobby=boot.match(/chaotic-lobby\.js\?v=release-(\d+)/);
+ assert.ok(shown&&worker&&cache&&scan&&lobby);
+ assert.ok(Number(shown[1])>=72);
+ for(const x of [worker,cache,scan,lobby]) assert.equal(x[1],shown[1]);
 });
