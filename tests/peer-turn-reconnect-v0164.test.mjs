@@ -38,7 +38,7 @@ test("v0.1.64: DROME stops claiming everyone connected and handles mobile resume
   for(const key of ["lobby-3x3-refresh-connection",
     "adversário ainda não sincronizou este turno",
     "peer_synced_current_turn","both_synced_current_turn",
-    "if (document.hidden) return","visibilitychange","window.addEventListener(\"online\"",
+    "if (document.hidden || (typeof navigator !== \"undefined\" && navigator.onLine === false)) return","visibilitychange","window.addEventListener(\"online\"",
     "refreshWhenVisible","refreshInFlight","refreshQueued",
     "requestedRoomId","async function refreshRoomOnce()"])
     assert.ok(ui.includes(key),key);
