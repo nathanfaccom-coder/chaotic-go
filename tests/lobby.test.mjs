@@ -112,9 +112,9 @@ test("two accounts create and join a private room, host sees ready",async()=>{
   guest.browser.window.abrirSalaPrivadaDrome();
   guest.elem("lobby-input-code").value=code;
   await guest.elem("lobby-join-btn").onclick();
-  assert.match(guest.elem("lobby-status").textContent,/Dois jogadores/);
+  assert.match(guest.elem("lobby-status").textContent,/Sala pronta/);
   await host.elem("lobby-refresh").onclick();
-  assert.match(host.elem("lobby-status").textContent,/Dois jogadores/);
+  assert.match(host.elem("lobby-status").textContent,/Sala pronta/);
   await host.elem("lobby-copy").onclick();
   assert.match(host.getClipboard(),new RegExp(code));
   await guest.elem("lobby-close").onclick();
@@ -152,7 +152,7 @@ test("private room subscribes to current DROME tables and cleans up after closin
   await guest.elem("lobby-join-btn").onclick();
   own.listeners[0].handler({eventType:"UPDATE"});
   await new Promise(resolve=>setImmediate(resolve));
-  assert.match(host.elem("lobby-status").textContent,/Dois jogadores/);
+  assert.match(host.elem("lobby-status").textContent,/Sala pronta/);
   await host.elem("lobby-close").onclick();
   assert.equal(own.active,false,"No stale subscription after closing room");
 });
