@@ -57,3 +57,10 @@ test("v0.1.93: authoritative RPC phase validation still precedes pass and defens
   assert.ok(src.includes('await require3x3Phase(expectedTurn,["awaiting_defender"],true)'));
   assert.ok(src.includes("sem reenviar ataques automaticamente"));
 });
+
+test("v0.1.93: match start loads authoritative first-turn phase before enabling attacker controls",()=>{
+  const start=src.slice(src.indexOf('$("lobby-turn-start").onclick'),src.indexOf('$("lobby-turn-pass").onclick'));
+  assert.ok(start.includes('match = await rpc("chaotic_start_match"'));
+  assert.ok(start.includes('resumePhase3x3=await rpc("chaotic_get_preview_3x3_resume_status"'));
+  assert.ok(start.indexOf('resumePhase3x3=await rpc')<start.indexOf('updateMatchUI()'));
+});

@@ -3,6 +3,7 @@
 **31/10/2026. Progresso estimado: 97%.** O 3x3 segue em treinamento, não em modo oficial.
 
 ## O que mudou
+- Ao iniciar um treino 3x3, o anfitrião agora consulta o primeiro checkpoint de turno antes de liberar a preparação de criaturas e cartas.
 - Os botões para passar o turno no 3x3 são ocultados até a consulta do servidor confirmar o turno correto e a fase `ready` ou `damage_settled`.
 - Ações de ataque não ficam visíveis quando o checkpoint de reconexão está ausente, obsoleto ou indica partida encerrada.
 - Respostas e inspeções do defensor exigem a fase `awaiting_defender` confirmada pelo servidor para o próprio jogador.

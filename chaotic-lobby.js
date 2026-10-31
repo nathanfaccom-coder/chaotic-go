@@ -3582,6 +3582,12 @@
     $("lobby-turn-start").onclick = () => action(async () => {
       if (!room || room.host_id !== userId || room.status !== "ready") return;
       match = await rpc("chaotic_start_match", { p_lobby_id: room.id });
+      // O anfitrião precisa confirmar a etapa do servidor antes de
+      // desbloquear preparação/ações do primeiro turno 3x3.
+      if(room.mode==="3x3")
+        resumePhase3x3=await rpc("chaotic_get_preview_3x3_resume_status",{
+          p_lobby_id:room.id
+        });
       updateMatchUI();
       await refreshHistory();
       note("Teste de turnos iniciado. O anfitrião começa.");
