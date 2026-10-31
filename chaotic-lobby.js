@@ -47,7 +47,7 @@
     const active = match?.status === "active" && room.status === "ready"
       && new Date(room.expires_at).getTime() > Date.now()&&!trainingComplete;
     $("lobby-turn-state").textContent = !match
-      ? "Dois jogadores conectados. O anfitrião pode começar o teste."
+      ? "Dois participantes cadastrados. O anfitrião pode começar o teste; a conexão em tempo real deve ser conferida no diagnóstico."
       : match.status === "finished" ? "Teste de turnos encerrado."
       : trainingComplete ? "Treinamento 3x3 concluído! As três criaturas de uma equipe chegaram a 0 HP. Resultado experimental, sem XP ou vitória oficial."
       : !active ? "Sala encerrada ou expirada. Nenhuma jogada permitida."
