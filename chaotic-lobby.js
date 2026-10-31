@@ -1525,7 +1525,7 @@
       :borrowedPlan3x3?.state==="awaiting_defender"
         ?"Vento Forte emprestado: aguardando passe do defensor. Nenhum ponto foi pago."
       :borrowedPlan3x3?.state==="defender_passed_preview"
-        ?"Defensor passou. Treino base 105 permitido SOMENTE sem equipamento e sem nocaute. Efeito opcional de revelação não executado; pode cancelar sem pagar."
+        ?"Defensor passou. O Vento Forte emprestado pode causar nocaute INDIVIDUAL, sem equipamento; o último nocaute da equipe ainda é bloqueado. Revelação opcional não executada."
       :borrowedPlan3x3?.state==="base_resolved_no_optional_reveal"
         ?"Dano-base do Vento Forte emprestado resolvido. A carta original voltou ao dono; revelação opcional não realizada."
       :borrowedPlan3x3?.state==="cancelled"
@@ -1560,7 +1560,7 @@
       borrowedPriority3x3?.state==="awaiting_defender"
         ?"Vento Forte emprestado: o defensor deve passar a prioridade (SEM dano ou gasto)."
         :borrowedPriority3x3?.state==="defender_passed_preview"
-        ?"Passe registrado. Atacante pode resolver o DANO-BASE de treino apenas se defensor não tiver equipamento e HP maior que 5."
+        ?"Passe registrado. Dano-base de treino liberado sem equipamento; nocaute individual permitido. Último nocaute da equipe continua bloqueado."
         :borrowedPriority3x3?.state==="base_resolved_no_optional_reveal"
         ?"Vento Forte emprestado resolvido: custo e 5 de dano-base; carta devolvida, sem revelação opcional."
         :"Nenhuma reação de Vento Forte emprestado pendente.";
@@ -1658,7 +1658,9 @@
         ") chegou a 0 HP DE TREINO após "+
         ({101:"Ácido Gástrico",104:"Fogo Primordial 2.0",105:"Vento Forte",107:"Armadilha de Vinha",108:"SPEED",109:"TORNADO",110:"SONAR",111:"MÃO ELETRÔNICA",112:"MÃO MÃO",
           113:"PURGATÓRIO",114:"ESQUELETO",115:"SOPRO"}[x.catalog_attack_id]||"um ataque")+
-        ". Nocaute experimental; sem exclusão de carta.").join("\n")
+        ". Nocaute experimental"+(x.borrowed_attack?
+          " com ataque EMPRESTADO (Mão Negra); carta original devolvida.":"")+
+        "; sem exclusão de carta.").join("\n")
       :"Nenhuma criatura nocauteada no treino.";
     $("lobby-3x3-training-outcome").textContent=trainingOutcomes3x3.length
       ?trainingOutcomes3x3.map(x=>
@@ -1885,7 +1887,15 @@
       .select("turn_no,attacker_id,defender_id,defender_slot,defender_creature_name,catalog_attack_id,hp_before,hp_after,training_only,official_match_modified")
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(10);
     if(knockouts.error)throw new Error(knockouts.error.message);
-    trainingKnockouts3x3=knockouts.data||[];
+    // Keep the original-owned 105 knockout events unchanged and add only
+    // server-validated borrowed-card KO events; both sides can inspect these.
+    const borrowedKnockouts=await api.from("chaotic_preview_3x3_borrowed_105_knockouts")
+      .select("turn_no,borrower_id,defender_id,defender_slot,defender_creature_name,catalog_attack_id,hp_before,hp_after,training_only,official_match_modified")
+      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(10);
+    if(borrowedKnockouts.error)throw new Error(borrowedKnockouts.error.message);
+    trainingKnockouts3x3=(knockouts.data||[]).concat(
+      (borrowedKnockouts.data||[]).map(x=>({...x,
+        attacker_id:x.borrower_id,borrowed_attack:true})));
     const outcome=await api.from("chaotic_preview_3x3_training_outcomes")
       .select("decided_turn,winner_id,defeated_id,defeated_team_size,outcome_scope,official_match_ended,experience_awarded,currency_awarded")
       .eq("lobby_id",room.id).limit(1);
@@ -2423,7 +2433,7 @@
       '<button id="lobby-3x3-borrowed-cancel-plan" type="button" hidden>Cancelar preparação (SEM gastar)</button>',
       '<button id="lobby-3x3-borrowed-open-priority" type="button" hidden>Abrir resposta para Vento Forte emprestado (SEM pagar)</button>',
       '<button id="lobby-3x3-borrowed-abort-priority" type="button" hidden>Cancelar reação emprestada (SEM pagar)</button>',
-      '<button id="lobby-3x3-borrowed-settle-base" type="button" hidden>Resolver Vento Forte emprestado: custo 1 e 5 dano-base (SEM nocaute/equipamento)</button>',
+      '<button id="lobby-3x3-borrowed-settle-base" type="button" hidden>Resolver Vento Forte emprestado: 1 ponto e até 5 dano-base (SEM equipamento)</button>',
       '<p id="lobby-3x3-borrowed-plan-status" class="lobby-events" role="status" aria-live="polite">Nenhuma intenção de uso preparada.</p>',
       '<p id="lobby-3x3-borrowed-quote-result" class="lobby-events" role="status" aria-live="polite">Prévia não calculada.</p>',
       '</div>',
@@ -2926,7 +2936,8 @@
       await refresh3x3Allies();
       note("Vento Forte EMPRESTADO no treino: pontos "+settled.points_before+
         " → "+settled.points_after+"; HP "+settled.hp_before+" → "+
-        settled.hp_after+". Carta original devolvida ao dono. "+
+        settled.hp_after+(settled.hp_after===0?" (NOCAUTE de criatura)":"")+
+        ". Carta original devolvida ao dono. "+
         "Revelação opcional NÃO executada; ataque oficial preservado.");
     });
     $("lobby-3x3-borrowed-quote").onclick=()=>action(async()=>{
@@ -2941,7 +2952,7 @@
         " · custo "+q.attack_cost+" · pontos "+q.points_available+
         " · "+(q.can_afford_if_enabled?"custo suficiente":"pontos insuficientes")+
         " · HP-base hipotético "+q.defender_hp_before+" → "+q.defender_hp_after_base_only+
-        ". Prévia somente. A resolução de dano-base não letal exige passe do defensor, sem equipamento, e HP acima de 5.";
+        ". Prévia somente. O dano-base e nocaute individual exigem passe defensivo e ausência de equipamento. Nocaute final de equipe bloqueado.";
       $("lobby-3x3-borrowed-quote-result").textContent=msg;
       note(msg);
     });
