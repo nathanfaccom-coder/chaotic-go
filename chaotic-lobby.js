@@ -2486,6 +2486,17 @@
       '<button id="lobby-3x3-borrowed-reveal-skip" type="button">Dispensar revelação e liberar turno</button>',
       '<p id="lobby-3x3-borrowed-reveal-status" class="lobby-events" role="status" aria-live="polite">Nenhuma revelação emprestada pendente.</p>',
       '</div>',
+      '<section id="lobby-3x3-poison-206-inspection">',
+      '<p>Envenenamento no treino (em preparação): Armadilha de Víbora (106) causa veneno que NÃO PODE SER CURADO, inclusive pelo Bracelete de Cristal (206). Dano periódico de 5 por turno ainda NÃO está ativo. Inspecione apenas sua própria criatura: nenhuma carta será sacrificada.</p>',
+      '<label for="lobby-3x3-poison-own-position">Minha criatura para inspecionar</label>',
+      '<select id="lobby-3x3-poison-own-position">',
+      '<option value="4">Minha criatura c4</option>',
+      '<option value="5">Minha criatura c5</option>',
+      '<option value="6">Minha criatura c6</option>',
+      '</select>',
+      '<button id="lobby-3x3-poison-inspect-own" type="button">Conferir veneno e Bracelete 206 (SEM curar)</button>',
+      '<p id="lobby-3x3-poison-own-result" class="lobby-events" role="status" aria-live="polite">Nenhuma inspeção realizada. A cura e os efeitos por turno continuam desabilitados.</p>',
+      '</section>',
       '<p>Descarte voluntário experimental: até uma carta da própria mão por turno, antes de declarar confronto. Com o monte vazio, a próxima compra do seu turno recicla as cartas gastas e descartadas, sem devolver pontos ou apagar o registro de gasto.</p>',
       '<label for="lobby-3x3-discard-slot">Slot a descartar da própria mão</label>',
       '<select id="lobby-3x3-discard-slot">'+Array.from({length:20},(_,i)=>'<option value="'+(i+1)+'">Ataque '+(i+1)+'</option>').join("")+'</select>',
@@ -2994,6 +3005,21 @@
           ?" Sem revelação tardia após a vitória final."
           :" Agora escolha uma revelação opcional ou dispense o efeito antes de passar o turno.")+
         " Ataque oficial preservado.");
+    });
+    $("lobby-3x3-poison-inspect-own").onclick=()=>action(async()=>{
+      if(!room||room.mode!=="3x3")return;
+      const position=Number($("lobby-3x3-poison-own-position").value);
+      if(![4,5,6].includes(position))throw new Error("Escolha uma criatura própria c4, c5 ou c6.");
+      const status=await rpc("chaotic_inspect_preview_3x3_poison_crystal_206",{
+        p_lobby_id:room.id,p_position:position
+      });
+      const message=status.poisoned
+        ?"Envenenamento de Armadilha de Víbora (106) registrado: INCURÁVEL. O Bracelete de Cristal (206) NÃO pode remover este veneno."
+        :"Nenhum envenenamento 106 foi registrado nesta criatura.";
+      $("lobby-3x3-poison-own-result").textContent=
+        "Criatura c"+status.position+" · HP "+status.creature_hp+". "+message+
+        " Bracelete 206 original: "+(status.crystal_206_verified?"verificado":"não verificado")+
+        ". Dano periódico: ainda não ativo. Cura: desabilitada. Nenhum ponto, HP ou equipamento foi alterado.";
     });
     $("lobby-3x3-borrowed-reveal-choose").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
