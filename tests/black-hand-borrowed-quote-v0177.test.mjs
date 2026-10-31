@@ -48,7 +48,7 @@ test("v0.1.77: private DROME quote uses custody ID without adding stolen card to
   'lobby-3x3-borrowed-quote-result',
   'chaotic_quote_preview_3x3_borrowed_attack',
   'borrowedAttacks3x3.some(x=>x.custody_id===choice)',
-  'Prévia somente. A resolução de dano-base não letal exige passe do defensor',
+  'Prévia somente. O dano-base e nocaute individual exigem passe defensivo',
   'Conferir custo e dano-base (SEM usar)'
  ])assert.ok(ui.includes(marker),marker);
  assert.doesNotMatch(ui,/resolvableTrainingAttacks3x3=new Set\([^)]*"102"/);
