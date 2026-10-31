@@ -36,7 +36,7 @@ begin
   cost:=case when i in (1,3,7) then 1 when i in (2,6) then 3 when i=4 then 0 else 2 end;
   -- ESQUELETO scenario: one ally already defeated, defender has 15 HP.
   prior_hp:=case when i in (5,6) then 15 when i=7 or i>=8 then 10 else 20 end;
-  expected_bonus:=case when i in (5,6,7) then 5 when i in (10,11) then 10 else 0 end;
+  expected_bonus:=case when i in (5,6,7) then 5 when i in (10,11,12) then 10 else 0 end;
   expected_hp:=greatest(0,prior_hp-base_damage-expected_bonus);
   lobby:=gen_random_uuid();
 
@@ -179,9 +179,9 @@ begin
    case when i in(8,9) then 'Rex' else 'Johnes' end,
    case when i in(6,9,11) then '["fogo","terra"]'::jsonb
         when i=7 then '["terra"]'::jsonb
-        when i in(8,10) then '["ar"]'::jsonb else '[]'::jsonb end,
+        when i in(8,10) then '["ar"]'::jsonb when i=12 then '["terra"]'::jsonb else '[]'::jsonb end,
    case when i in(8,9) then '["ar"]'::jsonb else '[]'::jsonb end,
-   i=6,false,i in(7,9,11),i in(8,10));
+   i=6,false,i in(7,9,11,12),i in(8,10));
 
   insert into public.chaotic_preview_3x3_private_equipment_checks(
    lobby_id,turn_no,attacker_id,defender_id,defender_slot,
@@ -309,7 +309,7 @@ begin
 
   if attack_id='110' then
    if effect.immunity_prevented_damage<>(case when i in(8,9) then 10 else 0 end)
-    or effect.elemental_bonus_damage<>(case when i in(10,11) then 10 else 0 end)
+    or effect.elemental_bonus_damage<>(case when i in(10,11,12) then 10 else 0 end)
     or effect.effects_fully_resolved
    then raise exception 'SONAR Rex immunity or deferred search incorrect on test %',i;end if;
    if i in(8,9) and (select damage_events from public.chaotic_preview_3x3_hp_wallets
