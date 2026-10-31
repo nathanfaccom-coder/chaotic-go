@@ -36,21 +36,21 @@ function renderizarPassoTipoJogo() {
             <div class="btn-entrada-drome online" onclick="window.selecionarTipoJogo('online')">
                 <span style="font-size:28px;">🌐</span>
                 <div>
-                    <div style="font-size:13px;font-weight:bold;color:#fff;">JOGAR ONLINE</div>
-                    <div style="font-size:9px;color:#aaa;margin-top:3px;">Entra na fila e enfrenta um adversário aleatório</div>
+                    <div style="font-size:13px;font-weight:bold;color:#fff;">JOGAR ONLINE (LEGADO)</div>
+                    <div style="font-size:9px;color:#aaa;margin-top:3px;">Fila aleatória antiga; pode exigir serviços ainda em migração</div>
                 </div>
             </div>
             <div class="btn-entrada-drome amigo" onclick="window.selecionarTipoJogo('amigo')">
                 <span style="font-size:28px;">🤝</span>
                 <div>
-                    <div style="font-size:13px;font-weight:bold;color:#fff;">JOGAR COM AMIGO</div>
-                    <div style="font-size:9px;color:#aaa;margin-top:3px;">Desafie um amigo da sua lista de conexões</div>
+                    <div style="font-size:13px;font-weight:bold;color:#fff;">JOGAR COM AMIGO (LEGADO)</div>
+                    <div style="font-size:9px;color:#aaa;margin-top:3px;">Modo de amigos antigo; sala por código é o caminho recomendado</div>
                 </div>
             </div>
         </div>
         <button class="btn-entrada-drome modo" type="button" style="width:85%; margin:20px auto 0; padding:12px; border:2px solid #64cb83; border-radius:10px; background:#103321; color:white; cursor:pointer;"
-          onclick="window.abrirSalaPrivadaDrome && window.abrirSalaPrivadaDrome()">🔐 SALA PRIVADA (TESTE)</button>
-        <p style="font-size:9px;color:#aaa;margin:6px auto;">Convide outro jogador por código. Batalhas ainda indisponíveis.</p>
+          onclick="window.abrirSalaPrivadaDrome && window.abrirSalaPrivadaDrome()">🔐 TREINO 3x3 POR CÓDIGO</button>
+        <p style="font-size:9px;color:#aaa;margin:6px auto;">Treino 3x3 com dois jogadores por código disponível em fase experimental. Modos oficiais ainda em desenvolvimento.</p>
         <button class="btn-voltar-pequeno" style="margin-top:18px;" onclick="window.voltarMenuDrome()">Voltar ao Menu</button>
     `;
 }
