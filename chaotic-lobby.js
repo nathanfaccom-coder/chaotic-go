@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [], mugicTrainingWallets = [], mugicTrainingSettlements = [], trainingAbilityEvents = [], harpTrainingEvents = [], allies3x3 = [], transfers3x3 = [], hp3x3 = [], board3x3 = [], moves3x3 = [], contacts3x3 = [], attackProjections3x3 = [], hand3x3 = [], handWallet3x3 = [], costChecks3x3 = [], attackSpends3x3 = [], discard3x3 = [], drawEvents3x3 = [], defenseWindows3x3 = [], elementalInspections3x3 = [], creatureChecks3x3 = [], privateEquipmentChecks3x3 = [], dynamicElementChecks3x3 = [], trainingDamage3x3 = [], trainingKnockouts3x3 = [], trainingOutcomes3x3 = [], trainingAttackLocks3x3 = [], sonarSearchEvents3x3 = [], sonarSearchChoices3x3 = [], sonarChoiceKey3x3 = "", faceStates3x3 = [], ventoRevealEvents3x3 = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [], mugicTrainingWallets = [], mugicTrainingSettlements = [], trainingAbilityEvents = [], harpTrainingEvents = [], allies3x3 = [], transfers3x3 = [], hp3x3 = [], board3x3 = [], moves3x3 = [], contacts3x3 = [], attackProjections3x3 = [], hand3x3 = [], handWallet3x3 = [], costChecks3x3 = [], attackSpends3x3 = [], discard3x3 = [], drawEvents3x3 = [], defenseWindows3x3 = [], elementalInspections3x3 = [], creatureChecks3x3 = [], privateEquipmentChecks3x3 = [], dynamicElementChecks3x3 = [], trainingDamage3x3 = [], trainingKnockouts3x3 = [], trainingOutcomes3x3 = [], trainingAttackLocks3x3 = [], sonarSearchEvents3x3 = [], sonarSearchChoices3x3 = [], sonarChoiceKey3x3 = "", faceStates3x3 = [], ventoRevealEvents3x3 = [], playerPresence3x3 = null;
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -1107,6 +1107,28 @@
     const current=match?.status==="active"&&room.status==="ready"
       &&new Date(room.expires_at).getTime()>Date.now()
       &&trainingOutcomes3x3.length===0;
+    const presence=playerPresence3x3;
+    const readyButton=$("lobby-3x3-test-ready");
+    const unreadyButton=$("lobby-3x3-test-unready");
+    if(readyButton)readyButton.hidden=!current||!!presence?.self_ready;
+    if(unreadyButton)unreadyButton.hidden=!current||!presence?.self_ready;
+    const presenceText=$("lobby-3x3-player-presence");
+    if(presenceText){
+      presenceText.textContent=presence
+        ?(presence.training_finished
+          ?("Treino 3x3 encerrado: "+(presence.you_won_training?"você venceu.":"você foi derrotado.")+
+            " Partida oficial não alterada.")
+          :("Você: "+(presence.self_active?"atividade recente":"sem atualização")+
+            (presence.self_ready?" · PRONTO":" · não pronto")+
+            " | Adversário: "+(presence.peer_active?"atividade detectada nos últimos 25 s":
+              "sem atividade recente")+
+            (presence.peer_ready?" · PRONTO":" · não pronto")+
+            " | Turno "+presence.active_turn+
+            (presence.your_turn?" · sua vez":" · vez do adversário")+
+            (presence.both_ready_now?" | DOIS JOGADORES PRONTOS PARA TESTAR":"")+
+            "."))
+        :"Aguardando diagnóstico de conexão de ambos os jogadores...";
+    }
     const myTurn=!!current&&match.current_player===userId;
     const attackLockedThisTurn=trainingAttackLocks3x3.some(x=>
       x.defender_id===userId&&match?.turn_no>x.inflicted_turn
@@ -1493,7 +1515,7 @@
   async function refresh3x3Allies(){
     if(!$("lobby-3x3-allies-panel"))return;
     if(!room||!match||room.mode!=="3x3"){
-      allies3x3=[];transfers3x3=[];hp3x3=[];board3x3=[];moves3x3=[];contacts3x3=[];attackProjections3x3=[];hand3x3=[];handWallet3x3=[];costChecks3x3=[];attackSpends3x3=[];discard3x3=[];drawEvents3x3=[];defenseWindows3x3=[];elementalInspections3x3=[];creatureChecks3x3=[];privateEquipmentChecks3x3=[];dynamicElementChecks3x3=[];trainingDamage3x3=[];trainingKnockouts3x3=[];trainingOutcomes3x3=[];trainingAttackLocks3x3=[];sonarSearchEvents3x3=[];sonarSearchChoices3x3=[];sonarChoiceKey3x3="";faceStates3x3=[];ventoRevealEvents3x3=[];update3x3UI();return;
+      allies3x3=[];transfers3x3=[];hp3x3=[];board3x3=[];moves3x3=[];contacts3x3=[];attackProjections3x3=[];hand3x3=[];handWallet3x3=[];costChecks3x3=[];attackSpends3x3=[];discard3x3=[];drawEvents3x3=[];defenseWindows3x3=[];elementalInspections3x3=[];creatureChecks3x3=[];privateEquipmentChecks3x3=[];dynamicElementChecks3x3=[];trainingDamage3x3=[];trainingKnockouts3x3=[];trainingOutcomes3x3=[];trainingAttackLocks3x3=[];sonarSearchEvents3x3=[];sonarSearchChoices3x3=[];sonarChoiceKey3x3="";faceStates3x3=[];ventoRevealEvents3x3=[];playerPresence3x3=null;update3x3UI();return;
     }
     // v0.1.57: owner-only raw RLS; the server supplies a masked member view.
     const safeState=await rpc("chaotic_get_preview_3x3_safe_state",{
@@ -1605,6 +1627,11 @@
     if(drawn.error)throw new Error(drawn.error.message);
     drawEvents3x3=drawn.data||[];
     // Token transfers are already sanitized in the safe-state RPC.
+    // Heartbeat confirms a recent server request, NOT a guaranteed live
+    // browser tab or true two-device test. Player identity remains private.
+    playerPresence3x3=await rpc("chaotic_ping_preview_3x3_player",{
+      p_lobby_id:room.id,p_ready:null
+    });
     // Refresh the generic turn button as well when the 3x3 training has ended.
     if(trainingOutcomes3x3.length)updateMatchUI();
     else update3x3UI();
@@ -1958,7 +1985,11 @@
       '<p id="lobby-harp-token-history" class="lobby-events" aria-live="polite">Nenhuma Arpa usada no treinamento.</p>',
       '</section>',
       '<section id="lobby-3x3-allies-panel" class="lobby-combat" hidden>',
-      '<strong>🛡️ Formação 3x3 — treinamento separado (0.1.42)</strong>',
+      '<strong>🛡️ Formação 3x3 — treinamento (v0.1.61)</strong>',
+      '<p>Diagnóstico de dois jogadores: cada dispositivo faz uma verificação no servidor a cada atualização da sala. Atividade recente NÃO substitui a validação real em dois celulares e não altera turnos, HP ou resultado oficial.</p>',
+      '<p id="lobby-3x3-player-presence" class="lobby-events" aria-live="polite">Aguardando diagnóstico de conexão...</p>',
+      '<button id="lobby-3x3-test-ready" type="button" hidden>Estou pronto para testar o 3x3</button>',
+      '<button id="lobby-3x3-test-unready" type="button" hidden>Retirar meu pronto</button>',
       '<p>Congele as 3 criaturas originais do Deck 3x3 escolhido, posições c4-c6. Somente depois, Alakazaz pode transferir 1 ficha de seu próprio saldo para outra criatura aliada, uma vez por turno. Nenhum saldo/carta do combate oficial é alterado.</p>',
       '<label for="lobby-3x3-deck">Deck 3x3 salvo</label>',
       '<select id="lobby-3x3-deck"><option value="1">Deck 1</option><option value="2">Deck 2</option><option value="3">Deck 3</option></select>',
@@ -2330,6 +2361,24 @@
           "Ainda não foi conjurada, não gasta fichas e bloqueia dano até cancelar.");
       });
     }
+    $("lobby-3x3-test-ready").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="3x3")return;
+      playerPresence3x3=await rpc("chaotic_ping_preview_3x3_player",{
+        p_lobby_id:room.id,p_ready:true
+      });
+      update3x3UI();
+      note(playerPresence3x3.both_ready_now
+        ?"Ambos prontos no servidor: vocês podem iniciar o TESTE 3x3."
+        :"Pronto registrado. Ainda falta o outro jogador confirmar e manter conexão recente.");
+    });
+    $("lobby-3x3-test-unready").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="3x3")return;
+      playerPresence3x3=await rpc("chaotic_ping_preview_3x3_player",{
+        p_lobby_id:room.id,p_ready:false
+      });
+      update3x3UI();
+      note("Sua confirmação de pronto foi retirada. A sala e as cartas permanecem intactas.");
+    });
     $("lobby-3x3-prepare").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3")return;
       const result=await rpc("chaotic_prepare_preview_3x3_allies",{
