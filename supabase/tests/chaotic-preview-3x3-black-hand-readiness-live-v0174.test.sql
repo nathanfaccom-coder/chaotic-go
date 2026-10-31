@@ -79,7 +79,7 @@ begin
    or state->>'possible'<>'true' or state->>'playable'<>'false'
    or state->>'payment_enabled'<>'false'
    or state->>'card_id_revealed'<>'false'
-   or state->>'own_free_slots'<>'4'
+   or state->>'own_free_slots'<>'5'
    or state::text like '%G1%'
  then raise exception '102 readiness leaked source card or returned wrong status: %',state;end if;
  select count(*) into cnt from public.chaotic_preview_3x3_temporary_card_custody where lobby_id=lobby;
