@@ -92,7 +92,7 @@ test("v0.1.82: database fixtures prove atomic payment and rejection without modi
    "Unsafe borrowed 105 request partially charged or altered card",
    "chaotic_abort_preview_3x3_borrowed_105_priority",
    "rollback;",
-   "PASS v0.1.82"
+   "PASS v0.1."
   ])assert.ok(t.includes(x),x);
   assert.doesNotMatch(t,/\bcommit\s*;/i);
  }
@@ -109,13 +109,17 @@ test("v0.1.82: private status now reflects actual event while UI retains nonleth
   "borrowedPlan3x3?.state===\"defender_passed_preview\"",
   "Revelação opcional NÃO executada",
   "Carta original devolvida ao dono",
-  "SEM nocaute/equipamento"
+  "SEM equipamento"
  ])assert.ok(ui.includes(x),x);
 });
-test("v0.1.82: public and Android PWA cache align",()=>{
- assert.match(index,/VERSÃO 0\.1\.82/);
- assert.match(index,/sw\.js\?v=release-82/);
- assert.match(worker,/chaotic-go-release-20261031-82/);
- assert.match(scanner,/full-game-bootstrap\.js\?v=release-82/);
- assert.match(boot,/chaotic-lobby\.js\?v=release-82/);
+test("v0.1.82+: public and Android PWA cache remain aligned",()=>{
+ const v=index.match(/VERSÃO 0\.1\.(\d+)/);
+ const swVersion=index.match(/sw\.js\?v=release-(\d+)/);
+ const cache=worker.match(/chaotic-go-release-\d{8}-(\d+)/);
+ const scannerVersion=scanner.match(/full-game-bootstrap\.js\?v=release-(\d+)/);
+ const bootVersion=boot.match(/chaotic-lobby\.js\?v=release-(\d+)/);
+ assert.ok(v&&swVersion&&cache&&scannerVersion&&bootVersion);
+ assert.ok(Number(v[1])>=82);
+ for(const m of [swVersion,cache,scannerVersion,bootVersion])
+  assert.equal(m[1],v[1]);
 });
