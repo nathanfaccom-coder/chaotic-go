@@ -7,6 +7,9 @@
   let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [], mugicTrainingWallets = [], mugicTrainingSettlements = [], trainingAbilityEvents = [], harpTrainingEvents = [], allies3x3 = [], transfers3x3 = [], hp3x3 = [], board3x3 = [], moves3x3 = [], contacts3x3 = [], attackProjections3x3 = [], hand3x3 = [], handWallet3x3 = [], costChecks3x3 = [], attackSpends3x3 = [], discard3x3 = [], drawEvents3x3 = [], defenseWindows3x3 = [], elementalInspections3x3 = [], creatureChecks3x3 = [], privateEquipmentChecks3x3 = [], dynamicElementChecks3x3 = [], trainingDamage3x3 = [], trainingKnockouts3x3 = [], trainingOutcomes3x3 = [], trainingAttackLocks3x3 = [], sonarSearchEvents3x3 = [], sonarSearchChoices3x3 = [], sonarChoiceKey3x3 = "", faceStates3x3 = [], ventoRevealEvents3x3 = [], playerPresence3x3 = null;
   // Latest privacy-safe, server-owned 3x3 attack checkpoint. No local replay.
   let resumePhase3x3 = null;
+  // Original attack cards stay intact. Only these catalog IDs currently
+  // have experimental 3x3 damage endpoints; projection still supports all.
+  const resolvableTrainingAttacks3x3=new Set(["101","105","107","110","111","112","113","114"]);
   // Persist only the latest room UUID, scoped to the signed-in player.
   // Never store combat actions, hidden cards, login tokens, or Deck contents.
   const lastRoomStorageKey="chaotic-go:last-room:"+userId;
@@ -1288,6 +1291,19 @@
       &&x.actor_id===userId);
     const inspected=!!costThisTurn;
     const alreadySpent=attackSpends3x3.some(x=>x.turn_no===match?.turn_no);
+    const canCancelUnpaidContact=myTurn&&!!currentContact&&!alreadySpent;
+    const cancelContactButton=$("lobby-3x3-cancel-contact");
+    if(cancelContactButton)cancelContactButton.hidden=!canCancelUnpaidContact;
+    const supportedAttack=!!currentProjection
+      &&resolvableTrainingAttacks3x3.has(currentProjection.catalog_attack_id);
+    const supportHint=$("lobby-3x3-support-hint");
+    if(supportHint) supportHint.textContent=currentProjection&&!supportedAttack
+      ?("Ataque "+currentProjection.attack_name+
+        " disponível somente para projeção; ainda não há resolução experimental 3x3. "+
+        "Nenhum ponto pode ser gasto. Use Cancelar contato para escolher outra carta.")
+      :currentProjection
+        ?"Ataque tem resolução experimental 3x3. Confirme custo e defesa antes do dano."
+        :"Projeção disponível para os ataques originais. Pagamento exige resolução experimental implementada.";
     const defenseWindowThisTurn=defenseWindows3x3.find(x=>x.turn_no===match?.turn_no);
     $("lobby-3x3-defense-open").hidden=!(myTurn&&alreadySpent&&!defenseWindowThisTurn);
     $("lobby-3x3-training-damage").hidden=!(myTurn&&!!defenseWindowThisTurn
@@ -1369,7 +1385,7 @@
       &&creatureChecks3x3.some(x=>x.turn_no===match.turn_no)
       &&!privateEquipmentChecks3x3.some(x=>x.turn_no===match.turn_no));
     $("lobby-3x3-attack-spend").hidden=!(myTurn&&!attackLockedThisTurn&&!!costThisTurn?.can_afford
-      &&!!currentProjection&&!alreadySpent&&ownHandWallet?.last_draw_turn===match?.turn_no
+      &&supportedAttack&&!!currentProjection&&!alreadySpent&&ownHandWallet?.last_draw_turn===match?.turn_no
       &&hand3x3.some(x=>x.actor_id===userId&&x.card_slot===currentProjection.attack_card_slot
         &&x.attack_instance_id===currentProjection.attack_instance_id&&x.card_state==="hand"));
     $("lobby-3x3-hand-prepare").hidden=!(myTurn&&own.length===3&&!ownHandWallet);
@@ -2221,12 +2237,15 @@
       '<label for="lobby-3x3-contact-defender">Defensor adversário (slot original)</label>',
       '<select id="lobby-3x3-contact-defender"><option value="4">c4</option><option value="5">c5</option><option value="6">c6</option></select>',
       '<button id="lobby-3x3-contact" type="button" hidden>Registrar contato entre criaturas (sem dano)</button>',
+      '<button id="lobby-3x3-cancel-contact" type="button" hidden>Cancelar contato ou ataque ainda não pago</button>',
+      '<p>Cancelar antes do pagamento não recupera pontos (pois nenhum foi gasto). Criaturas já reveladas pelo contato permanecem reveladas.</p>',
       '<p id="lobby-3x3-contact-history" class="lobby-events" aria-live="polite">Nenhum confronto 3x3 preparado.</p>',
       '<p>Após o contato, confira uma carta de Ataque do mesmo Deck 3x3 da criatura atacante. A verificação utiliza o álbum e o catálogo original de 15 ataques. A projeção mostra APENAS dano-base hipotético, sem pagar custo, conferir mão, aplicar elementos, reduzir HP ou mudar resultado.</p>',
       '<label for="lobby-3x3-attack-slot">Slot da carta de ataque (1–20)</label>',
       '<select id="lobby-3x3-attack-slot">'+Array.from({length:20},(_,i)=>'<option value="'+(i+1)+'">Ataque '+(i+1)+'</option>').join("")+'</select>',
       '<button id="lobby-3x3-attack-project" type="button" hidden>Conferir ataque e calcular dano-base (sem aplicar)</button>',
       '<p id="lobby-3x3-attack-history" class="lobby-events" aria-live="polite">Nenhuma projeção de ataque.</p>',
+      '<p id="lobby-3x3-support-hint" class="lobby-events" role="status" aria-live="polite">Confira quais ataques têm dano experimental antes de gastar pontos.</p>',
       '<p>Nova mão PRIVADA no 3x3: o servidor embaralha os ataques do seu Deck e compra as três primeiras cartas. A cada turno seu, pode comprar uma carta adicional até cinco na mão. O custo é somente CONFERIDO; não desconta pontos nem descarta cartas.</p>',
       '<button id="lobby-3x3-hand-prepare" type="button" hidden>Embaralhar e preparar minha mão 3x3</button>',
       '<button id="lobby-3x3-hand-sync" type="button" hidden>Comprar carta do novo turno 3x3</button>',
@@ -2654,6 +2673,17 @@
       note("Contato 3x3 registrado: seu c"+contact.attacker_slot+
         " contra c"+contact.defender_slot+" adversário. Nenhuma carta de ataque validada, sem dano.");
     });
+    $("lobby-3x3-cancel-contact").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
+      const expectedTurn=match.turn_no;
+      await require3x3Phase(expectedTurn,["contact_open","awaiting_payment"]);
+      const result=await rpc("chaotic_cancel_preview_3x3_unpaid_contact",{
+        p_lobby_id:room.id,p_expected_turn:expectedTurn
+      });
+      await refresh3x3Allies();
+      note("Contato sem pagamento cancelado no turno "+result.turn_no+
+        ". Nenhum ponto, carta ou HP foi alterado. Criaturas já reveladas permanecem visíveis.");
+    });
     $("lobby-3x3-attack-project").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
       const attackSlot=Number($("lobby-3x3-attack-slot").value);
@@ -2714,8 +2744,14 @@
     });
     $("lobby-3x3-attack-spend").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
+      const expectedTurn=match.turn_no;
+      const projectedAttack=attackProjections3x3.find(x=>x.turn_no===expectedTurn
+        &&x.actor_id===userId);
+      if(!resolvableTrainingAttacks3x3.has(projectedAttack?.catalog_attack_id))
+        throw new Error("Este ataque ainda não tem dano no treino 3x3. Cancele o contato sem gastar pontos.");
+      await require3x3Phase(expectedTurn,["awaiting_payment"],true);
       const paid=await rpc("chaotic_spend_preview_3x3_attack",{
-        p_lobby_id:room.id,p_expected_turn:match.turn_no
+        p_lobby_id:room.id,p_expected_turn:expectedTurn
       });
       await refresh3x3Allies();
       note("Ataque usado SOMENTE NO TREINO: "+paid.points_before+" → "+
