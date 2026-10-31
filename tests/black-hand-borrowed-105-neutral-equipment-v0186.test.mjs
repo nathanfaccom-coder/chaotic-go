@@ -92,7 +92,7 @@ test("v0.1.86: DROME explains only 202/204 permitted while keeping original mode
  for(const marker of [
    "Amuleto do Vácuo (202)",
    "Bastão da Sabedoria (204)",
-   "202/204 originais verificados",
+   "202/204/207 originais verificados",
    "SEM equipamento ou com 202/204/207 validados",
    "lobby-3x3-borrowed-settle-base",
    "chaotic_resolve_preview_3x3_borrowed_105_reveal"
