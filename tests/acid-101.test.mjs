@@ -42,7 +42,7 @@ test("3x3: real database fixture tests Acid 101 native Fire KO, equip rejection 
 });
 test("3x3: DROME includes Acid 101 and reports its elemental component",()=>{
  for(const marker of ["chaotic_apply_preview_3x3_training_acid_101",
-  '["101","105","107","111","112","113","114"].includes(currentProjection?.catalog_attack_id)',
+  '["101","105","107","110","111","112","113","114"].includes(currentProjection?.catalog_attack_id)',
   "elemental_bonus_damage","Ácido Gástrico",
   "Bônus elemental NATURAL de Fogo/Água"]){
   assert.ok(ui.includes(marker),marker);
