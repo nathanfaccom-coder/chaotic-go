@@ -62,11 +62,11 @@ test("v0.1.74: DROME accurately labels nonplayable Mão Negra without revealing 
 });
 test("v0.1.74+: PWA cache and visible release remain aligned across new versions",()=>{
  const shown=index.match(/VERSÃO 0\.1\.(\d+)/);
- const worker=index.match(/sw\.js\?v=release-(\d+)/);
+ const workerTag=index.match(/sw\.js\?v=release-(\d+)/);
  const cache=worker.match(/chaotic-go-release-\d{8}-(\d+)/);
  const scannerVersion=scanner.match(/full-game-bootstrap\.js\?v=release-(\d+)/);
  const lobbyVersion=bootstrap.match(/chaotic-lobby\.js\?v=release-(\d+)/);
- assert.ok(shown&&worker&&cache&&scannerVersion&&lobbyVersion);
+ assert.ok(shown&&workerTag&&cache&&scannerVersion&&lobbyVersion);
  assert.ok(Number(shown[1])>=74);
- for(const ref of [worker,cache,scannerVersion,lobbyVersion])assert.equal(ref[1],shown[1]);
+ for(const ref of [workerTag,cache,scannerVersion,lobbyVersion])assert.equal(ref[1],shown[1]);
 });
