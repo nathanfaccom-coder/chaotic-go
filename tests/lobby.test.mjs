@@ -181,7 +181,9 @@ test("v0.1.67: a reloaded player recovers their own open room from Supabase",asy
   const refresh=makeBrowser("resume67-host");
   refresh.browser.window.abrirSalaPrivadaDrome();
   for(let i=0;i<5;i++)await new Promise(resolve=>setImmediate(resolve));
-  assert.equal(refresh.elem("lobby-room-code").textContent,code);
+  assert.equal(refresh.elem("lobby-room-code").textContent,code,
+    "restoration note: "+refresh.elem("lobby-notice").textContent+
+    " | saved: "+String(browserStorage.get(key)));
   assert.equal(refresh.elem("lobby-mode").textContent,"3x3");
   assert.match(refresh.elem("lobby-status").textContent,/Sala pronta/);
   assert.match(refresh.elem("lobby-notice").textContent,/Sala recuperada/);
@@ -200,7 +202,7 @@ test("v0.1.67: a forged local room ID never authorizes an outsider",async()=>{
   const outsider=makeBrowser("resume67-outsider");
   outsider.browser.window.abrirSalaPrivadaDrome();
   for(let i=0;i<5;i++)await new Promise(resolve=>setImmediate(resolve));
-  assert.equal(outsider.elem("lobby-current").hidden,true);
+  assert.equal(outsider.elem("lobby-room-code").textContent,"");
   assert.equal(browserStorage.has(key),false);
   assert.match(outsider.elem("lobby-notice").textContent,/não pertence/);
   await host.elem("lobby-close").onclick();
@@ -216,6 +218,6 @@ test("v0.1.67: expired and corrupt saved IDs are forgotten without replaying a g
     tab.browser.window.abrirSalaPrivadaDrome();
     await new Promise(resolve=>setImmediate(resolve));
     assert.equal(browserStorage.has(key),false);
-    assert.equal(tab.elem("lobby-current").hidden,true);
+    assert.equal(tab.elem("lobby-room-code").textContent,"");
   }
 });
