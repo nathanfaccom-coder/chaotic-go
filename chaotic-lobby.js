@@ -1499,7 +1499,7 @@
         x.attack_name+" (custo "+x.attack_cost+", dano-base "+x.base_damage+
         ", turno "+x.borrowed_on_turn+").").join(" ")+
         " Posse experimental; pagamento e uso continuam DESABILITADOS."
-      :"Nenhuma carta emprestada recebida. Mão Negra (102) ainda não pode ser usada.";
+      :"Nenhuma carta emprestada recebida. Para roubar no treino 3x3, pague a Mão Negra e aguarde o passe do defensor.";
     const borrowedBox=$("lobby-3x3-borrowed-quote-box");
     const borrowedChoice=$("lobby-3x3-borrowed-choice");
     if(borrowedChoice&&borrowedAttacks3x3.length>0){
@@ -2345,7 +2345,7 @@
       '<button id="lobby-3x3-hand-prepare" type="button" hidden>Embaralhar e preparar minha mão 3x3</button>',
       '<button id="lobby-3x3-hand-sync" type="button" hidden>Comprar carta do novo turno 3x3</button>',
       '<p id="lobby-3x3-hand-history" class="lobby-events" aria-live="polite">Mão privada não preparada.</p>',
-      '<p id="lobby-3x3-borrowed-attacks" class="lobby-events" role="status" aria-live="polite">Nenhuma carta emprestada recebida. Mão Negra (102) ainda não pode ser usada.</p>',
+      '<p id="lobby-3x3-borrowed-attacks" class="lobby-events" role="status" aria-live="polite">Nenhuma carta emprestada recebida. Para roubar no treino 3x3, pague a Mão Negra e aguarde o passe do defensor.</p>',
       '<div id="lobby-3x3-borrowed-quote-box" hidden>',
       '<label for="lobby-3x3-borrowed-choice">Carta temporária para prévia privada</label>',
       '<select id="lobby-3x3-borrowed-choice"></select>',
