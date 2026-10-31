@@ -282,8 +282,8 @@ begin
   then raise exception 'Replay attack % duplicated an HP transaction',attack_id;end if;
 
   if attack_id='110' then
-   if effect.immunity_prevented_damage<>case when i in(8,9) then 10 else 0 end
-    or effect.elemental_bonus_damage<>case when i in(10,11) then 10 else 0 end
+   if effect.immunity_prevented_damage<>(case when i in(8,9) then 10 else 0 end)
+    or effect.elemental_bonus_damage<>(case when i in(10,11) then 10 else 0 end)
     or effect.effects_fully_resolved
    then raise exception 'SONAR Rex immunity or deferred search incorrect on test %',i;end if;
    if i in(8,9) and (select damage_events from public.chaotic_preview_3x3_hp_wallets
