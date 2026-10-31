@@ -36,8 +36,12 @@ test("v0.1.63: experimental result cannot award official XP or currency",()=>{
  assert.match(sql,/Training illegally changed official rewards/);
  assert.doesNotMatch(sql,/update\s+public\.chaotic_game_nodes/i);
 });
-test("v0.1.63: visible version and PWA cache are aligned",()=>{
- assert.match(index,/VERSÃO 0\.1\.63/);
- assert.match(index,/sw\.js\?v=release-63/);
- assert.match(sw,/chaotic-go-release-20261030-63/);
+test("v0.1.63+: visible version and PWA release stay in sync",()=>{
+ const visible=index.match(/VERSÃO 0\.1\.(\d+)/);
+ const loader=index.match(/sw\.js\?v=release-(\d+)/);
+ const cache=sw.match(/chaotic-go-release-\d{8}-(\d+)/);
+ assert.ok(visible&&loader&&cache,"versões da interface, registro e cache são obrigatórias");
+ assert.ok(Number(visible[1])>=63,"a versão não pode retroceder");
+ assert.equal(visible[1],loader[1]);
+ assert.equal(visible[1],cache[1]);
 });
