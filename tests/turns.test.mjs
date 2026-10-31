@@ -18,6 +18,25 @@ function makeClient(actor) {
       }
       const room=[...rooms.values()].find(r=>r.id===args.p_lobby_id||r.id===args.p_id||r.code===args.p_code);
       if(!room)return {data:null,error:{message:"Sala indisponível"}};
+      if(name==="chaotic_get_preview_3x3_resume_status"){
+        const m=matches.get(room.id),turn=m?.turn_no,key=room.id+"/"+turn;
+        if(!m || m.status!=="active" || room.mode!=="3x3" || room.status!=="ready"
+          ||![m.host_id,m.guest_id].includes(actor))
+          return {data:null,error:{message:"Recuperação indisponível para este usuário"}};
+        const contact=contacts3x3.get(key),projection=attackProjections3x3.get(key);
+        const paid=attackSpends3x3.get(key),defense=defenseWindows3x3.get(key);
+        const phase=defense?.status==="awaiting_defender"?"awaiting_defender"
+          :paid && !paid.training_damage_applied?"awaiting_damage"
+          :paid && paid.training_damage_applied?"damage_settled"
+          :projection?"awaiting_payment":contact?"contact_open":"ready";
+        const required=phase==="awaiting_defender"
+          ?defense.defender_id===actor
+          :["awaiting_payment","awaiting_damage"].includes(phase)
+            ?actor===m.current_player:false;
+        return {data:{phase,turn_no:turn,your_turn:m.current_player===actor,
+          your_action_required:required,training_finished:false,
+          you_won_training:null,checkpoint_only:true,training_only:true},error:null};
+      }
       if(name==="chaotic_ping_preview_3x3_player"){
         const m=matches.get(room.id);
         if(!m||m.status!=="active"||room.status!=="ready"||room.mode!=="3x3"
