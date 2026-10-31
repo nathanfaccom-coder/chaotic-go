@@ -25,7 +25,11 @@ from (select a.actor,b.pos from
  cross join (values(4),(5),(6)) b(pos)) x;
 insert into public.chaotic_preview_3x3_hp_wallets
 (lobby_id,actor_id,position,creature_instance_id,creature_name,hp_initial,hp_max,hp_remaining,initialized_turn,damage_events)
-select lobby_id,actor_id,position,creature_instance_id,creature_name,20,20,20,1,0
+select lobby_id,actor_id,position,creature_instance_id,creature_name,
+20,20,
+(case when actor_id='b1730000-0000-4000-8000-000000000173'::uuid and position in(5,6) then 0 else 20 end),
+1,
+(case when actor_id='b1730000-0000-4000-8000-000000000173'::uuid and position in(5,6) then 1 else 0 end)
 from public.chaotic_preview_3x3_allies where lobby_id='d1730000-0000-4000-8000-000000000173';
 insert into public.chaotic_preview_3x3_board_positions
 (lobby_id,actor_id,formation_slot,creature_instance_id,hex_position)
@@ -135,4 +139,4 @@ begin
 end;
 $negative182$;
 rollback;
-select 'PASS v0.1.82 lethal borrowed 105 target blocks cost/HP without losing original card' result;
+select 'PASS v0.1.83 last-team-knockout borrowed 105 blocked before charge or original-card loss' result;
