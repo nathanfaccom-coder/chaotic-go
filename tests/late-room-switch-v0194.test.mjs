@@ -38,16 +38,18 @@ test("v0.1.94: old 3x3 safe-state response cannot repopulate another lobby",asyn
  assert.equal(ctx.playerPresence3x3,null);
 });
 test("v0.1.94: stale match heartbeat cannot update a newly opened lobby",async()=>{
- const pending=deferred();let updated=0,history=0;
+ const pending=deferred();let updated=0,history=0,signalHeartbeat;
+ // Await the actual heartbeat rather than guessing the event-loop timing.
+ const heartbeatStarted=new Promise(resolve=>{signalHeartbeat=resolve;});
  const ctx={
   room:oldRoom,viewGeneration:9,match:null,playerPresence3x3:null,
   api:{from:()=>({select:()=>({eq:()=>({maybeSingle:async()=>({data:{turn_no:3,status:"active"},error:null})})})})},
-  rpc:()=>pending.promise,updateMatchUI:()=>{updated++;},update3x3UI:()=>{updated++;},
+  rpc:()=>{signalHeartbeat();return pending.promise;},updateMatchUI:()=>{updated++;},update3x3UI:()=>{updated++;},
   refreshHistory:async()=>{history++;},note:()=>{}
  };
  const func=extract("async function refreshMatch()","function update3x3UI()",ctx);
  const running=func();
- await Promise.resolve();await Promise.resolve();
+ await heartbeatStarted;
  ctx.room=newRoom;ctx.viewGeneration=10;ctx.match=null;
  pending.resolve({peer_active:true});
  await running;
