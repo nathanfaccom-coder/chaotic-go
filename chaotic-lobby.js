@@ -1483,6 +1483,23 @@
         ", turno "+x.borrowed_on_turn+").").join(" ")+
         " Posse experimental; pagamento e uso continuam DESABILITADOS."
       :"Nenhuma carta emprestada recebida. Mão Negra (102) ainda não pode ser usada.";
+    const borrowedBox=$("lobby-3x3-borrowed-quote-box");
+    const borrowedChoice=$("lobby-3x3-borrowed-choice");
+    if(borrowedChoice){
+      const previouslySelected=borrowedChoice.value;
+      borrowedChoice.replaceChildren();
+      for(const borrowed of borrowedAttacks3x3){
+        const option=document.createElement("option");
+        option.value=borrowed.custody_id;
+        option.textContent=borrowed.attack_name+" · custo "+borrowed.attack_cost;
+        borrowedChoice.append(option);
+      }
+      if(borrowedAttacks3x3.some(x=>x.custody_id===previouslySelected))
+        borrowedChoice.value=previouslySelected;
+    }
+    if(borrowedBox)borrowedBox.hidden=!(myTurn&&!!currentContact
+      &&currentContact.contact_status==="awaiting_validated_attack_preview"
+      &&!currentProjection&&!alreadySpent&&borrowedAttacks3x3.length>0);
     $("lobby-3x3-hand-history").textContent=ownHandWallet
       ?"Mão PRIVADA de treinamento: "+privateHand.map(x=>"Ataque slot "+
         x.card_slot+" ("+x.attack_instance_id+")").join(", ")+
@@ -2284,6 +2301,12 @@
       '<button id="lobby-3x3-hand-sync" type="button" hidden>Comprar carta do novo turno 3x3</button>',
       '<p id="lobby-3x3-hand-history" class="lobby-events" aria-live="polite">Mão privada não preparada.</p>',
       '<p id="lobby-3x3-borrowed-attacks" class="lobby-events" role="status" aria-live="polite">Nenhuma carta emprestada recebida. Mão Negra (102) ainda não pode ser usada.</p>',
+      '<div id="lobby-3x3-borrowed-quote-box" hidden>',
+      '<label for="lobby-3x3-borrowed-choice">Carta temporária para prévia privada</label>',
+      '<select id="lobby-3x3-borrowed-choice"></select>',
+      '<button id="lobby-3x3-borrowed-quote" type="button">Conferir custo e dano-base (SEM usar)</button>',
+      '<p id="lobby-3x3-borrowed-quote-result" class="lobby-events" role="status" aria-live="polite">Prévia não calculada.</p>',
+      '</div>',
       '<p>Descarte voluntário experimental: até uma carta da própria mão por turno, antes de declarar confronto. Com o monte vazio, a próxima compra do seu turno recicla as cartas gastas e descartadas, sem devolver pontos ou apagar o registro de gasto.</p>',
       '<label for="lobby-3x3-discard-slot">Slot a descartar da própria mão</label>',
       '<select id="lobby-3x3-discard-slot">'+Array.from({length:20},(_,i)=>'<option value="'+(i+1)+'">Ataque '+(i+1)+'</option>').join("")+'</select>',
@@ -2721,6 +2744,22 @@
       await refresh3x3Allies();
       note("Contato sem pagamento cancelado no turno "+result.turn_no+
         ". Nenhum ponto, carta ou HP foi alterado. Criaturas já reveladas permanecem visíveis.");
+    });
+    $("lobby-3x3-borrowed-quote").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
+      const choice=$("lobby-3x3-borrowed-choice").value;
+      if(!choice||!borrowedAttacks3x3.some(x=>x.custody_id===choice))
+        throw new Error("Escolha uma carta recebida temporariamente.");
+      const q=await rpc("chaotic_quote_preview_3x3_borrowed_attack",{
+        p_lobby_id:room.id,p_custody_id:choice,p_expected_turn:match.turn_no
+      });
+      const msg="Prévia PRIVADA · "+q.attack_name+
+        " · custo "+q.attack_cost+" · pontos "+q.points_available+
+        " · "+(q.can_afford_if_enabled?"custo suficiente":"pontos insuficientes")+
+        " · HP-base hipotético "+q.defender_hp_before+" → "+q.defender_hp_after_base_only+
+        ". Sem elementos, efeitos de defesa ou dano real. PAGAMENTO E USO DESABILITADOS.";
+      $("lobby-3x3-borrowed-quote-result").textContent=msg;
+      note(msg);
     });
     $("lobby-3x3-black-hand-readiness").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
