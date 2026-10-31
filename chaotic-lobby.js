@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [], mugicTrainingWallets = [], mugicTrainingSettlements = [], trainingAbilityEvents = [], harpTrainingEvents = [], allies3x3 = [], transfers3x3 = [], hp3x3 = [], board3x3 = [], moves3x3 = [], contacts3x3 = [], attackProjections3x3 = [], hand3x3 = [], borrowedAttacks3x3 = [], borrowedPlan3x3 = null, handWallet3x3 = [], costChecks3x3 = [], attackSpends3x3 = [], discard3x3 = [], drawEvents3x3 = [], defenseWindows3x3 = [], elementalInspections3x3 = [], creatureChecks3x3 = [], privateEquipmentChecks3x3 = [], dynamicElementChecks3x3 = [], trainingDamage3x3 = [], trainingKnockouts3x3 = [], trainingOutcomes3x3 = [], trainingAttackLocks3x3 = [], sonarSearchEvents3x3 = [], sonarSearchChoices3x3 = [], sonarChoiceKey3x3 = "", faceStates3x3 = [], ventoRevealEvents3x3 = [], playerPresence3x3 = null;
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [], mugicTrainingWallets = [], mugicTrainingSettlements = [], trainingAbilityEvents = [], harpTrainingEvents = [], allies3x3 = [], transfers3x3 = [], hp3x3 = [], board3x3 = [], moves3x3 = [], contacts3x3 = [], attackProjections3x3 = [], hand3x3 = [], borrowedAttacks3x3 = [], borrowedPlan3x3 = null, borrowedPriority3x3 = null, handWallet3x3 = [], costChecks3x3 = [], attackSpends3x3 = [], discard3x3 = [], drawEvents3x3 = [], defenseWindows3x3 = [], elementalInspections3x3 = [], creatureChecks3x3 = [], privateEquipmentChecks3x3 = [], dynamicElementChecks3x3 = [], trainingDamage3x3 = [], trainingKnockouts3x3 = [], trainingOutcomes3x3 = [], trainingAttackLocks3x3 = [], sonarSearchEvents3x3 = [], sonarSearchChoices3x3 = [], sonarChoiceKey3x3 = "", faceStates3x3 = [], ventoRevealEvents3x3 = [], playerPresence3x3 = null;
   // Latest privacy-safe, server-owned 3x3 attack checkpoint. No local replay.
   let resumePhase3x3 = null;
   // Original attack cards stay intact. Only these catalog IDs currently
@@ -1519,9 +1519,13 @@
     const selectedLoan=borrowedAttacks3x3.find(x=>x.custody_id===borrowedChoice?.value);
     const planStatus=$("lobby-3x3-borrowed-plan-status");
     if(planStatus)planStatus.textContent=borrowedPlan3x3?.state==="planned"
-      ?"Prévia 105 registrada para este turno: custo "+1+" (NÃO pago); HP hipotético "+
+      ?"Prévia 105 registrada: custo 1 (NÃO pago); HP hipotético "+
         borrowedPlan3x3.hp_before+" → "+borrowedPlan3x3.hp_base_after+
-        ". Nenhuma carta ou HP foi alterado."
+        ". Abra a reação para solicitar o passe do defensor."
+      :borrowedPlan3x3?.state==="awaiting_defender"
+        ?"Vento Forte emprestado: aguardando passe do defensor. Nenhum ponto foi pago."
+      :borrowedPlan3x3?.state==="defender_passed_preview"
+        ?"Defensor passou. Pagamento e dano da carta emprestada AINDA DESABILITADOS. Você pode cancelar."
       :borrowedPlan3x3?.state==="cancelled"
         ?"Intenção cancelada neste turno; nenhuma cobrança ou dano realizado."
         :"Nenhuma intenção de uso da carta emprestada preparada.";
@@ -1533,6 +1537,24 @@
     if(planBtn)planBtn.hidden=!canPrepareBorrowed;
     const cancelPlanBtn=$("lobby-3x3-borrowed-cancel-plan");
     if(cancelPlanBtn)cancelPlanBtn.hidden=!(myTurn&&borrowedPlan3x3?.state==="planned");
+    const borrowedPriorityOpen=$("lobby-3x3-borrowed-open-priority");
+    if(borrowedPriorityOpen)borrowedPriorityOpen.hidden=!(myTurn&&borrowedPlan3x3?.state==="planned");
+    const borrowedPriorityAbort=$("lobby-3x3-borrowed-abort-priority");
+    if(borrowedPriorityAbort)borrowedPriorityAbort.hidden=!(myTurn
+      &&["awaiting_defender","defender_passed_preview"].includes(borrowedPlan3x3?.state));
+    const borrowedDefensePass=$("lobby-3x3-borrowed-defender-pass");
+    if(borrowedDefensePass)borrowedDefensePass.hidden=!(
+      borrowedPriority3x3?.state==="awaiting_defender"
+      &&borrowedPriority3x3.your_defense===true
+      &&currentContact?.defender_id===userId
+      &&match?.current_player!==userId);
+    const borrowedDefenseStatus=$("lobby-3x3-borrowed-defender-status");
+    if(borrowedDefenseStatus)borrowedDefenseStatus.textContent=
+      borrowedPriority3x3?.state==="awaiting_defender"
+        ?"Vento Forte emprestado: o defensor deve passar a prioridade (SEM dano ou gasto)."
+        :borrowedPriority3x3?.state==="defender_passed_preview"
+        ?"Passe do defensor registrado. Nenhum dano ou pagamento foi aplicado."
+        :"Nenhuma reação de Vento Forte emprestado pendente.";
     if(borrowedBox)borrowedBox.hidden=!(myTurn&&!!currentContact
       &&currentContact.contact_status==="awaiting_validated_attack_preview"
       &&!currentProjection&&!alreadySpent&&borrowedAttacks3x3.length>0);
@@ -1739,7 +1761,7 @@
   async function refresh3x3Allies(){
     if(!$("lobby-3x3-allies-panel"))return;
     if(!room||!match||room.mode!=="3x3"){
-      allies3x3=[];transfers3x3=[];hp3x3=[];board3x3=[];moves3x3=[];contacts3x3=[];attackProjections3x3=[];hand3x3=[];borrowedAttacks3x3=[];borrowedPlan3x3=null;handWallet3x3=[];costChecks3x3=[];attackSpends3x3=[];discard3x3=[];drawEvents3x3=[];defenseWindows3x3=[];elementalInspections3x3=[];creatureChecks3x3=[];privateEquipmentChecks3x3=[];dynamicElementChecks3x3=[];trainingDamage3x3=[];trainingKnockouts3x3=[];trainingOutcomes3x3=[];trainingAttackLocks3x3=[];sonarSearchEvents3x3=[];sonarSearchChoices3x3=[];sonarChoiceKey3x3="";faceStates3x3=[];ventoRevealEvents3x3=[];playerPresence3x3=null;resumePhase3x3=null;update3x3UI();return;
+      allies3x3=[];transfers3x3=[];hp3x3=[];board3x3=[];moves3x3=[];contacts3x3=[];attackProjections3x3=[];hand3x3=[];borrowedAttacks3x3=[];borrowedPlan3x3=null;borrowedPriority3x3=null;handWallet3x3=[];costChecks3x3=[];attackSpends3x3=[];discard3x3=[];drawEvents3x3=[];defenseWindows3x3=[];elementalInspections3x3=[];creatureChecks3x3=[];privateEquipmentChecks3x3=[];dynamicElementChecks3x3=[];trainingDamage3x3=[];trainingKnockouts3x3=[];trainingOutcomes3x3=[];trainingAttackLocks3x3=[];sonarSearchEvents3x3=[];sonarSearchChoices3x3=[];sonarChoiceKey3x3="";faceStates3x3=[];ventoRevealEvents3x3=[];playerPresence3x3=null;resumePhase3x3=null;update3x3UI();return;
     }
     // v0.1.57: owner-only raw RLS; the server supplies a masked member view.
     const safeState=await rpc("chaotic_get_preview_3x3_safe_state",{
@@ -1786,6 +1808,14 @@
         .eq("borrower_id",userId).limit(1);
       if(planResult.error)throw new Error(planResult.error.message);
       borrowedPlan3x3=planResult.data?.[0]||null;
+    }
+    borrowedPriority3x3=null;
+    if(contacts3x3.some(x=>x.turn_no===match?.turn_no)
+      && (borrowedAttacks3x3.length>0
+        || hand3x3.some(x=>x.actor_id===userId&&x.card_state==="loaned"))){
+      borrowedPriority3x3=await rpc("chaotic_get_preview_3x3_borrowed_105_priority",{
+        p_lobby_id:room.id
+      });
     }
     const checks=await api.from("chaotic_preview_3x3_cost_inspections")
       .select("turn_no,actor_id,attack_instance_id,card_slot,attack_cost,points_available,can_afford,points_after_if_paid,hand_verified,actual_attack_cost_paid")
@@ -2157,7 +2187,7 @@
   }
   function show() {
     const generation=++viewGeneration;
-    halt(); room = null; match = null; resumePhase3x3 = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = []; burstEquipmentResponses = []; burstEquipmentEffects = []; burstPriority = []; burstPriorityPasses = []; burstMugicIntents = []; burstMugicCounterplans = []; mugicTrainingWallets = []; mugicTrainingSettlements = []; trainingAbilityEvents = []; harpTrainingEvents = []; allies3x3 = []; transfers3x3 = []; hp3x3 = []; board3x3 = []; moves3x3 = []; contacts3x3 = []; attackProjections3x3 = []; hand3x3 = []; borrowedAttacks3x3 = []; borrowedPlan3x3 = null; handWallet3x3 = []; costChecks3x3 = []; attackSpends3x3 = []; discard3x3 = []; drawEvents3x3 = []; defenseWindows3x3 = []; elementalInspections3x3 = [];
+    halt(); room = null; match = null; resumePhase3x3 = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = []; burstEquipmentResponses = []; burstEquipmentEffects = []; burstPriority = []; burstPriorityPasses = []; burstMugicIntents = []; burstMugicCounterplans = []; mugicTrainingWallets = []; mugicTrainingSettlements = []; trainingAbilityEvents = []; harpTrainingEvents = []; allies3x3 = []; transfers3x3 = []; hp3x3 = []; board3x3 = []; moves3x3 = []; contacts3x3 = []; attackProjections3x3 = []; hand3x3 = []; borrowedAttacks3x3 = []; borrowedPlan3x3 = null; borrowedPriority3x3 = null; handWallet3x3 = []; costChecks3x3 = []; attackSpends3x3 = []; discard3x3 = []; drawEvents3x3 = []; defenseWindows3x3 = []; elementalInspections3x3 = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -2382,6 +2412,8 @@
       '<button id="lobby-3x3-borrowed-quote" type="button">Conferir custo e dano-base (SEM usar)</button>',
       '<button id="lobby-3x3-borrowed-plan" type="button" hidden>Preparar Vento Forte emprestado (SEM gastar)</button>',
       '<button id="lobby-3x3-borrowed-cancel-plan" type="button" hidden>Cancelar preparação (SEM gastar)</button>',
+      '<button id="lobby-3x3-borrowed-open-priority" type="button" hidden>Abrir resposta para Vento Forte emprestado (SEM pagar)</button>',
+      '<button id="lobby-3x3-borrowed-abort-priority" type="button" hidden>Cancelar reação emprestada (SEM pagar)</button>',
       '<p id="lobby-3x3-borrowed-plan-status" class="lobby-events" role="status" aria-live="polite">Nenhuma intenção de uso preparada.</p>',
       '<p id="lobby-3x3-borrowed-quote-result" class="lobby-events" role="status" aria-live="polite">Prévia não calculada.</p>',
       '</div>',
@@ -2399,6 +2431,8 @@
       '<button id="lobby-3x3-defense-open" type="button" hidden>Abrir resposta do defensor 3x3</button>',
       '<button id="lobby-3x3-defense-pass" type="button" hidden>Defensor: passar reação (SEM dano)</button>',
       '<button id="lobby-3x3-black-hand-resolve" type="button" hidden>Mão Negra: roubar 1 ataque aleatório após o passe</button>',
+      '<button id="lobby-3x3-borrowed-defender-pass" type="button" hidden>Defensor: passar Vento Forte emprestado (SEM dano)</button>',
+      '<p id="lobby-3x3-borrowed-defender-status" class="lobby-events" role="status" aria-live="polite">Nenhuma reação emprestada pendente.</p>',
       '<p id="lobby-3x3-defense-history" class="lobby-events" aria-live="polite">Nenhuma janela de defesa 3x3.</p>',
       '<p>Após o passe defensivo, pode resolver no TREINO: Ácido Gástrico (101: 10 + Fogo/Água natural), Vento Forte (105), Armadilha de Vinha (107: 5 + Terra natural; bloqueia atacar e comprar cartas no turno rival seguinte), MÃO ELETRÔNICA (111), MÃO MÃO (112), PURGATÓRIO (113) e ESQUELETO (114). Para 101 e 107, ambos os campeões devem estar sem equipamento e não podem depender de elementos dinâmicos; Naty fica excluída. No 107, habilidades/Mugics ainda não são executados no treino. SONAR (110): dano natural Terra/Ar de até 20; Rex cancela o golpe inteiro por conter Ar. Busca privada de carta com custo até 1 DISPONÍVEL após o dano, pelo botão SONAR; atacante sem equipamento, sem Naty e sem bônus dinâmico de Guru. Nenhuma carta oficial é alterada.</p>',
       '<button id="lobby-3x3-training-damage" type="button" hidden>Atacante: resolver ataque de TREINO (101, 104, 105, 107–115)</button>',
@@ -2846,6 +2880,30 @@
       });
       await refresh3x3Allies();
       note("Preparação da carta emprestada cancelada. Pontos, HP e posse preservados.");
+    });
+    $("lobby-3x3-borrowed-open-priority").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
+      const p=await rpc("chaotic_open_preview_3x3_borrowed_105_priority",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refresh3x3Allies();
+      note("Vento Forte emprestado: aguardando resposta do defensor. Pagamento e dano NÃO aplicados.");
+    });
+    $("lobby-3x3-borrowed-defender-pass").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="3x3"||match.current_player===userId)return;
+      await rpc("chaotic_pass_preview_3x3_borrowed_105_priority",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refresh3x3Allies();
+      note("Passe defensivo registrado. Ataque emprestado ainda NÃO foi pago ou aplicado.");
+    });
+    $("lobby-3x3-borrowed-abort-priority").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
+      await rpc("chaotic_abort_preview_3x3_borrowed_105_priority",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refresh3x3Allies();
+      note("Janela de reação cancelada. Pontos, HP e posse da carta preservados.");
     });
     $("lobby-3x3-borrowed-quote").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
