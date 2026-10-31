@@ -21,7 +21,7 @@ test("v0.1.90: a mobile offline tap never attempts an attack or payment",async()
   busy:false,navigator:{onLine:false},
   note:(message,error)=>messages.push({message,error}),
   document:{querySelectorAll:()=>[]},
-  room:null,match:null
+  room:null,match:null,viewGeneration:0
  };
  const act=vm.runInNewContext("("+drome.slice(start,end).trim()+")",ctx);
  let calls=0;
