@@ -9,7 +9,7 @@
   let resumePhase3x3 = null;
   // Original attack cards stay intact. Only these catalog IDs currently
   // have experimental 3x3 damage endpoints; projection still supports all.
-  const resolvableTrainingAttacks3x3=new Set(["101","104","105","107","108","110","111","112","113","114","115"]);
+  const resolvableTrainingAttacks3x3=new Set(["101","104","105","107","108","109","110","111","112","113","114","115"]);
   // Persist only the latest room UUID, scoped to the signed-in player.
   // Never store combat actions, hidden cards, login tokens, or Deck contents.
   const lastRoomStorageKey="chaotic-go:last-room:"+userId;
@@ -1560,7 +1560,7 @@
         "T"+x.turn_no+" · "+(x.defender_id===userId?"Sua":"Adversária")+
         " criatura "+x.defender_creature_name+" (c"+x.defender_slot+
         ") chegou a 0 HP DE TREINO após "+
-        ({101:"Ácido Gástrico",104:"Fogo Primordial 2.0",105:"Vento Forte",107:"Armadilha de Vinha",108:"SPEED",110:"SONAR",111:"MÃO ELETRÔNICA",112:"MÃO MÃO",
+        ({101:"Ácido Gástrico",104:"Fogo Primordial 2.0",105:"Vento Forte",107:"Armadilha de Vinha",108:"SPEED",109:"TORNADO",110:"SONAR",111:"MÃO ELETRÔNICA",112:"MÃO MÃO",
           113:"PURGATÓRIO",114:"ESQUELETO",115:"SOPRO"}[x.catalog_attack_id]||"um ataque")+
         ". Nocaute experimental; sem exclusão de carta.").join("\n")
       :"Nenhuma criatura nocauteada no treino.";
@@ -1583,7 +1583,7 @@
     $("lobby-3x3-training-damage-history").textContent=trainingDamage3x3.length
       ?trainingDamage3x3.slice().sort((a,b)=>a.turn_no-b.turn_no).map(x=>
         "T"+x.turn_no+" · "+(x.attacker_id===userId?"Seu ataque":"Ataque rival")+
-        " "+({101:"Ácido Gástrico",104:"Fogo Primordial 2.0",105:"Vento Forte",107:"Armadilha de Vinha",108:"SPEED",110:"SONAR",111:"MÃO ELETRÔNICA",112:"MÃO MÃO",
+        " "+({101:"Ácido Gástrico",104:"Fogo Primordial 2.0",105:"Vento Forte",107:"Armadilha de Vinha",108:"SPEED",109:"TORNADO",110:"SONAR",111:"MÃO ELETRÔNICA",112:"MÃO MÃO",
           113:"PURGATÓRIO",114:"ESQUELETO",115:"SOPRO"}[x.catalog_attack_id]||"Ataque original")+
         ": c"+x.defender_slot+" HP de TREINO "+
         x.hp_before+" → "+x.hp_after+" ("+x.damage_dealt+" de dano). "+
@@ -1597,6 +1597,9 @@
           ?(x.sopro_discarded_card
             ?"SOPRO: uma carta aleatória da mão adversária foi descartada; a identidade continua privada. "
             :"SOPRO: mão adversária vazia; nenhuma carta foi descartada. "):"")+
+        (x.catalog_attack_id==="109"
+          ?"TORNADO: "+x.tornado_shuffled_count+" carta(s) da mão adversária embaralhada(s) no próprio monte; "+
+            x.tornado_drawn_count+" carta(s) comprada(s), identidade privada. ":"")+
         (["113","114"].includes(x.catalog_attack_id)
           ?"Aliados derrotados no ataque: "+x.defeated_allies_count+
             "; dano-base "+x.base_damage+" + bônus "+x.bonus_damage+". ":"")+
@@ -1732,7 +1735,7 @@
     dynamicElementChecks3x3=Array.isArray(safeInspect?.dynamic_checks)
       ?safeInspect.dynamic_checks:[];
     const trainingDmg=await api.from("chaotic_preview_3x3_training_damage_events")
-      .select("turn_no,attacker_id,defender_id,attacker_slot,defender_slot,attack_instance_id,catalog_attack_id,fire_die_roll,speed_drew_card,sopro_discarded_card,base_damage,bonus_damage,elemental_bonus_damage,immunity_prevented_damage,defeated_allies_count,hp_before,hp_after,damage_dealt,optional_reveal_pending,effects_fully_resolved,official_match_modified")
+      .select("turn_no,attacker_id,defender_id,attacker_slot,defender_slot,attack_instance_id,catalog_attack_id,fire_die_roll,speed_drew_card,sopro_discarded_card,tornado_shuffled_count,tornado_drawn_count,base_damage,bonus_damage,elemental_bonus_damage,immunity_prevented_damage,defeated_allies_count,hp_before,hp_after,damage_dealt,optional_reveal_pending,effects_fully_resolved,official_match_modified")
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
     if(trainingDmg.error)throw new Error(trainingDmg.error.message);
     trainingDamage3x3=trainingDmg.data||[];
@@ -2275,11 +2278,12 @@
       '<button id="lobby-3x3-defense-pass" type="button" hidden>Defensor: passar reação (SEM dano)</button>',
       '<p id="lobby-3x3-defense-history" class="lobby-events" aria-live="polite">Nenhuma janela de defesa 3x3.</p>',
       '<p>Após o passe defensivo, pode resolver no TREINO: Ácido Gástrico (101: 10 + Fogo/Água natural), Vento Forte (105), Armadilha de Vinha (107: 5 + Terra natural; bloqueia atacar e comprar cartas no turno rival seguinte), MÃO ELETRÔNICA (111), MÃO MÃO (112), PURGATÓRIO (113) e ESQUELETO (114). Para 101 e 107, ambos os campeões devem estar sem equipamento e não podem depender de elementos dinâmicos; Naty fica excluída. No 107, habilidades/Mugics ainda não são executados no treino. SONAR (110): dano natural Terra/Ar de até 20; Rex cancela o golpe inteiro por conter Ar. Busca privada de carta com custo até 1 DISPONÍVEL após o dano, pelo botão SONAR; atacante sem equipamento, sem Naty e sem bônus dinâmico de Guru. Nenhuma carta oficial é alterada.</p>',
-      '<button id="lobby-3x3-training-damage" type="button" hidden>Atacante: resolver ataque de TREINO (101, 104, 105, 107, 108, 110–115)</button>',
+      '<button id="lobby-3x3-training-damage" type="button" hidden>Atacante: resolver ataque de TREINO (101, 104, 105, 107–115)</button>',
       '<p id="lobby-3x3-training-damage-history" class="lobby-events" aria-live="polite">Nenhum dano de treino aplicado.</p>',
       '<p>Fogo Primordial 2.0 (104): o servidor rola automaticamente 1d6 ao aplicar o dano (5 × resultado). O dado e o HP são registrados em uma única transação; não há nova rolagem se a conexão cair.</p>',
       '<p>SPEED (108): custo 0, dano 0, compra mais 1 carta de ataque do seu monte (até 5 na mão). A compra é privada, acontece no servidor e não se repete após reconexão.</p>',
       '<p>SOPRO (115): custo 0, dano 0. O servidor descarta uma carta aleatória da mão do oponente, sem transferir a carta ou revelar sua identidade. O efeito não pode ser repetido após reconectar.</p>',
+      '<p>TORNADO (109): custo 0, dano 0. Exige campeão atacante com Ar natural e mão adversária previamente preparada. Embaralha a mão do adversário no próprio monte e compra 2 cartas privadas. Nunca revela a identidade das cartas.</p>',
       '<p>Vento Forte (105): após causar dano, revele um campeão adversário ainda virado para baixo ou dispense o efeito. As cartas que entram no combate viram para cima. A ocultação do nome nesta tela é VISUAL; o sigilo completo das formações na API ainda exige uma etapa posterior.</p>',
       '<select id="lobby-3x3-vento-choice" aria-label="Campeão adversário virado para baixo"></select>',
       '<button id="lobby-3x3-vento-choose" type="button" hidden>Vento Forte: revelar campeão escolhido</button>',
@@ -2899,7 +2903,9 @@
         &&x.actor_id===userId)?.catalog_attack_id;
       if(!resolvableTrainingAttacks3x3.has(attackId))
         throw new Error("Este ataque ainda não tem resolução de dano experimental.");
-      const rpcName=attackId==="115"
+      const rpcName=attackId==="109"
+        ?"chaotic_apply_preview_3x3_training_tornado_109"
+        :attackId==="115"
         ?"chaotic_apply_preview_3x3_training_sopro_115"
         :attackId==="108"
         ?"chaotic_apply_preview_3x3_training_speed_108"
@@ -2919,7 +2925,10 @@
       await refresh3x3Allies();
       note("Dano no HP DE TREINO: "+settled.hp_before+" → "+
         settled.hp_after+" ("+settled.damage_dealt+"). "+
-        (attackId==="115"?(settled.sopro_discarded_card
+        (attackId==="109"?"TORNADO: "+settled.tornado_shuffled_count+
+          " carta(s) do adversário embaralhada(s) e "+settled.tornado_drawn_count+
+          " comprada(s) em segredo. Sem dano ou transferência de propriedade. ":
+         attackId==="115"?(settled.sopro_discarded_card
           ?"SOPRO: uma carta aleatória da mão do adversário foi descartada sem revelar sua identidade. "
           :"SOPRO: o adversário não tinha carta na mão para descartar. "):
          attackId==="108"?(settled.speed_drew_card
