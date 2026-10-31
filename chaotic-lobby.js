@@ -60,6 +60,15 @@
     if (error) throw new Error(error.message);
     return data;
   }
+  // Attach each asynchronous action to its original room, turn and screen.
+  function isActionContextCurrent(roomId,turn,view) {
+    return room?.id===roomId && viewGeneration===view &&
+      (turn==null || match?.turn_no===turn);
+  }
+  function requireActionContext(roomId,turn,view) {
+    if(!isActionContextCurrent(roomId,turn,view))
+      throw new Error("Sala ou turno alterado durante a confirmação. Atualize o DROME.");
+  }
   async function action(fn) {
     if (busy) return;
     // Android may suspend a PWA for minutes or lose connectivity mid-turn.
@@ -91,15 +100,6 @@
       }
     }
     finally { busy = false; buttons.forEach(btn => { if (btn.isConnected) btn.disabled = false; }); }
-  }
-  // Attach each asynchronous action to its original room, turn and screen.
-  function isActionContextCurrent(roomId,turn,view) {
-    return room?.id===roomId && viewGeneration===view &&
-      (turn==null || match?.turn_no===turn);
-  }
-  function requireActionContext(roomId,turn,view) {
-    if(!isActionContextCurrent(roomId,turn,view))
-      throw new Error("Sala ou turno alterado durante a confirmação. Atualize o DROME.");
   }
   // Guard two fast taps/tabs with the authoritative state as close to the
   // mutation as possible. The server locks are still the final authority.
