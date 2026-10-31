@@ -1145,9 +1145,11 @@
     const log = $("lobby-events");
     if (!log) return;
     if (!room || !match) { log.textContent = "O histórico aparecerá quando o teste começar."; return; }
+    const requestedRoomId=room.id, requestedView=viewGeneration;
     const {data,error} = await api.from("chaotic_match_events")
       .select("seq,event_type,turn_no,actor_id,created_at")
-      .eq("lobby_id",room.id).order("seq",{ascending:false}).limit(12);
+      .eq("lobby_id",requestedRoomId).order("seq",{ascending:false}).limit(12);
+    if (room?.id!==requestedRoomId || viewGeneration!==requestedView) return;
     if (error) throw new Error(error.message);
     const entries = (data || []).slice().reverse();
     log.textContent = entries.length ? entries.map(entry => {
@@ -1161,53 +1163,86 @@
     if (!room) { match = null; updateMatchUI(); return; }
     // Uma resposta antiga não pode restaurar o turno da sala anterior.
     const requestedRoomId=room.id, requestedView=viewGeneration;
+    const isCurrentMatchRequest=()=>room?.id===requestedRoomId
+      && viewGeneration===requestedView;
     const {data,error} = await api.from("chaotic_match_turns")
       .select("lobby_id,host_id,guest_id,status,current_player,turn_no,last_player,updated_at")
       .eq("lobby_id",requestedRoomId).maybeSingle();
-    if (room?.id!==requestedRoomId || viewGeneration!==requestedView) return;
+    if(!isCurrentMatchRequest()) return;
     if (error) throw new Error(error.message);
     match = data; updateMatchUI();
     // Fast heartbeat before dozens of sequential card/board reads.
     // A long refresh must not make a healthy phone seem disconnected.
     if (room.mode === "3x3" && match?.status === "active") {
       try {
-        playerPresence3x3 = await rpc("chaotic_ping_preview_3x3_player", {
-          p_lobby_id: room.id, p_ready: null
+        const latestPresence = await rpc("chaotic_ping_preview_3x3_player", {
+          p_lobby_id: requestedRoomId, p_ready: null
         });
+        if(!isCurrentMatchRequest())return;
+        playerPresence3x3 = latestPresence;
         update3x3UI();
       } catch (error) {
+        if(!isCurrentMatchRequest())return;
         playerPresence3x3 = null;
         note("Diagnóstico de conexão indisponível: " + error.message, true);
       }
     }
     await refreshHistory();
+    if(!isCurrentMatchRequest())return;
     await refreshDeclarations();
+    if(!isCurrentMatchRequest())return;
     await refreshBoard();
+    if(!isCurrentMatchRequest())return;
     await refreshLoadouts();
+    if(!isCurrentMatchRequest())return;
     await refreshEquipmentReveals();
+    if(!isCurrentMatchRequest())return;
     await refreshAttackResources();
+    if(!isCurrentMatchRequest())return;
     await refreshAttackInstances();
+    if(!isCurrentMatchRequest())return;
     await refreshClashes();
+    if(!isCurrentMatchRequest())return;
     await refreshRoomLocations();
+    if(!isCurrentMatchRequest())return;
     await refreshInitiatives();
+    if(!isCurrentMatchRequest())return;
     await refreshBaseDamage();
+    if(!isCurrentMatchRequest())return;
     await refreshModifiers();
+    if(!isCurrentMatchRequest())return;
     await refreshDice();
+    if(!isCurrentMatchRequest())return;
     await refreshIndividualDamage();
+    if(!isCurrentMatchRequest())return;
     await refreshHpLedger();
+    if(!isCurrentMatchRequest())return;
     await refreshEffectCandidates();
+    if(!isCurrentMatchRequest())return;
     await refreshBurstWindows();
+    if(!isCurrentMatchRequest())return;
     await refreshBurstPriority();
+    if(!isCurrentMatchRequest())return;
     await refreshBurstMugicIntents();
+    if(!isCurrentMatchRequest())return;
     await refreshBurstMugicCounterplans();
+    if(!isCurrentMatchRequest())return;
     await refreshMugicTrainingTokens();
+    if(!isCurrentMatchRequest())return;
     await refreshTrainingAbilities();
+    if(!isCurrentMatchRequest())return;
     await refreshHarpTrainingEvents();
+    if(!isCurrentMatchRequest())return;
     await refresh3x3Allies();
+    if(!isCurrentMatchRequest())return;
     await refreshBurstEquipmentResponses();
+    if(!isCurrentMatchRequest())return;
     await refreshBurstOrderPlans();
+    if(!isCurrentMatchRequest())return;
     await refreshBurstEquipmentEffects();
+    if(!isCurrentMatchRequest())return;
     await refreshResolutionAudits();
+    if(!isCurrentMatchRequest())return;
   }
   function update3x3UI(){
     const panel=$("lobby-3x3-allies-panel");
@@ -1830,10 +1865,16 @@
     if(!room||!match||room.mode!=="3x3"){
       allies3x3=[];transfers3x3=[];hp3x3=[];board3x3=[];moves3x3=[];contacts3x3=[];attackProjections3x3=[];hand3x3=[];borrowedAttacks3x3=[];borrowedPlan3x3=null;borrowedPriority3x3=null;handWallet3x3=[];costChecks3x3=[];attackSpends3x3=[];discard3x3=[];drawEvents3x3=[];defenseWindows3x3=[];elementalInspections3x3=[];creatureChecks3x3=[];privateEquipmentChecks3x3=[];dynamicElementChecks3x3=[];trainingDamage3x3=[];trainingKnockouts3x3=[];trainingOutcomes3x3=[];trainingAttackLocks3x3=[];sonarSearchEvents3x3=[];sonarSearchChoices3x3=[];sonarChoiceKey3x3="";faceStates3x3=[];ventoRevealEvents3x3=[];borrowedRevealEvents3x3=[];playerPresence3x3=null;resumePhase3x3=null;update3x3UI();return;
     }
+    // Cada solicitação pertence a uma única sala e turno. Nunca misturar
+    // respostas antigas de Realtime/Android com o painel de uma nova partida.
+    const requestedRoomId=room.id, requestedView=viewGeneration, requestedTurn=match.turn_no;
+    const isCurrent3x3Request=()=>room?.id===requestedRoomId
+      && viewGeneration===requestedView && match?.turn_no===requestedTurn;
     // v0.1.57: owner-only raw RLS; the server supplies a masked member view.
     const safeState=await rpc("chaotic_get_preview_3x3_safe_state",{
-      p_lobby_id:room.id
+      p_lobby_id:requestedRoomId
     });
+    if(!isCurrent3x3Request())return;
     allies3x3=Array.isArray(safeState?.allies)?safeState.allies:[];
     hp3x3=Array.isArray(safeState?.hp_wallets)?safeState.hp_wallets:[];
     board3x3=Array.isArray(safeState?.board_positions)?safeState.board_positions:[];
@@ -1841,28 +1882,33 @@
     transfers3x3=Array.isArray(safeState?.token_transfers)?safeState.token_transfers:[];
     const contact=await api.from("chaotic_preview_3x3_contact_intents")
       .select("turn_no,attacker_id,defender_id,attacker_slot,defender_slot,attacker_creature_instance_id,defender_creature_instance_id,attacker_hex,defender_hex,attacker_hp_at_contact,defender_hp_at_contact,contact_status,damage_applied,attack_card_validated")
-      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
+      .eq("lobby_id",requestedRoomId).order("turn_no",{ascending:false}).limit(40);
+    if(!isCurrent3x3Request())return;
     if(contact.error)throw new Error(contact.error.message);
     contacts3x3=contact.data||[];
     const attack=await api.from("chaotic_preview_3x3_attack_projections")
       .select("turn_no,actor_id,attack_card_slot,attack_name,catalog_attack_id,base_damage,attack_cost,defender_hp_before,defender_hp_projected,projected_hp_loss,hypothetical_knockout,attack_in_hand_verified,attack_cost_paid,training_hp_changed,official_hp_changed")
-      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
+      .eq("lobby_id",requestedRoomId).order("turn_no",{ascending:false}).limit(40);
+    if(!isCurrent3x3Request())return;
     if(attack.error)throw new Error(attack.error.message);
     attackProjections3x3=attack.data||[];
     const walletResult=await api.from("chaotic_preview_3x3_attack_wallets")
       .select("actor_id,deck_slot,prepared_turn,last_draw_turn,total_cards,spent_points,recycle_cycles")
-      .eq("lobby_id",room.id).limit(2);
+      .eq("lobby_id",requestedRoomId).limit(2);
+    if(!isCurrent3x3Request())return;
     if(walletResult.error)throw new Error(walletResult.error.message);
     handWallet3x3=walletResult.data||[];
     const handResult=await api.from("chaotic_preview_3x3_attack_hand")
       .select("actor_id,card_slot,attack_instance_id,draw_position,card_state,spent_turn,spent_reason")
-      .eq("lobby_id",room.id).limit(20);
+      .eq("lobby_id",requestedRoomId).limit(20);
+    if(!isCurrent3x3Request())return;
     if(handResult.error)throw new Error(handResult.error.message);
     hand3x3=handResult.data||[];
     // Borrower-only original-card view. Never merge loans into owned Decks.
     const borrowerView=await rpc("chaotic_get_preview_3x3_borrowed_attacks",{
-      p_lobby_id:room.id
+      p_lobby_id:requestedRoomId
     });
+    if(!isCurrent3x3Request())return;
     borrowedAttacks3x3=Array.isArray(borrowerView?.borrowed_attacks)
       ?borrowerView.borrowed_attacks:[];
     borrowedPlan3x3=null;
@@ -1871,8 +1917,9 @@
     if(match?.turn_no&&contacts3x3.some(x=>x.turn_no===match.turn_no)){
       const planResult=await api.from("chaotic_preview_3x3_borrowed_105_plans")
         .select("turn_no,custody_id,state,points_available,hp_before,hp_base_after")
-        .eq("lobby_id",room.id).eq("turn_no",match.turn_no)
+        .eq("lobby_id",requestedRoomId).eq("turn_no",match.turn_no)
         .eq("borrower_id",userId).limit(1);
+    if(!isCurrent3x3Request())return;
       if(planResult.error)throw new Error(planResult.error.message);
       borrowedPlan3x3=planResult.data?.[0]||null;
     }
@@ -1881,115 +1928,136 @@
       && (borrowedAttacks3x3.length>0
         || hand3x3.some(x=>x.actor_id===userId&&x.card_state==="loaned"))){
       borrowedPriority3x3=await rpc("chaotic_get_preview_3x3_borrowed_105_priority",{
-        p_lobby_id:room.id
+        p_lobby_id:requestedRoomId
       });
+    if(!isCurrent3x3Request())return;
     }
     const checks=await api.from("chaotic_preview_3x3_cost_inspections")
       .select("turn_no,actor_id,attack_instance_id,card_slot,attack_cost,points_available,can_afford,points_after_if_paid,hand_verified,actual_attack_cost_paid")
-      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
+      .eq("lobby_id",requestedRoomId).order("turn_no",{ascending:false}).limit(40);
+    if(!isCurrent3x3Request())return;
     if(checks.error)throw new Error(checks.error.message);
     costChecks3x3=checks.data||[];
     const spendResult=await api.from("chaotic_preview_3x3_attack_spends")
       .select("turn_no,actor_id,attack_deck_slot,card_slot,attack_instance_id,training_attack_cost,points_before,points_after,training_points_paid,training_card_spent,training_damage_applied,resolution_status,official_match_modified")
-      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
+      .eq("lobby_id",requestedRoomId).order("turn_no",{ascending:false}).limit(40);
+    if(!isCurrent3x3Request())return;
     if(spendResult.error)throw new Error(spendResult.error.message);
     attackSpends3x3=spendResult.data||[];
     const defense=await api.from("chaotic_preview_3x3_defense_windows")
       .select("turn_no,attacker_id,defender_id,attacker_slot,defender_slot,attack_instance_id,training_attack_cost,status,defender_passed_at,defensive_card_verified,defensive_effect_executed,training_hp_changed,official_match_modified")
-      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
+      .eq("lobby_id",requestedRoomId).order("turn_no",{ascending:false}).limit(40);
+    if(!isCurrent3x3Request())return;
     if(defense.error)throw new Error(defense.error.message);
     defenseWindows3x3=defense.data||[];
     const elementReview=await api.from("chaotic_preview_3x3_elemental_inspections")
       .select("turn_no,attacker_id,defender_id,attacker_slot,defender_slot,catalog_attack_id,attack_name,base_damage,fire_component,water_component,earth_component,air_component,special_resolution,elemental_eligibility_verified,special_effect_executed,defender_equipment_verified,final_damage_calculated,training_hp_changed,official_match_modified")
-      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
+      .eq("lobby_id",requestedRoomId).order("turn_no",{ascending:false}).limit(40);
+    if(!isCurrent3x3Request())return;
     if(elementReview.error)throw new Error(elementReview.error.message);
     elementalInspections3x3=elementReview.data||[];
     // v0.1.58: no direct client reads of raw names or Guru-support snapshots.
     // The RPC checks lobby membership and hides face-down rival metadata.
     const safeInspect=await rpc("chaotic_get_preview_3x3_safe_inspections",{
-      p_lobby_id:room.id
+      p_lobby_id:requestedRoomId
     });
+    if(!isCurrent3x3Request())return;
     creatureChecks3x3=Array.isArray(safeInspect?.creature_checks)
       ?safeInspect.creature_checks:[];
     dynamicElementChecks3x3=Array.isArray(safeInspect?.dynamic_checks)
       ?safeInspect.dynamic_checks:[];
     const trainingDmg=await api.from("chaotic_preview_3x3_training_damage_events")
       .select("turn_no,attacker_id,defender_id,attacker_slot,defender_slot,attack_instance_id,catalog_attack_id,fire_die_roll,speed_drew_card,sopro_discarded_card,tornado_shuffled_count,tornado_drawn_count,base_damage,bonus_damage,elemental_bonus_damage,immunity_prevented_damage,defeated_allies_count,hp_before,hp_after,damage_dealt,optional_reveal_pending,effects_fully_resolved,official_match_modified")
-      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
+      .eq("lobby_id",requestedRoomId).order("turn_no",{ascending:false}).limit(40);
+    if(!isCurrent3x3Request())return;
     if(trainingDmg.error)throw new Error(trainingDmg.error.message);
     trainingDamage3x3=trainingDmg.data||[];
     const facing=await api.from("chaotic_preview_3x3_face_states")
       .select("actor_id,position,face_up,reveal_reason,revealed_turn")
-      .eq("lobby_id",room.id).limit(6);
+      .eq("lobby_id",requestedRoomId).limit(6);
+    if(!isCurrent3x3Request())return;
     if(facing.error)throw new Error(facing.error.message);
     faceStates3x3=facing.data||[];
     const ventoEvents=await api.from("chaotic_preview_3x3_vento_reveal_events")
       .select("turn_no,attacker_id,defender_id,revealed_slot,skipped")
-      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(30);
+      .eq("lobby_id",requestedRoomId).order("turn_no",{ascending:false}).limit(30);
+    if(!isCurrent3x3Request())return;
     if(ventoEvents.error)throw new Error(ventoEvents.error.message);
     ventoRevealEvents3x3=ventoEvents.data||[];
     const borrowedRevealRows=await api.from("chaotic_preview_3x3_borrowed_105_reveal_events")
       .select("turn_no,attacker_id,defender_id,revealed_slot,skipped")
-      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(30);
+      .eq("lobby_id",requestedRoomId).order("turn_no",{ascending:false}).limit(30);
+    if(!isCurrent3x3Request())return;
     if(borrowedRevealRows.error)throw new Error(borrowedRevealRows.error.message);
     borrowedRevealEvents3x3=borrowedRevealRows.data||[];
     const sonarRows=await api.from("chaotic_preview_3x3_sonar_search_events")
       .select("turn_no,actor_id,searched_card_slot,attack_name,search_succeeded,hand_count_after")
-      .eq("lobby_id",room.id).eq("actor_id",userId)
+      .eq("lobby_id",requestedRoomId).eq("actor_id",userId)
       .order("turn_no",{ascending:false}).limit(30);
+    if(!isCurrent3x3Request())return;
     if(sonarRows.error)throw new Error(sonarRows.error.message);
     sonarSearchEvents3x3=sonarRows.data||[];
     const locks=await api.from("chaotic_preview_3x3_training_attack_locks")
       .select("inflicted_turn,attacker_id,defender_id,catalog_attack_id,blocked_turn_count,last_blocked_turn,blocks_draw,training_only")
-      .eq("lobby_id",room.id).order("inflicted_turn",{ascending:false}).limit(40);
+      .eq("lobby_id",requestedRoomId).order("inflicted_turn",{ascending:false}).limit(40);
+    if(!isCurrent3x3Request())return;
     if(locks.error)throw new Error(locks.error.message);
     trainingAttackLocks3x3=locks.data||[];
     const knockouts=await api.from("chaotic_preview_3x3_training_knockouts")
       .select("turn_no,attacker_id,defender_id,defender_slot,defender_creature_name,catalog_attack_id,hp_before,hp_after,training_only,official_match_modified")
-      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(10);
+      .eq("lobby_id",requestedRoomId).order("turn_no",{ascending:false}).limit(10);
+    if(!isCurrent3x3Request())return;
     if(knockouts.error)throw new Error(knockouts.error.message);
     // Keep the original-owned 105 knockout events unchanged and add only
     // server-validated borrowed-card KO events; both sides can inspect these.
     const borrowedKnockouts=await api.from("chaotic_preview_3x3_borrowed_105_knockouts")
       .select("turn_no,borrower_id,defender_id,defender_slot,defender_creature_name,catalog_attack_id,hp_before,hp_after,training_only,official_match_modified")
-      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(10);
+      .eq("lobby_id",requestedRoomId).order("turn_no",{ascending:false}).limit(10);
+    if(!isCurrent3x3Request())return;
     if(borrowedKnockouts.error)throw new Error(borrowedKnockouts.error.message);
     trainingKnockouts3x3=(knockouts.data||[]).concat(
       (borrowedKnockouts.data||[]).map(x=>({...x,
         attacker_id:x.borrower_id,borrowed_attack:true})));
     const outcome=await api.from("chaotic_preview_3x3_training_outcomes")
       .select("decided_turn,winner_id,defeated_id,defeated_team_size,outcome_scope,official_match_ended,experience_awarded,currency_awarded")
-      .eq("lobby_id",room.id).limit(1);
+      .eq("lobby_id",requestedRoomId).limit(1);
+    if(!isCurrent3x3Request())return;
     if(outcome.error)throw new Error(outcome.error.message);
     trainingOutcomes3x3=outcome.data||[];
     const equipmentCheck=await api.from("chaotic_preview_3x3_private_equipment_checks")
       .select("turn_no,defender_id,defender_slot,equipment_status,equipment_name,rule_code,air_immunity_candidate,elemental_shield_candidate,official_match_modified")
-      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
+      .eq("lobby_id",requestedRoomId).order("turn_no",{ascending:false}).limit(40);
+    if(!isCurrent3x3Request())return;
     if(equipmentCheck.error)throw new Error(equipmentCheck.error.message);
     privateEquipmentChecks3x3=equipmentCheck.data||[];
     const discarded=await api.from("chaotic_preview_3x3_hand_discards")
       .select("actor_id,turn_no,card_slot,attack_instance_id,original_card_consumed")
-      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
+      .eq("lobby_id",requestedRoomId).order("turn_no",{ascending:false}).limit(40);
+    if(!isCurrent3x3Request())return;
     if(discarded.error)throw new Error(discarded.error.message);
     discard3x3=discarded.data||[];
     const drawn=await api.from("chaotic_preview_3x3_hand_draw_events")
       .select("actor_id,turn_no,drew_card,drawn_card_slot,recycle_cycle,recycled_count,hand_count_after,available_points")
-      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
+      .eq("lobby_id",requestedRoomId).order("turn_no",{ascending:false}).limit(40);
+    if(!isCurrent3x3Request())return;
     if(drawn.error)throw new Error(drawn.error.message);
     drawEvents3x3=drawn.data||[];
     // Token transfers are already sanitized in the safe-state RPC.
     // Heartbeat confirms a recent server request, NOT a guaranteed live
     // browser tab or true two-device test. Player identity remains private.
     playerPresence3x3=await rpc("chaotic_ping_preview_3x3_player",{
-      p_lobby_id:room.id,p_ready:null
+      p_lobby_id:requestedRoomId,p_ready:null
     });
+    if(!isCurrent3x3Request())return;
     // This checkpoint is read-only and is not a client-side authorization.
     // Never retry a paid attack or a defense just because the app reopens.
     try {
       resumePhase3x3=await rpc("chaotic_get_preview_3x3_resume_status",{
-        p_lobby_id:room.id
+        p_lobby_id:requestedRoomId
       });
+    if(!isCurrent3x3Request())return;
     } catch (error) {
+      if(!isCurrent3x3Request())return;
       resumePhase3x3=null;
       note("Não foi possível recuperar a etapa do ataque: "+error.message,true);
     }
