@@ -47,7 +47,7 @@ test("v0.1.94: stale match heartbeat cannot update a newly opened lobby",async()
   rpc:()=>{signalHeartbeat();return pending.promise;},updateMatchUI:()=>{updated++;},update3x3UI:()=>{updated++;},
   refreshHistory:async()=>{history++;},note:()=>{}
  };
- const func=extract("async function refreshMatch()","function next3x3Instruction(state)",ctx);
+ const func=extract("async function refreshMatch()","  // Guidance only: the server checkpoint remains authoritative.",ctx);
  const running=func();
  await heartbeatStarted;
  ctx.room=newRoom;ctx.viewGeneration=10;ctx.match=null;
