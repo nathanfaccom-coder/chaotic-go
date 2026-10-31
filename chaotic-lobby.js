@@ -1261,6 +1261,60 @@
     await refreshResolutionAudits();
     if(!isCurrentMatchRequest())return;
   }
+  // Guidance only: the server checkpoint remains authoritative. Never
+  // execute or infer a combat mutation from this status message.
+  function next3x3Instruction(state) {
+    const {room,match,checkpoint,presence,userId,ownCount,ownHpCount,ownBoardCount,finished}=state;
+    if(!room || room.mode!=="3x3")return "";
+    if(finished || checkpoint?.training_finished)
+      return "Treino encerrado. Compare o resultado e os três nocautes nos dois celulares. Nenhum XP ou moeda oficial é concedido.";
+    if(!match)
+      return room.status==="ready"
+        ?"Sala pronta. O anfitrião deve iniciar o teste de turnos; o convidado aguarda."
+        :"Compartilhe o código da sala e aguarde a entrada do segundo jogador.";
+    if(match.status!=="active")
+      return "Partida encerrada. Confira o resultado registrado no servidor; não repita ataques.";
+    if(!checkpoint || checkpoint.turn_no!==match.turn_no)
+      return "Sincronização pendente: use Atualizar conexão e turno. Não repita ataques ou pagamentos.";
+    if(!presence?.self_ready)
+      return "Teste em dois celulares: toque em Estou pronto para testar o 3x3 neste aparelho.";
+    if(!presence?.peer_ready || !presence?.peer_active)
+      return "Aguarde o outro celular confirmar Pronto e manter conexão recente. Não confunda presença com vitória.";
+    const myTurn=match.current_player===userId;
+    switch(checkpoint.phase){
+      case "ready":
+        if(!myTurn)return "Vez do adversário. Mantenha este celular conectado para receber o próximo turno.";
+        if(ownCount===0)return "Sua vez: selecione um Deck salvo e prepare suas três criaturas (c4, c5 e c6).";
+        if(ownHpCount===0)return "Sua vez: prepare o HP individual das três criaturas.";
+        if(ownBoardCount===0)return "Sua vez: prepare os seis hexágonos do tabuleiro experimental.";
+        return "Sua vez: confira a mão, mova um campeão se necessário, abra o contato ou passe o turno.";
+      case "contact_open":
+        return myTurn?"Contato aberto: escolha um ataque para projetar ou cancele o contato sem pagar."
+          :"O atacante está escolhendo um ataque. Aguarde sua janela de defesa.";
+      case "awaiting_payment":
+        return myTurn?"Confira a carta na mão e o custo. Pague apenas quando o botão de treino estiver liberado; ou cancele o contato."
+          :"O atacante ainda precisa confirmar o pagamento do ataque.";
+      case "awaiting_defender":
+        return checkpoint.your_action_required
+          ?"Sua reação: revise os elementos e equipamentos disponíveis; depois use Defensor: passar reação."
+          :"Aguardando a resposta do defensor. O atacante não deve repetir o pagamento.";
+      case "awaiting_damage":
+        return checkpoint.your_action_required
+          ?"O defensor já respondeu. Resolva o dano no servidor apenas uma vez."
+          :"Aguardando o atacante concluir a aplicação do dano.";
+      case "awaiting_optional_reveal":
+        return "Vento Forte: escolha revelar um campeão adversário ou dispensar o efeito antes de passar.";
+      case "awaiting_sonar_search":
+        return "SONAR: finalize a busca privada de carta antes de continuar.";
+      case "damage_settled":
+        return myTurn?"Dano confirmado no servidor. Confira o HP e os nocautes e passe o turno; não repita o golpe."
+          :"Dano confirmado. Aguarde a passagem de turno do atacante.";
+      case "training_finished":
+        return "Fim do treino 3x3. Confira o vencedor e os três nocautes em ambos os aparelhos.";
+      default:
+        return "Etapa especial em andamento: use Atualizar conexão e turno e siga somente os controles liberados pelo servidor.";
+    }
+  }
   function update3x3UI(){
     const panel=$("lobby-3x3-allies-panel");
     if(!panel)return;
@@ -1272,6 +1326,14 @@
     const presence=playerPresence3x3;
     const checkpoint=resumePhase3x3;
     const checkpointForTurn=checkpoint?.turn_no===match?.turn_no;
+    const instruction=$("lobby-3x3-next-step");
+    if(instruction)instruction.textContent=next3x3Instruction({
+      room,match,checkpoint,presence,userId,
+      ownCount:allies3x3.filter(x=>x.actor_id===userId).length,
+      ownHpCount:hp3x3.filter(x=>x.actor_id===userId).length,
+      ownBoardCount:board3x3.filter(x=>x.actor_id===userId).length,
+      finished:trainingOutcomes3x3.length>0
+    });
     const readyButton=$("lobby-3x3-test-ready");
     const unreadyButton=$("lobby-3x3-test-unready");
     const resyncButton=$("lobby-3x3-refresh-connection");
@@ -2538,7 +2600,8 @@
       '<p id="lobby-harp-token-history" class="lobby-events" aria-live="polite">Nenhuma Arpa usada no treinamento.</p>',
       '</section>',
       '<section id="lobby-3x3-allies-panel" class="lobby-combat" hidden>',
-      '<strong>🛡️ Formação 3x3 — treinamento (v0.1.64)</strong>',
+      '<strong>🛡️ Formação 3x3 — treinamento</strong>',
+      '<p id="lobby-3x3-next-step" class="lobby-events" role="status" aria-live="polite">Etapa atual: aguardando sincronização...</p>',
       '<p>Diagnóstico de dois jogadores: cada dispositivo faz uma verificação no servidor a cada atualização da sala. Atividade recente NÃO substitui a validação real em dois celulares e não altera turnos, HP ou resultado oficial.</p>',
       '<p id="lobby-3x3-player-presence" class="lobby-events" aria-live="polite">Aguardando diagnóstico de conexão...</p>',
       '<p id="lobby-3x3-recovery-state" class="lobby-events" role="status" aria-live="polite">Verificando a etapa atual do ataque...</p>',
@@ -2756,7 +2819,11 @@
       note("Criando sala...");
       const mode = $("lobby-select-mode").value;
       if (!["1x1","3x3","6x6"].includes(mode)) throw new Error("Modo inválido");
-      room = await rpc("chaotic_create_lobby", { p_mode: mode });
+      const requestedView=viewGeneration;
+      const created=await rpc("chaotic_create_lobby", { p_mode: mode });
+      // A suspended Android request may return after DROME was reopened.
+      if(viewGeneration!==requestedView || room)return;
+      room=created;
       rememberLastRoom();
       setDefaultCreatureSlot();
       updateRoomUI(); watch(); note("Sala criada. Compartilhe o código com outro jogador.");
@@ -2765,7 +2832,10 @@
       const code = $("lobby-input-code").value.trim().toUpperCase();
       if (!/^[A-F0-9]{12}$/.test(code)) throw new Error("Digite um código de 12 caracteres válido.");
       note("Entrando na sala...");
-      room = await rpc("chaotic_join_lobby", { p_code: code });
+      const requestedView=viewGeneration;
+      const joined=await rpc("chaotic_join_lobby", { p_code: code });
+      if(viewGeneration!==requestedView || room)return;
+      room=joined;
       rememberLastRoom();
       setDefaultCreatureSlot();
       updateRoomUI(); watch(); note("Você entrou na sala. O anfitrião será avisado.");

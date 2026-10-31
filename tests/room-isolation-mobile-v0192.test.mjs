@@ -40,7 +40,7 @@ test("v0.1.92: stale match read cannot replace match after opening a new lobby",
     updateMatchUI:()=>{rendered++;},
     refreshHistory:async()=>{downstream++;}
   };
-  const refreshMatch=extract("async function refreshMatch()","function update3x3UI()",ctx);
+  const refreshMatch=extract("async function refreshMatch()","  // Guidance only: the server checkpoint remains authoritative.",ctx);
   const reading=refreshMatch();
   ctx.room={id:"new"};ctx.viewGeneration=7;
   settle({data:{lobby_id:"old",turn_no:10,status:"active"},error:null});
