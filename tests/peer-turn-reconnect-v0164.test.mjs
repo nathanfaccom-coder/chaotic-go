@@ -45,9 +45,13 @@ test("v0.1.64: DROME stops claiming everyone connected and handles mobile resume
   assert.match(ui,/Fast heartbeat before dozens of sequential card\/board reads/);
 });
 test("v0.1.64: PWA cache and visible version match without replacing assets",()=>{
-  assert.match(index,/VERSÃO 0\.1\.64/);
-  assert.match(index,/sw\.js\?v=release-64/);
-  assert.match(sw,/chaotic-go-release-20261031-64/);
+  const visible=index.match(/VERSÃO 0\.1\.(\d+)/);
+  const loader=index.match(/sw\.js\?v=release-(\d+)/);
+  const cache=sw.match(/chaotic-go-release-\d{8}-(\d+)/);
+  assert.ok(visible&&loader&&cache,"versão, loader e cache presentes");
+  assert.ok(Number(visible[1])>=64,"não regredir para antes de v0.1.64");
+  assert.equal(visible[1],loader[1]);
+  assert.equal(visible[1],cache[1]);
   assert.match(sw,/\.\/logo\.png/);
   assert.match(sw,/if\(request\.mode==='navigate' \|\| \/\\\.\(\?:js\|html\)\$\/i/);
 });
