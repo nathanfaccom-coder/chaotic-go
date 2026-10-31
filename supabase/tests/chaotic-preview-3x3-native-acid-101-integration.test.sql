@@ -67,7 +67,7 @@ begin
     case when i=5 and actor_id=host and position=5 then 0
          when actor_id=guest and position=4 then prior_hp else 20 end,
     1,case when i=5 and actor_id=host and position=5 then 1
-          when i=5 and actor_id=guest and position=4 then 1 else 0 end
+          when i in(5,6) and actor_id=guest and position=4 then 1 else 0 end
   from public.chaotic_preview_3x3_allies where lobby_id=lobby;
 
   if i=6 then
