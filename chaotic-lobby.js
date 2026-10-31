@@ -1153,9 +1153,12 @@
   }
   async function refreshMatch() {
     if (!room) { match = null; updateMatchUI(); return; }
+    // Uma resposta antiga não pode restaurar o turno da sala anterior.
+    const requestedRoomId=room.id, requestedView=viewGeneration;
     const {data,error} = await api.from("chaotic_match_turns")
       .select("lobby_id,host_id,guest_id,status,current_player,turn_no,last_player,updated_at")
-      .eq("lobby_id",room.id).maybeSingle();
+      .eq("lobby_id",requestedRoomId).maybeSingle();
+    if (room?.id!==requestedRoomId || viewGeneration!==requestedView) return;
     if (error) throw new Error(error.message);
     match = data; updateMatchUI();
     // Fast heartbeat before dozens of sequential card/board reads.
@@ -2194,13 +2197,19 @@
     // Plano B para celular sem conexão Realtime ou serviço suspenso em segundo plano.
     poll = setInterval(() => {
       if (!$("lobby-current") || $("tela-entrada-drome")?.style.display !== "flex") { halt(); return; }
-      // Background tabs must NOT keep a phantom user online.
-      if (document.hidden || (typeof navigator !== "undefined" && navigator.onLine === false)) return;
+      // Não iniciar novas consultas enquanto uma leitura extensa já está em andamento.
+      // O Realtime ainda pode solicitar uma atualização ao final da leitura.
+      if (document.hidden || (typeof navigator !== "undefined" && navigator.onLine === false)
+        || refreshInFlight) return;
       refreshRoom().catch(error => note(error.message, true));
     }, 6000);
   }
   async function restoreLastRoom(generation) {
     if (restoreInProgress || room || busy || generation!==viewGeneration) return;
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      note("Sem internet. Sua sala permanece salva; reconecte-se para recuperar o combate.",true);
+      return;
+    }
     const id=savedRoomId();
     if(!id)return;
     restoreInProgress=true;
@@ -2257,7 +2266,8 @@
   }
   function show() {
     const generation=++viewGeneration;
-    halt(); room = null; match = null; resumePhase3x3 = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = []; burstEquipmentResponses = []; burstEquipmentEffects = []; burstPriority = []; burstPriorityPasses = []; burstMugicIntents = []; burstMugicCounterplans = []; mugicTrainingWallets = []; mugicTrainingSettlements = []; trainingAbilityEvents = []; harpTrainingEvents = []; allies3x3 = []; transfers3x3 = []; hp3x3 = []; board3x3 = []; moves3x3 = []; contacts3x3 = []; attackProjections3x3 = []; hand3x3 = []; borrowedAttacks3x3 = []; borrowedPlan3x3 = null; borrowedPriority3x3 = null; handWallet3x3 = []; costChecks3x3 = []; attackSpends3x3 = []; discard3x3 = []; drawEvents3x3 = []; defenseWindows3x3 = []; elementalInspections3x3 = [];
+    // Invalidar estado e diagnóstico privados da sala anterior ao abrir outra.
+    halt(); room = null; match = null; resumePhase3x3 = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = []; burstEquipmentResponses = []; burstEquipmentEffects = []; burstPriority = []; burstPriorityPasses = []; burstMugicIntents = []; burstMugicCounterplans = []; mugicTrainingWallets = []; mugicTrainingSettlements = []; trainingAbilityEvents = []; harpTrainingEvents = []; allies3x3 = []; transfers3x3 = []; hp3x3 = []; board3x3 = []; moves3x3 = []; contacts3x3 = []; attackProjections3x3 = []; hand3x3 = []; borrowedAttacks3x3 = []; borrowedPlan3x3 = null; borrowedPriority3x3 = null; handWallet3x3 = []; costChecks3x3 = []; attackSpends3x3 = []; discard3x3 = []; drawEvents3x3 = []; defenseWindows3x3 = []; elementalInspections3x3 = [], creatureChecks3x3 = [], privateEquipmentChecks3x3 = [], dynamicElementChecks3x3 = [], trainingDamage3x3 = [], trainingKnockouts3x3 = [], trainingOutcomes3x3 = [], trainingAttackLocks3x3 = [], sonarSearchEvents3x3 = [], sonarSearchChoices3x3 = [], sonarChoiceKey3x3 = "", faceStates3x3 = [], ventoRevealEvents3x3 = [], borrowedRevealEvents3x3 = [], playerPresence3x3 = null;
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
