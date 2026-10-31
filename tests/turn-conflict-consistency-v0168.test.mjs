@@ -59,10 +59,13 @@ test("v0.1.68: UI guards pending payment and refreshes conflicts instead of repl
  assert.match(ui,/if\(stage\.turn_no!==expectedTurn \|\| stage\.training_finished/);
  assert.match(ui,/s\.attack_instance_id===x\.attack_instance_id/);
 });
-test("v0.1.68: PWA, scanner and DROME modules share the same release",()=>{
- assert.match(index,/VERSÃO 0\.1\.68/);
- assert.match(index,/sw\.js\?v=release-68/);
- assert.match(sw,/chaotic-go-release-20261031-68/);
- assert.match(scanner,/full-game-bootstrap\.js\?v=release-68/);
- assert.match(bootstrap,/chaotic-lobby\.js\?v=release-68/);
+test("v0.1.68+: PWA, scanner and DROME keep matching release numbers",()=>{
+ const shown=index.match(/VERSÃO 0\.1\.(\d+)/);
+ const worker=index.match(/sw\.js\?v=release-(\d+)/);
+ const cache=sw.match(/chaotic-go-release-\d{8}-(\d+)/);
+ const loader=scanner.match(/full-game-bootstrap\.js\?v=release-(\d+)/);
+ const lobby=bootstrap.match(/chaotic-lobby\.js\?v=release-(\d+)/);
+ assert.ok(shown&&worker&&cache&&loader&&lobby,"all version markers must be present");
+ assert.ok(Number(shown[1])>=68);
+ for(const x of [worker,cache,loader,lobby])assert.equal(x[1],shown[1]);
 });
