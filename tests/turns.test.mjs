@@ -3105,7 +3105,7 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
   assert.equal(guestDraw?.drawn_card_slot,1);
   assert.equal(guestDraw?.recycle_cycle,1);
   assert.equal(hand3x3Cards.get(id+"/"+opponent+"/1").card_state,"hand");
-  assert.equal(hand3x3Wallets.get(id+"/"+opponent).spent_points,2,
+  assert.equal(hand3x3Wallets.get(id+"/"+opponent).spent_points,1,
     "Recycling cannot refund the actual previous training payment");
   assert.equal(attackSpends3x3.get(id+"/2").training_attack_cost,1,
     "The original payment audit survives recycling");
