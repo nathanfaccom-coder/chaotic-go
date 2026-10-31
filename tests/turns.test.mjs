@@ -17,6 +17,17 @@ function makeClient(actor) {
       }
       const room=[...rooms.values()].find(r=>r.id===args.p_lobby_id||r.id===args.p_id||r.code===args.p_code);
       if(!room)return {data:null,error:{message:"Sala indisponível"}};
+      if(name==="chaotic_get_preview_3x3_safe_state"){
+        if(![room.host_id,room.guest_id].includes(actor))
+          return {data:null,error:{message:"Acesso à formação 3x3 negado"}};
+        const scope=(records)=>[...records.values()].filter(x=>x.lobby_id===room.id)
+          .map(x=>({...x}));
+        return {data:{
+          allies:scope(allies3x3),hp_wallets:scope(hp3x3),
+          board_positions:scope(boardPositions3x3),move_events:scope(moveEvents3x3),
+          token_transfers:scope(transfers3x3)
+        },error:null};
+      }
       if(name==="chaotic_prepare_preview_3x3_allies"){
         const m=matches.get(room.id), deck=decks3x3.get(actor+"/"+args.p_deck_slot);
         const mine=[...allies3x3.values()].filter(x=>x.lobby_id===room.id&&x.actor_id===actor);
@@ -1400,7 +1411,7 @@ function makeClient(actor) {
       throw Error(name);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits","chaotic_preview_burst_windows","chaotic_preview_burst_priority","chaotic_preview_burst_priority_passes","chaotic_preview_burst_mugic_intents","chaotic_preview_burst_mugic_counterplans","chaotic_preview_mugic_token_wallets","chaotic_preview_mugic_token_settlements","chaotic_preview_ability_heal_events","chaotic_preview_harp_token_events","chaotic_preview_3x3_allies","chaotic_preview_3x3_hp_wallets","chaotic_preview_3x3_board_positions","chaotic_preview_3x3_move_events","chaotic_preview_3x3_contact_intents","chaotic_preview_3x3_attack_projections","chaotic_preview_3x3_attack_wallets","chaotic_preview_3x3_attack_hand","chaotic_preview_3x3_cost_inspections","chaotic_preview_3x3_attack_spends","chaotic_preview_3x3_elemental_inspections","chaotic_preview_3x3_creature_element_checks","chaotic_preview_3x3_dynamic_element_checks","chaotic_preview_3x3_training_damage_events","chaotic_preview_3x3_face_states","chaotic_preview_3x3_vento_reveal_events","chaotic_preview_3x3_sonar_search_events","chaotic_preview_3x3_training_attack_locks","chaotic_preview_3x3_training_knockouts","chaotic_preview_3x3_training_outcomes","chaotic_preview_3x3_private_equipment_checks","chaotic_preview_3x3_defense_windows","chaotic_preview_3x3_hand_discards","chaotic_preview_3x3_hand_draw_events","chaotic_preview_3x3_token_transfers","chaotic_preview_burst_order_plans","chaotic_preview_burst_equipment_responses","chaotic_preview_burst_equipment_effects"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits","chaotic_preview_burst_windows","chaotic_preview_burst_priority","chaotic_preview_burst_priority_passes","chaotic_preview_burst_mugic_intents","chaotic_preview_burst_mugic_counterplans","chaotic_preview_mugic_token_wallets","chaotic_preview_mugic_token_settlements","chaotic_preview_ability_heal_events","chaotic_preview_harp_token_events","chaotic_preview_3x3_contact_intents","chaotic_preview_3x3_attack_projections","chaotic_preview_3x3_attack_wallets","chaotic_preview_3x3_attack_hand","chaotic_preview_3x3_cost_inspections","chaotic_preview_3x3_attack_spends","chaotic_preview_3x3_elemental_inspections","chaotic_preview_3x3_creature_element_checks","chaotic_preview_3x3_dynamic_element_checks","chaotic_preview_3x3_training_damage_events","chaotic_preview_3x3_face_states","chaotic_preview_3x3_vento_reveal_events","chaotic_preview_3x3_sonar_search_events","chaotic_preview_3x3_training_attack_locks","chaotic_preview_3x3_training_knockouts","chaotic_preview_3x3_training_outcomes","chaotic_preview_3x3_private_equipment_checks","chaotic_preview_3x3_defense_windows","chaotic_preview_3x3_hand_discards","chaotic_preview_3x3_hand_draw_events","chaotic_preview_burst_order_plans","chaotic_preview_burst_equipment_responses","chaotic_preview_burst_equipment_effects"].includes(table));
       return {select(){return this},eq(_,id){this.id=id;return this},
         then(resolve,reject) {
           const room=rooms.get(this.id);
