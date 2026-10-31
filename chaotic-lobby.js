@@ -1081,6 +1081,19 @@
       .eq("lobby_id",room.id).maybeSingle();
     if (error) throw new Error(error.message);
     match = data; updateMatchUI();
+    // Fast heartbeat before dozens of sequential card/board reads.
+    // A long refresh must not make a healthy phone seem disconnected.
+    if (room.mode === "3x3" && match?.status === "active") {
+      try {
+        playerPresence3x3 = await rpc("chaotic_ping_preview_3x3_player", {
+          p_lobby_id: room.id, p_ready: null
+        });
+        update3x3UI();
+      } catch (error) {
+        playerPresence3x3 = null;
+        note("Diagnóstico de conexão indisponível: " + error.message, true);
+      }
+    }
     await refreshHistory();
     await refreshDeclarations();
     await refreshBoard();
@@ -1121,8 +1134,10 @@
     const presence=playerPresence3x3;
     const readyButton=$("lobby-3x3-test-ready");
     const unreadyButton=$("lobby-3x3-test-unready");
+    const resyncButton=$("lobby-3x3-refresh-connection");
     if(readyButton)readyButton.hidden=!current||!!presence?.self_ready;
     if(unreadyButton)unreadyButton.hidden=!current||!presence?.self_ready;
+    if(resyncButton)resyncButton.hidden=!(match?.status==="active"&&room.status==="ready");
     const presenceText=$("lobby-3x3-player-presence");
     if(presenceText){
       presenceText.textContent=presence
@@ -1136,7 +1151,15 @@
             (presence.peer_ready?" · PRONTO":" · não pronto")+
             " | Turno "+presence.active_turn+
             (presence.your_turn?" · sua vez":" · vez do adversário")+
-            (presence.both_ready_now?" | DOIS JOGADORES PRONTOS PARA TESTAR":"")+
+            (!presence.peer_active?" | aguardando reconexão do adversário":
+              presence.peer_synced_current_turn
+                ?" | adversário sincronizou este turno"
+                :" | adversário ainda não sincronizou este turno")+
+            (presence.both_ready_now
+              ?(presence.both_synced_current_turn
+                ?" | AMBOS PRONTOS E ATUALIZADOS"
+                :" | ambos prontos, mas aguardando atualização deste turno")
+              :"")+
             "."))
         :"Aguardando diagnóstico de conexão de ambos os jogadores...";
     }
@@ -1655,7 +1678,7 @@
     $("lobby-room-code").textContent = room.code;
     $("lobby-mode").textContent = room.mode;
     $("lobby-status").textContent = room.status === "ready"
-      ? "✅ Dois jogadores conectados. Batalha ainda em desenvolvimento."
+      ? "✅ Sala pronta. Confira a atividade de cada participante no diagnóstico 3x3."
       : room.status === "cancelled" ? "Sala encerrada."
       : new Date(room.expires_at).getTime() <= Date.now() ? "Sala expirada. Crie outra."
       : "Aguardando outro jogador entrar com o código...";
@@ -1663,15 +1686,33 @@
     updateMatchUI();
     if (room.status === "cancelled" || new Date(room.expires_at).getTime() <= Date.now()) halt();
   }
-  async function refreshRoom() {
+  // Realtime, polling and resume events can arrive together on a phone.
+  // Keep one state-refresh chain per room to prevent stale responses
+  // from overwriting later turns; replay once if events arrived mid-fetch.
+  let refreshInFlight = null, refreshQueued = false;
+  async function refreshRoomOnce() {
     if (!room || !$("lobby-current")) { halt(); return; }
+    const requestedRoomId = room.id;
     const { data, error } = await api.from("chaotic_lobbies")
       .select("id,code,host_id,guest_id,mode,status,expires_at")
-      .eq("id", room.id).maybeSingle();
-    if (error) { note("Falha ao atualizar sala: " + error.message, true); return; }
+      .eq("id", requestedRoomId).maybeSingle();
+    if (room?.id !== requestedRoomId) return;
+    if (error) throw new Error("Falha ao atualizar sala: " + error.message);
     if (!data) { room = null; halt(); updateRoomUI(); note("Sala não encontrada."); return; }
     room = data; updateRoomUI();
     await refreshMatch();
+  }
+  async function refreshRoom() {
+    if (refreshInFlight) { refreshQueued = true; return refreshInFlight; }
+    const pending = (async () => {
+      do {
+        refreshQueued = false;
+        await refreshRoomOnce();
+      } while (refreshQueued && room && $("lobby-current"));
+    })();
+    refreshInFlight = pending;
+    try { return await pending; }
+    finally { if (refreshInFlight === pending) refreshInFlight = null; }
   }
   function watch() {
     halt();
@@ -1820,6 +1861,8 @@
     // Plano B para celular sem conexão Realtime ou serviço suspenso em segundo plano.
     poll = setInterval(() => {
       if (!$("lobby-current") || $("tela-entrada-drome")?.style.display !== "flex") { halt(); return; }
+      // Background tabs must NOT keep a phantom user online.
+      if (document.hidden) return;
       refreshRoom().catch(error => note(error.message, true));
     }, 6000);
   }
@@ -1996,11 +2039,12 @@
       '<p id="lobby-harp-token-history" class="lobby-events" aria-live="polite">Nenhuma Arpa usada no treinamento.</p>',
       '</section>',
       '<section id="lobby-3x3-allies-panel" class="lobby-combat" hidden>',
-      '<strong>🛡️ Formação 3x3 — treinamento (v0.1.62)</strong>',
+      '<strong>🛡️ Formação 3x3 — treinamento (v0.1.64)</strong>',
       '<p>Diagnóstico de dois jogadores: cada dispositivo faz uma verificação no servidor a cada atualização da sala. Atividade recente NÃO substitui a validação real em dois celulares e não altera turnos, HP ou resultado oficial.</p>',
       '<p id="lobby-3x3-player-presence" class="lobby-events" aria-live="polite">Aguardando diagnóstico de conexão...</p>',
       '<button id="lobby-3x3-test-ready" type="button" hidden>Estou pronto para testar o 3x3</button>',
       '<button id="lobby-3x3-test-unready" type="button" hidden>Retirar meu pronto</button>',
+      '<button id="lobby-3x3-refresh-connection" type="button" hidden>Atualizar conexão e turno</button>',
       '<p>Congele as 3 criaturas originais do Deck 3x3 escolhido, posições c4-c6. Somente depois, Alakazaz pode transferir 1 ficha de seu próprio saldo para outra criatura aliada, uma vez por turno. Nenhum saldo/carta do combate oficial é alterado.</p>',
       '<label for="lobby-3x3-deck">Deck 3x3 salvo</label>',
       '<select id="lobby-3x3-deck"><option value="1">Deck 1</option><option value="2">Deck 2</option><option value="3">Deck 3</option></select>',
@@ -2389,6 +2433,13 @@
       });
       update3x3UI();
       note("Sua confirmação de pronto foi retirada. A sala e as cartas permanecem intactas.");
+    });
+    $("lobby-3x3-refresh-connection").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="3x3")return;
+      await refreshRoom();
+      note(playerPresence3x3?.peer_synced_current_turn
+        ?"Atualizado: o adversário já consultou o turno atual."
+        :"Atualizado: aguardando o adversário sincronizar o turno atual.");
     });
     $("lobby-3x3-prepare").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3")return;
@@ -2906,5 +2957,13 @@
     updateMatchUI();
     note("Salas privadas expiram após duas horas.");
   }
+  // Mobile browsers may suspend timers and Realtime when the app is
+  // backgrounded. Recover immediately when the player returns/gets online.
+  function refreshWhenVisible() {
+    if (document.hidden || !room || $("tela-entrada-drome")?.style.display !== "flex") return;
+    refreshRoom().catch(error => note("Falha na reconexão: " + error.message, true));
+  }
+  document.addEventListener("visibilitychange", refreshWhenVisible);
+  window.addEventListener("online", refreshWhenVisible);
   window.abrirSalaPrivadaDrome = show;
 })();
