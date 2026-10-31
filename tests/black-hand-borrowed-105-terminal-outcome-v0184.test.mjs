@@ -95,10 +95,13 @@ test("v0.1.84: DROME distinguishes training winner from official match result",(
   "chaotic_preview_3x3_borrowed_105_knockouts"
  ])assert.ok(ui.includes(s),s);
 });
-test("v0.1.84: PWA public and scanner loader all refer to release 84",()=>{
- assert.match(index,/VERSÃO 0\.1\.84/);
- assert.match(index,/sw\.js\?v=release-84/);
- assert.match(worker,/chaotic-go-release-20261031-84/);
- assert.match(scanner,/full-game-bootstrap\.js\?v=release-84/);
- assert.match(loader,/chaotic-lobby\.js\?v=release-84/);
+test("v0.1.84+: PWA version, cache and scanners stay synchronized",()=>{
+ const current=index.match(/VERSÃO 0\.1\.(\d+)/);
+ const reg=index.match(/sw\.js\?v=release-(\d+)/);
+ const cache=worker.match(/chaotic-go-release-\d{8}-(\d+)/);
+ const scannerLoader=scanner.match(/full-game-bootstrap\.js\?v=release-(\d+)/);
+ const dromeLoader=loader.match(/chaotic-lobby\.js\?v=release-(\d+)/);
+ assert.ok(current&&reg&&cache&&scannerLoader&&dromeLoader);
+ assert.ok(Number(current[1])>=84);
+ for(const m of [reg,cache,scannerLoader,dromeLoader])assert.equal(m[1],current[1]);
 });

@@ -87,10 +87,13 @@ test("v0.1.84: DROME distinguishes training victory from official outcome",()=>{
  ])assert.ok(ui.includes(term),term);
  assert.ok(ui.includes("não encerra o combate oficial"));
 });
-test("v0.1.84: version and PWA release pointers remain synchronized",()=>{
- assert.match(index,/VERSÃO 0\.1\.84/);
- assert.match(index,/sw\.js\?v=release-84/);
- assert.match(sw,/chaotic-go-release-20261031-84/);
- assert.match(scanner,/full-game-bootstrap\.js\?v=release-84/);
- assert.match(boot,/chaotic-lobby\.js\?v=release-84/);
+test("v0.1.84+: PWA version, cache and scanners stay synchronized",()=>{
+ const current=index.match(/VERSÃO 0\.1\.(\d+)/);
+ const reg=index.match(/sw\.js\?v=release-(\d+)/);
+ const cache=sw.match(/chaotic-go-release-\d{8}-(\d+)/);
+ const scannerLoader=scanner.match(/full-game-bootstrap\.js\?v=release-(\d+)/);
+ const dromeLoader=boot.match(/chaotic-lobby\.js\?v=release-(\d+)/);
+ assert.ok(current&&reg&&cache&&scannerLoader&&dromeLoader);
+ assert.ok(Number(current[1])>=84);
+ for(const m of [reg,cache,scannerLoader,dromeLoader])assert.equal(m[1],current[1]);
 });

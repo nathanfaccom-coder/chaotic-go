@@ -130,6 +130,9 @@ begin
  if not blocked then raise exception 'Second settlement duplicated charge';end if;
  if (select count(*) from public.chaotic_preview_3x3_borrowed_105_base_events
   where lobby_id=room)<>1 then raise exception 'Settlement event duplicated';end if;
+ -- Since v0.1.85, each nonterminal paid borrowed 105 must explicitly
+ -- resolve or skip its optional reveal before advancing the turn.
+ perform public.chaotic_resolve_preview_3x3_borrowed_105_reveal(room,3,null,true);
  perform public.chaotic_pass_turn(room,3);
  if (select turn_no from public.chaotic_match_turns where lobby_id=room)<>4
  then raise exception 'Resolved borrowed 105 still blocks passing the turn';end if;

@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [], mugicTrainingWallets = [], mugicTrainingSettlements = [], trainingAbilityEvents = [], harpTrainingEvents = [], allies3x3 = [], transfers3x3 = [], hp3x3 = [], board3x3 = [], moves3x3 = [], contacts3x3 = [], attackProjections3x3 = [], hand3x3 = [], borrowedAttacks3x3 = [], borrowedPlan3x3 = null, borrowedPriority3x3 = null, handWallet3x3 = [], costChecks3x3 = [], attackSpends3x3 = [], discard3x3 = [], drawEvents3x3 = [], defenseWindows3x3 = [], elementalInspections3x3 = [], creatureChecks3x3 = [], privateEquipmentChecks3x3 = [], dynamicElementChecks3x3 = [], trainingDamage3x3 = [], trainingKnockouts3x3 = [], trainingOutcomes3x3 = [], trainingAttackLocks3x3 = [], sonarSearchEvents3x3 = [], sonarSearchChoices3x3 = [], sonarChoiceKey3x3 = "", faceStates3x3 = [], ventoRevealEvents3x3 = [], playerPresence3x3 = null;
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [], mugicTrainingWallets = [], mugicTrainingSettlements = [], trainingAbilityEvents = [], harpTrainingEvents = [], allies3x3 = [], transfers3x3 = [], hp3x3 = [], board3x3 = [], moves3x3 = [], contacts3x3 = [], attackProjections3x3 = [], hand3x3 = [], borrowedAttacks3x3 = [], borrowedPlan3x3 = null, borrowedPriority3x3 = null, handWallet3x3 = [], costChecks3x3 = [], attackSpends3x3 = [], discard3x3 = [], drawEvents3x3 = [], defenseWindows3x3 = [], elementalInspections3x3 = [], creatureChecks3x3 = [], privateEquipmentChecks3x3 = [], dynamicElementChecks3x3 = [], trainingDamage3x3 = [], trainingKnockouts3x3 = [], trainingOutcomes3x3 = [], trainingAttackLocks3x3 = [], sonarSearchEvents3x3 = [], sonarSearchChoices3x3 = [], sonarChoiceKey3x3 = "", faceStates3x3 = [], ventoRevealEvents3x3 = [], borrowedRevealEvents3x3 = [], playerPresence3x3 = null;
   // Latest privacy-safe, server-owned 3x3 attack checkpoint. No local replay.
   let resumePhase3x3 = null;
   // Original attack cards stay intact. Only these catalog IDs currently
@@ -1498,7 +1498,7 @@
       ?"Cartas recebidas TEMPORARIAMENTE: "+borrowedAttacks3x3.map(x=>
         x.attack_name+" (custo "+x.attack_cost+", dano-base "+x.base_damage+
         ", turno "+x.borrowed_on_turn+").").join(" ")+
-        " Posse experimental; pagamento e uso continuam DESABILITADOS."
+        " Posse experimental: Vento Forte (105) pode ser usado no TREINO com escolha opcional de revelação; outras cartas emprestadas permanecem indisponíveis."
       :"Nenhuma carta emprestada recebida. Para roubar no treino 3x3, pague a Mão Negra e aguarde o passe do defensor.";
     const borrowedBox=$("lobby-3x3-borrowed-quote-box");
     const borrowedChoice=$("lobby-3x3-borrowed-choice");
@@ -1527,7 +1527,12 @@
       :borrowedPlan3x3?.state==="defender_passed_preview"
         ?"Defensor passou. Vento Forte emprestado pode causar nocaute INDIVIDUAL ou FINAL DA EQUIPE, sem equipamento; se for final, o resultado vale somente no treino. Revelação opcional não executada."
       :borrowedPlan3x3?.state==="base_resolved_no_optional_reveal"
-        ?"Dano-base do Vento Forte emprestado resolvido. A carta original voltou ao dono; revelação opcional não realizada."
+        ?"Dano-base do Vento Forte emprestado resolvido. Carta original devolvida. "+
+         (borrowedRevealEvents3x3.some(x=>x.turn_no===match?.turn_no)
+           ?"Revelação opcional já decidida."
+           :trainingOutcomes3x3.length
+             ?"Treino encerrado: não há revelação tardia."
+             :"Escolha revelar uma criatura adversária oculta ou dispense o efeito antes do próximo turno.")
       :borrowedPlan3x3?.state==="cancelled"
         ?"Intenção cancelada neste turno; nenhuma cobrança ou dano realizado."
         :"Nenhuma intenção de uso da carta emprestada preparada.";
@@ -1567,6 +1572,37 @@
     if(borrowedBox)borrowedBox.hidden=!(myTurn&&!!currentContact
       &&currentContact.contact_status==="awaiting_validated_attack_preview"
       &&!currentProjection&&!alreadySpent&&borrowedAttacks3x3.length>0);
+    const borrowedRevealPanel=$("lobby-3x3-borrowed-reveal-panel");
+    const borrowedRevealPending=myTurn
+      &&borrowedPlan3x3?.state==="base_resolved_no_optional_reveal"
+      &&!trainingOutcomes3x3.length
+      &&!borrowedRevealEvents3x3.some(x=>x.turn_no===match?.turn_no);
+    if(borrowedRevealPanel)borrowedRevealPanel.hidden=!borrowedRevealPending;
+    const revealChoice=$("lobby-3x3-borrowed-reveal-slot");
+    if(revealChoice&&borrowedRevealPending){
+      const selected=revealChoice.value;
+      const opponent=currentContact?.defender_id;
+      const eligible=faceStates3x3.filter(x=>x.actor_id===opponent
+        &&x.face_up===false&&[4,5,6].includes(x.position)
+        &&hp3x3.some(h=>h.actor_id===opponent&&h.position===x.position
+          &&h.hp_remaining>0));
+      revealChoice.replaceChildren();
+      for(const face of eligible){
+        const option=document.createElement("option");
+        option.value=String(face.position);
+        option.textContent="Criatura c"+face.position+" (viva e oculta)";
+        revealChoice.append(option);
+      }
+      if(eligible.some(x=>String(x.position)===selected))revealChoice.value=selected;
+      const revealButton=$("lobby-3x3-borrowed-reveal-choose");
+      if(revealButton)revealButton.disabled=eligible.length===0;
+    }
+    const revealNotice=$("lobby-3x3-borrowed-reveal-status");
+    if(revealNotice)revealNotice.textContent=borrowedRevealPending
+      ?"O ataque já foi pago. Revele um adversário vivo e oculto, ou dispense a revelação. Sem custo adicional."
+      :borrowedRevealEvents3x3.some(x=>x.turn_no===match?.turn_no)
+        ?"Revelação emprestada resolvida neste turno."
+        :"Nenhuma revelação emprestada pendente.";
     $("lobby-3x3-hand-history").textContent=ownHandWallet
       ?"Mão PRIVADA de treinamento: "+privateHand.map(x=>"Ataque slot "+
         x.card_slot+" ("+x.attack_instance_id+")").join(", ")+
@@ -1772,7 +1808,7 @@
   async function refresh3x3Allies(){
     if(!$("lobby-3x3-allies-panel"))return;
     if(!room||!match||room.mode!=="3x3"){
-      allies3x3=[];transfers3x3=[];hp3x3=[];board3x3=[];moves3x3=[];contacts3x3=[];attackProjections3x3=[];hand3x3=[];borrowedAttacks3x3=[];borrowedPlan3x3=null;borrowedPriority3x3=null;handWallet3x3=[];costChecks3x3=[];attackSpends3x3=[];discard3x3=[];drawEvents3x3=[];defenseWindows3x3=[];elementalInspections3x3=[];creatureChecks3x3=[];privateEquipmentChecks3x3=[];dynamicElementChecks3x3=[];trainingDamage3x3=[];trainingKnockouts3x3=[];trainingOutcomes3x3=[];trainingAttackLocks3x3=[];sonarSearchEvents3x3=[];sonarSearchChoices3x3=[];sonarChoiceKey3x3="";faceStates3x3=[];ventoRevealEvents3x3=[];playerPresence3x3=null;resumePhase3x3=null;update3x3UI();return;
+      allies3x3=[];transfers3x3=[];hp3x3=[];board3x3=[];moves3x3=[];contacts3x3=[];attackProjections3x3=[];hand3x3=[];borrowedAttacks3x3=[];borrowedPlan3x3=null;borrowedPriority3x3=null;handWallet3x3=[];costChecks3x3=[];attackSpends3x3=[];discard3x3=[];drawEvents3x3=[];defenseWindows3x3=[];elementalInspections3x3=[];creatureChecks3x3=[];privateEquipmentChecks3x3=[];dynamicElementChecks3x3=[];trainingDamage3x3=[];trainingKnockouts3x3=[];trainingOutcomes3x3=[];trainingAttackLocks3x3=[];sonarSearchEvents3x3=[];sonarSearchChoices3x3=[];sonarChoiceKey3x3="";faceStates3x3=[];ventoRevealEvents3x3=[];borrowedRevealEvents3x3=[];playerPresence3x3=null;resumePhase3x3=null;update3x3UI();return;
     }
     // v0.1.57: owner-only raw RLS; the server supplies a masked member view.
     const safeState=await rpc("chaotic_get_preview_3x3_safe_state",{
@@ -1810,9 +1846,9 @@
     borrowedAttacks3x3=Array.isArray(borrowerView?.borrowed_attacks)
       ?borrowerView.borrowed_attacks:[];
     borrowedPlan3x3=null;
-    // The plan is borrower-only under RLS; never expose it to the owner.
-    // Keep normal rooms and no-loan test harnesses on their existing path.
-    if(borrowedAttacks3x3.length&&match?.turn_no){
+    // Borrower-only RLS. Read the current plan even after the borrowed card
+    // has been settled and returned; the optional reveal may remain pending.
+    if(match?.turn_no&&contacts3x3.some(x=>x.turn_no===match.turn_no)){
       const planResult=await api.from("chaotic_preview_3x3_borrowed_105_plans")
         .select("turn_no,custody_id,state,points_available,hp_before,hp_base_after")
         .eq("lobby_id",room.id).eq("turn_no",match.turn_no)
@@ -1872,6 +1908,11 @@
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(30);
     if(ventoEvents.error)throw new Error(ventoEvents.error.message);
     ventoRevealEvents3x3=ventoEvents.data||[];
+    const borrowedRevealRows=await api.from("chaotic_preview_3x3_borrowed_105_reveal_events")
+      .select("turn_no,attacker_id,defender_id,revealed_slot,skipped")
+      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(30);
+    if(borrowedRevealRows.error)throw new Error(borrowedRevealRows.error.message);
+    borrowedRevealEvents3x3=borrowedRevealRows.data||[];
     const sonarRows=await api.from("chaotic_preview_3x3_sonar_search_events")
       .select("turn_no,actor_id,searched_card_slot,attack_name,search_succeeded,hand_count_after")
       .eq("lobby_id",room.id).eq("actor_id",userId)
@@ -2437,6 +2478,14 @@
       '<p id="lobby-3x3-borrowed-plan-status" class="lobby-events" role="status" aria-live="polite">Nenhuma intenção de uso preparada.</p>',
       '<p id="lobby-3x3-borrowed-quote-result" class="lobby-events" role="status" aria-live="polite">Prévia não calculada.</p>',
       '</div>',
+      '<div id="lobby-3x3-borrowed-reveal-panel" hidden>',
+      '<p>Vento Forte emprestado: efeito opcional APÓS pagamento e dano-base de treino. Revele uma criatura adversária viva e oculta ou dispense para encerrar o turno.</p>',
+      '<label for="lobby-3x3-borrowed-reveal-slot">Criatura adversária ainda oculta</label>',
+      '<select id="lobby-3x3-borrowed-reveal-slot"></select>',
+      '<button id="lobby-3x3-borrowed-reveal-choose" type="button">Revelar criatura (SEM novo gasto)</button>',
+      '<button id="lobby-3x3-borrowed-reveal-skip" type="button">Dispensar revelação e liberar turno</button>',
+      '<p id="lobby-3x3-borrowed-reveal-status" class="lobby-events" role="status" aria-live="polite">Nenhuma revelação emprestada pendente.</p>',
+      '</div>',
       '<p>Descarte voluntário experimental: até uma carta da própria mão por turno, antes de declarar confronto. Com o monte vazio, a próxima compra do seu turno recicla as cartas gastas e descartadas, sem devolver pontos ou apagar o registro de gasto.</p>',
       '<label for="lobby-3x3-discard-slot">Slot a descartar da própria mão</label>',
       '<select id="lobby-3x3-discard-slot">'+Array.from({length:20},(_,i)=>'<option value="'+(i+1)+'">Ataque '+(i+1)+'</option>').join("")+'</select>',
@@ -2927,9 +2976,10 @@
     });
     $("lobby-3x3-borrowed-settle-base").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
-      // One server transaction spends 1 training point, applies 5 nonlethal
-      // base damage, records the event and restores the original owner's card.
-      // Any incompatible defender equipment/KO aborts without spending.
+      // One server transaction spends 1 point, applies up to 5 training HP,
+      // records any KO and restores the original owner's card.
+      // Equipment incompatibility aborts without charging. A nonterminal
+      // hit requires the optional face-down reveal or explicit skip next.
       const settled=await rpc("chaotic_settle_preview_3x3_borrowed_105_base",{
         p_lobby_id:room.id,p_expected_turn:match.turn_no
       });
@@ -2940,7 +2990,31 @@
         ". Carta original devolvida ao dono. "+
         (settled.training_outcome_recorded
           ?" VITÓRIA NO TREINO 3x3! Todos os empréstimos devolvidos; sem XP, moedas ou vitória oficial.":"")+
-        " Revelação opcional NÃO executada; ataque oficial preservado.");
+        (settled.training_outcome_recorded
+          ?" Sem revelação tardia após a vitória final."
+          :" Agora escolha uma revelação opcional ou dispense o efeito antes de passar o turno.")+
+        " Ataque oficial preservado.");
+    });
+    $("lobby-3x3-borrowed-reveal-choose").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
+      const slot=Number($("lobby-3x3-borrowed-reveal-slot").value);
+      if(![4,5,6].includes(slot))throw new Error("Escolha uma criatura adversária viva e oculta.");
+      const result=await rpc("chaotic_resolve_preview_3x3_borrowed_105_reveal",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no,
+        p_target_slot:slot,p_skip:false
+      });
+      await refresh3x3Allies();
+      note("Vento Forte emprestado: criatura c"+result.revealed_slot+
+        " revelada. Nenhum gasto adicional. Próximo turno liberado.");
+    });
+    $("lobby-3x3-borrowed-reveal-skip").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
+      await rpc("chaotic_resolve_preview_3x3_borrowed_105_reveal",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no,
+        p_target_slot:null,p_skip:true
+      });
+      await refresh3x3Allies();
+      note("Revelação opcional do Vento Forte emprestado dispensada. Próximo turno liberado, sem novo gasto.");
     });
     $("lobby-3x3-borrowed-quote").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;

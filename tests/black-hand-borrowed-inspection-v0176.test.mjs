@@ -58,7 +58,7 @@ test("v0.1.76: DROME lists borrowed card but never merges into owned hand or ena
  "borrowedAttacks3x3=Array.isArray(borrowerView?.borrowed_attacks)",
  "lobby-3x3-borrowed-attacks",
  "Cartas recebidas TEMPORARIAMENTE",
- "pagamento e uso continuam DESABILITADOS",
+ "outras cartas emprestadas permanecem indisponíveis",
  "Para roubar no treino 3x3, pague a Mão Negra e aguarde o passe do defensor"])
  assert.ok(ui.includes(x),x);
  assert.doesNotMatch(ui,/resolvableTrainingAttacks3x3=new Set\([^)]*"102"/);
