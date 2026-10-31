@@ -17,6 +17,17 @@ begin
  values(room,upper(left(replace(room::text,'-',''),12)),host,guest,'3x3','ready');
  insert into public.chaotic_match_turns(lobby_id,host_id,guest_id,current_player,turn_no)
  values(room,host,guest,host,1);
+ -- An unknown JWT subject cannot inspect a room or its attack checkpoint.
+ perform set_config('request.jwt.claim.sub','d1660000-0000-4000-8000-000000000166',true);
+ err:=null;
+ begin perform public.chaotic_get_preview_3x3_resume_status(room);
+ exception when others then get stacked diagnostics err=message_text;end;
+ if err is null or position('dois membros' in err)=0 then
+   raise exception 'Outsider read private recovery checkpoint: %',err;end if;
+ perform set_config('request.jwt.claim.sub',host::text,true);
+ status_snapshot:=public.chaotic_get_preview_3x3_resume_status(room);
+ if status_snapshot->>'phase'<>'ready' or status_snapshot->>'turn_no'<>'1'
+ then raise exception 'Room created with a fake pending attack: %',status_snapshot;end if;
  insert into public.chaotic_preview_3x3_allies
  (lobby_id,actor_id,position,deck_slot,creature_instance_id,creature_name,starting_tokens,remaining_tokens)
  select room,actor,pos,1, (case when actor=host then 'H' else 'G' end)||pos::text,
@@ -173,6 +184,11 @@ begin
     (pong->>'you_won_training')::boolean is not true
  then raise exception 'Host did not read win: %',pong;end if;
  perform set_config('request.jwt.claim.sub',guest::text,true);
+ status_snapshot:=public.chaotic_get_preview_3x3_resume_status(room);
+ if status_snapshot->>'phase'<>'training_finished'
+   or (status_snapshot->>'you_won_training')::boolean is not false
+   or (status_snapshot->>'your_action_required')::boolean is true
+ then raise exception 'Guest did not recover final defeat: %',status_snapshot;end if;
  pong:=public.chaotic_ping_preview_3x3_player(room,null);
  if (pong->>'training_finished')::boolean is not true or
     (pong->>'you_won_training')::boolean is not false
