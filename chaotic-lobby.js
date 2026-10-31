@@ -1141,7 +1141,7 @@
     $("lobby-3x3-training-damage").hidden=!(myTurn&&!!defenseWindowThisTurn
       &&defenseWindowThisTurn.status==="defender_passed_preview"
       &&defenseWindowThisTurn.attacker_id===userId
-      &&["101","105","107","111","112","113","114"].includes(currentProjection?.catalog_attack_id)
+      &&["101","105","107","110","111","112","113","114"].includes(currentProjection?.catalog_attack_id)
       &&!trainingDamage3x3.some(x=>x.turn_no===match.turn_no));
     $("lobby-3x3-defense-pass").hidden=!(!!current&&!!defenseWindowThisTurn
       &&defenseWindowThisTurn.status==="awaiting_defender"
@@ -1329,7 +1329,7 @@
         "T"+x.turn_no+" · "+(x.defender_id===userId?"Sua":"Adversária")+
         " criatura "+x.defender_creature_name+" (c"+x.defender_slot+
         ") chegou a 0 HP DE TREINO após "+
-        ({101:"Ácido Gástrico",105:"Vento Forte",107:"Armadilha de Vinha",111:"MÃO ELETRÔNICA",112:"MÃO MÃO",
+        ({101:"Ácido Gástrico",105:"Vento Forte",107:"Armadilha de Vinha",110:"SONAR",111:"MÃO ELETRÔNICA",112:"MÃO MÃO",
           113:"PURGATÓRIO",114:"ESQUELETO"}[x.catalog_attack_id]||"um ataque")+
         ". Nocaute experimental; sem exclusão de carta.").join("\n")
       :"Nenhuma criatura nocauteada no treino.";
@@ -1352,17 +1352,20 @@
     $("lobby-3x3-training-damage-history").textContent=trainingDamage3x3.length
       ?trainingDamage3x3.slice().sort((a,b)=>a.turn_no-b.turn_no).map(x=>
         "T"+x.turn_no+" · "+(x.attacker_id===userId?"Seu ataque":"Ataque rival")+
-        " "+({101:"Ácido Gástrico",105:"Vento Forte",107:"Armadilha de Vinha",111:"MÃO ELETRÔNICA",112:"MÃO MÃO",
+        " "+({101:"Ácido Gástrico",105:"Vento Forte",107:"Armadilha de Vinha",110:"SONAR",111:"MÃO ELETRÔNICA",112:"MÃO MÃO",
           113:"PURGATÓRIO",114:"ESQUELETO"}[x.catalog_attack_id]||"Ataque original")+
         ": c"+x.defender_slot+" HP de TREINO "+
         x.hp_before+" → "+x.hp_after+" ("+x.damage_dealt+" de dano). "+
         (["113","114"].includes(x.catalog_attack_id)
           ?"Aliados derrotados no ataque: "+x.defeated_allies_count+
             "; dano-base "+x.base_damage+" + bônus "+x.bonus_damage+". ":"")+
-        (["101","107"].includes(x.catalog_attack_id)
+        (["101","107","110"].includes(x.catalog_attack_id)
           ?"Dano-base "+x.base_damage+" + bônus NATURAL "+
-             (x.catalog_attack_id==="101"?"Fogo/Água ":"Terra ")+
+             (x.catalog_attack_id==="101"?"Fogo/Água ":x.catalog_attack_id==="107"?"Terra ":"Terra/Ar ")+
              x.elemental_bonus_damage+". Sem equipamento dos dois lados. ":"")+
+        (x.catalog_attack_id==="110"
+          ?"Imunidade Rex impediu "+(x.immunity_prevented_damage||0)+
+             " ponto(s) de dano total. Busca de carta custo até 1 PENDENTE. ":"")+
         (x.optional_reveal_pending?"Revelação opcional pendente. ":"")+
         (["111","112"].includes(x.catalog_attack_id)?"Impedimento de ataque registrado. ":"")+
         "HP oficial não alterado.").join("\n")
@@ -1495,7 +1498,7 @@
     if(dynamicCheck.error)throw new Error(dynamicCheck.error.message);
     dynamicElementChecks3x3=dynamicCheck.data||[];
     const trainingDmg=await api.from("chaotic_preview_3x3_training_damage_events")
-      .select("turn_no,attacker_id,defender_id,attacker_slot,defender_slot,attack_instance_id,catalog_attack_id,base_damage,bonus_damage,elemental_bonus_damage,defeated_allies_count,hp_before,hp_after,damage_dealt,optional_reveal_pending,effects_fully_resolved,official_match_modified")
+      .select("turn_no,attacker_id,defender_id,attacker_slot,defender_slot,attack_instance_id,catalog_attack_id,base_damage,bonus_damage,elemental_bonus_damage,immunity_prevented_damage,defeated_allies_count,hp_before,hp_after,damage_dealt,optional_reveal_pending,effects_fully_resolved,official_match_modified")
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
     if(trainingDmg.error)throw new Error(trainingDmg.error.message);
     trainingDamage3x3=trainingDmg.data||[];
@@ -1956,8 +1959,8 @@
       '<button id="lobby-3x3-defense-open" type="button" hidden>Abrir resposta do defensor 3x3</button>',
       '<button id="lobby-3x3-defense-pass" type="button" hidden>Defensor: passar reação (SEM dano)</button>',
       '<p id="lobby-3x3-defense-history" class="lobby-events" aria-live="polite">Nenhuma janela de defesa 3x3.</p>',
-      '<p>Após o passe defensivo, pode resolver no TREINO: Ácido Gástrico (101: 10 + Fogo/Água natural), Vento Forte (105), Armadilha de Vinha (107: 5 + Terra natural; bloqueia atacar e comprar cartas no turno rival seguinte), MÃO ELETRÔNICA (111), MÃO MÃO (112), PURGATÓRIO (113) e ESQUELETO (114). Para 101 e 107, ambos os campeões devem estar sem equipamento e não podem depender de elementos dinâmicos; Naty fica excluída. No 107, habilidades/Mugics ainda não são executados no treino. Nenhuma carta oficial é alterada.</p>',
-      '<button id="lobby-3x3-training-damage" type="button" hidden>Atacante: resolver ataque de TREINO (101, 105, 107, 111, 112, 113, 114)</button>',
+      '<p>Após o passe defensivo, pode resolver no TREINO: Ácido Gástrico (101: 10 + Fogo/Água natural), Vento Forte (105), Armadilha de Vinha (107: 5 + Terra natural; bloqueia atacar e comprar cartas no turno rival seguinte), MÃO ELETRÔNICA (111), MÃO MÃO (112), PURGATÓRIO (113) e ESQUELETO (114). Para 101 e 107, ambos os campeões devem estar sem equipamento e não podem depender de elementos dinâmicos; Naty fica excluída. No 107, habilidades/Mugics ainda não são executados no treino. SONAR (110): dano natural Terra/Ar de até 20; Rex cancela o golpe inteiro por conter Ar. Busca de carta custo até 1 PENDENTE; atacante sem equipamento, sem Naty e sem bônus dinâmico de Guru. Nenhuma carta oficial é alterada.</p>',
+      '<button id="lobby-3x3-training-damage" type="button" hidden>Atacante: resolver ataque de TREINO (101, 105, 107, 110, 111, 112, 113, 114)</button>',
       '<p id="lobby-3x3-training-damage-history" class="lobby-events" aria-live="polite">Nenhum dano de treino aplicado.</p>',
       '<p id="lobby-3x3-training-attack-locks" class="lobby-events" aria-live="polite">Nenhum bloqueio de ataque registrado.</p>',
       '<p id="lobby-3x3-knockout-history" class="lobby-events" aria-live="polite">Nenhum nocaute de treino.</p>',
@@ -2444,12 +2447,13 @@
       if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
       const attackId=attackProjections3x3.find(x=>x.turn_no===match.turn_no
         &&x.actor_id===userId)?.catalog_attack_id;
-      if(!["101","105","107","111","112","113","114"].includes(attackId))
+      if(!["101","105","107","110","111","112","113","114"].includes(attackId))
         throw new Error("Este ataque ainda não tem resolução de dano experimental.");
       const rpcName=attackId==="105"
         ?"chaotic_apply_preview_3x3_training_base_105"
         :attackId==="101"?"chaotic_apply_preview_3x3_training_acid_101"
         :attackId==="107"?"chaotic_apply_preview_3x3_training_vine_107"
+        :attackId==="110"?"chaotic_apply_preview_3x3_training_sonar_110"
         :["111","112"].includes(attackId)
         ?"chaotic_apply_preview_3x3_training_attack_lock"
         :"chaotic_apply_preview_3x3_training_fallen_allies";
@@ -2464,6 +2468,9 @@
            (settled.elemental_bonus_damage||0)+". ":
          attackId==="107"?"Terra natural +"+(settled.elemental_bonus_damage||0)+
            "; bloqueio de ataque/compra no próximo turno. Habilidades/Mugics ainda pendentes. ":
+         attackId==="110"?"SONAR: bônus Terra/Ar aplicado "+(settled.elemental_bonus_damage||0)+
+           "; Rex impediu "+(settled.immunity_prevented_damage||0)+
+           " ponto(s) por imunidade total ao ataque com Ar. Busca de carta pendente. ":
          ["111","112"].includes(attackId)?"Bloqueio de ataque registrado. ":
          "Bônus por aliado derrotado confirmado no servidor: "+(settled.bonus_damage||0)+". ")+
         "HP oficial, cartas e XP intactos.");
