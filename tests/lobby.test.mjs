@@ -6,6 +6,7 @@ import vm from "node:vm";
 const source = await readFile(new URL("../chaotic-lobby.js", import.meta.url), "utf8");
 const rooms = new Map();
 const realtimeChannels = [];
+const browserStorage = new Map();
 let counter = 0;
 
 function makeClient(userId) {
@@ -92,7 +93,12 @@ function makeBrowser(userId) {
   let clip="";
   const browser={
     window:{ChaoticAuth:{getClient:()=>makeClient(userId)},ChaoticAuthUser:{id:userId},
-      abrirEntradaDrome(){}},
+      abrirEntradaDrome(){},
+      localStorage:{
+        getItem:key=>browserStorage.has(key)?browserStorage.get(key):null,
+        setItem:(key,value)=>browserStorage.set(key,String(value)),
+        removeItem:key=>browserStorage.delete(key)
+      }},
     document, navigator:{clipboard:{writeText:async x=>{clip=x;}}},
     setInterval:()=>1,clearInterval:()=>{},
     Date,console
@@ -155,4 +161,63 @@ test("private room subscribes to current DROME tables and cleans up after closin
   assert.match(host.elem("lobby-status").textContent,/Sala pronta/);
   await host.elem("lobby-close").onclick();
   assert.equal(own.active,false,"No stale subscription after closing room");
+});
+
+test("v0.1.67: a reloaded player recovers their own open room from Supabase",async()=>{
+  const host=makeBrowser("resume67-host"),guest=makeBrowser("resume67-guest");
+  host.browser.window.abrirSalaPrivadaDrome();
+  host.elem("lobby-select-mode").value="3x3";
+  await host.elem("lobby-create-btn").onclick();
+  const id=[...rooms.values()].find(r=>r.host_id==="resume67-host")?.id;
+  const key="chaotic-go:last-room:resume67-host";
+  const cached=JSON.parse(browserStorage.get(key));
+  assert.equal(cached.id,id);
+  assert.equal(cached.code,undefined,"Do not cache the invitation code");
+  assert.equal(cached.decks,undefined,"Do not cache hidden Decks");
+  const code=host.elem("lobby-room-code").textContent;
+  guest.browser.window.abrirSalaPrivadaDrome();
+  guest.elem("lobby-input-code").value=code;
+  await guest.elem("lobby-join-btn").onclick();
+  const refresh=makeBrowser("resume67-host");
+  refresh.browser.window.abrirSalaPrivadaDrome();
+  for(let i=0;i<5;i++)await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(refresh.elem("lobby-room-code").textContent,code,
+    "restoration note: "+refresh.elem("lobby-notice").textContent+
+    " | saved: "+String(browserStorage.get(key)));
+  assert.equal(refresh.elem("lobby-mode").textContent,"3x3");
+  assert.match(refresh.elem("lobby-status").textContent,/Sala pronta/);
+  assert.match(refresh.elem("lobby-notice").textContent,/Sala recuperada/);
+  assert.equal(rooms.size,[...rooms.values()].filter(()=>true).length);
+  await refresh.elem("lobby-close").onclick();
+  assert.equal(browserStorage.has(key),false,"Closing room clears saved reference");
+});
+test("v0.1.67: a forged local room ID never authorizes an outsider",async()=>{
+  const host=makeBrowser("resume67-owner");
+  host.browser.window.abrirSalaPrivadaDrome();
+  host.elem("lobby-select-mode").value="1x1";
+  await host.elem("lobby-create-btn").onclick();
+  const id=[...rooms.values()].find(r=>r.host_id==="resume67-owner")?.id;
+  const key="chaotic-go:last-room:resume67-outsider";
+  browserStorage.set(key,JSON.stringify({id,expires_at:new Date(Date.now()+360000).toISOString()}));
+  const outsider=makeBrowser("resume67-outsider");
+  outsider.browser.window.abrirSalaPrivadaDrome();
+  for(let i=0;i<5;i++)await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(outsider.elem("lobby-room-code").textContent,"");
+  assert.equal(browserStorage.has(key),false);
+  assert.match(outsider.elem("lobby-notice").textContent,/não pertence/);
+  await host.elem("lobby-close").onclick();
+});
+test("v0.1.67: expired and corrupt saved IDs are forgotten without replaying a game",async()=>{
+  for (const [user,entry] of [
+    ["resume67-expired",JSON.stringify({id:"not-a-room",expires_at:new Date(Date.now()-1e5).toISOString()})],
+    ["resume67-invalid","{garbled"]
+  ]){
+    const key="chaotic-go:last-room:"+user;
+    browserStorage.set(key,entry);
+    const tab=makeBrowser(user);
+    tab.browser.window.abrirSalaPrivadaDrome();
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(browserStorage.has(key),false);
+    assert.equal(tab.elem("lobby-room-code").textContent,"");
+  }
 });

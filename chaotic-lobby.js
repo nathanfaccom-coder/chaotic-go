@@ -7,7 +7,35 @@
   let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [], mugicTrainingWallets = [], mugicTrainingSettlements = [], trainingAbilityEvents = [], harpTrainingEvents = [], allies3x3 = [], transfers3x3 = [], hp3x3 = [], board3x3 = [], moves3x3 = [], contacts3x3 = [], attackProjections3x3 = [], hand3x3 = [], handWallet3x3 = [], costChecks3x3 = [], attackSpends3x3 = [], discard3x3 = [], drawEvents3x3 = [], defenseWindows3x3 = [], elementalInspections3x3 = [], creatureChecks3x3 = [], privateEquipmentChecks3x3 = [], dynamicElementChecks3x3 = [], trainingDamage3x3 = [], trainingKnockouts3x3 = [], trainingOutcomes3x3 = [], trainingAttackLocks3x3 = [], sonarSearchEvents3x3 = [], sonarSearchChoices3x3 = [], sonarChoiceKey3x3 = "", faceStates3x3 = [], ventoRevealEvents3x3 = [], playerPresence3x3 = null;
   // Latest privacy-safe, server-owned 3x3 attack checkpoint. No local replay.
   let resumePhase3x3 = null;
+  // Persist only the latest room UUID, scoped to the signed-in player.
+  // Never store combat actions, hidden cards, login tokens, or Deck contents.
+  const lastRoomStorageKey="chaotic-go:last-room:"+userId;
+  let viewGeneration=0, restoreInProgress=false;
   const $ = id => document.getElementById(id);
+  function forgetLastRoom() {
+    try { window.localStorage?.removeItem(lastRoomStorageKey); } catch (_error) {}
+  }
+  function rememberLastRoom() {
+    if (!room || !["waiting","ready"].includes(room.status)
+      || new Date(room.expires_at).getTime()<=Date.now()) return;
+    try {
+      window.localStorage?.setItem(lastRoomStorageKey,JSON.stringify({
+        id:room.id,expires_at:room.expires_at
+      }));
+    } catch (_error) {} // Private mode/storage permissions: manual code still works.
+  }
+  function savedRoomId() {
+    try {
+      const data=JSON.parse(window.localStorage?.getItem(lastRoomStorageKey)||"null");
+      if(!data || typeof data.id!=="string" || data.id.length>128
+        || typeof data.expires_at!=="string"
+        || !Number.isFinite(new Date(data.expires_at).getTime())
+        || new Date(data.expires_at).getTime()<=Date.now()){
+        forgetLastRoom();return null;
+      }
+      return data.id;
+    } catch (_error) { forgetLastRoom();return null; }
+  }
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
     if (liveChannel) {
@@ -1716,6 +1744,9 @@
     const panel = $("lobby-current"), creation = $("lobby-create"), join = $("lobby-join");
     panel.hidden = !room; creation.hidden = !!room; join.hidden = !!room;
     if (!room) return;
+    if(room.status==="cancelled"||new Date(room.expires_at).getTime()<=Date.now()){
+      forgetLastRoom();
+    }
     $("lobby-room-code").textContent = room.code;
     $("lobby-mode").textContent = room.mode;
     $("lobby-status").textContent = room.status === "ready"
@@ -1739,8 +1770,8 @@
       .eq("id", requestedRoomId).maybeSingle();
     if (room?.id !== requestedRoomId) return;
     if (error) throw new Error("Falha ao atualizar sala: " + error.message);
-    if (!data) { room = null; halt(); updateRoomUI(); note("Sala não encontrada."); return; }
-    room = data; updateRoomUI();
+    if (!data) { forgetLastRoom(); room = null; halt(); updateRoomUI(); note("Sala não encontrada."); return; }
+    room = data; rememberLastRoom(); updateRoomUI();
     await refreshMatch();
   }
   async function refreshRoom() {
@@ -1907,7 +1938,42 @@
       refreshRoom().catch(error => note(error.message, true));
     }, 6000);
   }
+  async function restoreLastRoom(generation) {
+    if (restoreInProgress || room || busy || generation!==viewGeneration) return;
+    const id=savedRoomId();
+    if(!id)return;
+    restoreInProgress=true;
+    try {
+      // Supabase RLS is authoritative; a local room ID grants no membership.
+      const {data,error}=await api.from("chaotic_lobbies")
+        .select("id,code,host_id,guest_id,mode,status,expires_at")
+        .eq("id",id).maybeSingle();
+      if(generation!==viewGeneration || room || busy)return;
+      if(error)throw new Error(error.message);
+      if(!data || ![data.host_id,data.guest_id].includes(userId)
+        || !["waiting","ready"].includes(data.status)
+        || new Date(data.expires_at).getTime()<=Date.now()){
+        forgetLastRoom();
+        note("A sala anterior terminou ou não pertence a esta conta.",true);
+        return;
+      }
+      room=data;
+      // The normal default-slot helper belongs to show(); restoration has
+      // its own safe setup because it runs outside that closure.
+      const combatSlot=$("lobby-combat-slot");
+      if(combatSlot)combatSlot.value=room.mode==="1x1"?"6":room.mode==="3x3"?"4":"1";
+      updateRoomUI();
+      watch();
+      note("Sala anterior recuperada. Conferindo turno e ações no servidor...");
+      await refreshRoom(); // Reads data; does not replay defense, attack or spend.
+      if(generation===viewGeneration && room?.id===id)
+        note("Sala recuperada. Turno e ações sincronizados com o servidor.");
+    } finally {
+      restoreInProgress=false;
+    }
+  }
   function show() {
+    const generation=++viewGeneration;
     halt(); room = null; match = null; resumePhase3x3 = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = []; burstEquipmentResponses = []; burstEquipmentEffects = []; burstPriority = []; burstPriorityPasses = []; burstMugicIntents = []; burstMugicCounterplans = []; mugicTrainingWallets = []; mugicTrainingSettlements = []; trainingAbilityEvents = []; harpTrainingEvents = []; allies3x3 = []; transfers3x3 = []; hp3x3 = []; board3x3 = []; moves3x3 = []; contacts3x3 = []; attackProjections3x3 = []; hand3x3 = []; handWallet3x3 = []; costChecks3x3 = []; attackSpends3x3 = []; discard3x3 = []; drawEvents3x3 = []; defenseWindows3x3 = []; elementalInspections3x3 = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
@@ -2254,6 +2320,7 @@
       const mode = $("lobby-select-mode").value;
       if (!["1x1","3x3","6x6"].includes(mode)) throw new Error("Modo inválido");
       room = await rpc("chaotic_create_lobby", { p_mode: mode });
+      rememberLastRoom();
       setDefaultCreatureSlot();
       updateRoomUI(); watch(); note("Sala criada. Compartilhe o código com outro jogador.");
     });
@@ -2262,6 +2329,7 @@
       if (!/^[A-F0-9]{12}$/.test(code)) throw new Error("Digite um código de 12 caracteres válido.");
       note("Entrando na sala...");
       room = await rpc("chaotic_join_lobby", { p_code: code });
+      rememberLastRoom();
       setDefaultCreatureSlot();
       updateRoomUI(); watch(); note("Você entrou na sala. O anfitrião será avisado.");
     });
@@ -2988,7 +3056,9 @@
       const method = room.host_id === userId ? "chaotic_close_lobby" : "chaotic_leave_lobby";
       const success = await rpc(method, { p_id: room.id });
       if (!success) throw new Error("A sala já pode ter sido encerrada. Atualize.");
-      halt(); room = null; match = null; updateRoomUI(); note("Você saiu da sala.");
+      forgetLastRoom(); ++viewGeneration;
+      halt(); room = null; match = null; resumePhase3x3=null;
+      updateRoomUI(); note("Você saiu da sala.");
     });
     $("lobby-back").onclick = () => {
       halt();
@@ -3000,11 +3070,19 @@
     };
     updateMatchUI();
     note("Salas privadas expiram após duas horas.");
+    // Restore only after the screen is mounted and actions are wired.
+    restoreLastRoom(generation).catch(error=>
+      note("Sala anterior indisponível; tente atualizar quando a conexão voltar: "+error.message,true));
   }
   // Mobile browsers may suspend timers and Realtime when the app is
   // backgrounded. Recover immediately when the player returns/gets online.
   function refreshWhenVisible() {
-    if (document.hidden || !room || $("tela-entrada-drome")?.style.display !== "flex") return;
+    if (document.hidden || $("tela-entrada-drome")?.style.display !== "flex") return;
+    if (!room) {
+      restoreLastRoom(viewGeneration).catch(error=>
+        note("Falha ao recuperar a sala: "+error.message,true));
+      return;
+    }
     refreshRoom().catch(error => note("Falha na reconexão: " + error.message, true));
   }
   // Lightweight Node test harnesses do not implement DOM event listeners.
