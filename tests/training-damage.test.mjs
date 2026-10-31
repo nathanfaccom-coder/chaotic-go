@@ -48,7 +48,7 @@ test("3x3 DROME exposes training damage with history and only attacker button",(
   "trainingDamage3x3=trainingDmg.data||[]",
   'table:"chaotic_preview_3x3_training_damage_events"'
  ])assert.ok(ui.includes(marker),marker);
- assert.match(ui,/currentProjection\?\.catalog_attack_id==="105"/);
+ assert.match(ui,/\["105","111","112"\]\.includes\(currentProjection\?\.catalog_attack_id\)/);
  assert.match(ui,/defenseWindowThisTurn.status==="defender_passed_preview"/);
  assert.match(ui,/!trainingDamage3x3.some\(x=>x.turn_no===match.turn_no\)/);
 });
