@@ -29,6 +29,17 @@ begin
  execute 'alter table public.chaotic_preview_3x3_training_damage_events drop constraint chaotic_preview_3x3_training_elemental_attack_catalog_check';
  execute 'alter table public.chaotic_preview_3x3_training_damage_events add constraint chaotic_preview_3x3_training_elemental_attack_catalog_check '||cat;
 end $constraints$;
+do $
+declare x text;
+begin
+ select pg_get_constraintdef(oid) into x
+ from pg_constraint where conrelid='public.chaotic_preview_3x3_training_knockouts'::regclass
+ and conname='chaotic_preview_3x3_knockout_elemental_attack';
+ x:=substr(x,1,length(x)-1)||
+  ' OR (catalog_attack_id=''104''::text and hp_before between 1 and 30))';
+ execute 'alter table public.chaotic_preview_3x3_training_knockouts drop constraint chaotic_preview_3x3_knockout_elemental_attack';
+ execute 'alter table public.chaotic_preview_3x3_training_knockouts add constraint chaotic_preview_3x3_knockout_elemental_attack '||x;
+end $;
 CREATE OR REPLACE FUNCTION public.chaotic_record_preview_3x3_training_knockout()
  RETURNS trigger
  LANGUAGE plpgsql
