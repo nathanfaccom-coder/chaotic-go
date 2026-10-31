@@ -1,0 +1,79 @@
+name: Verificar publicação pública (Chaotic GO)
+on:
+  push:
+    branches: [main]
+    paths:
+      - "index.html"
+      - "scanner.html"
+      - "chaotic-lobby.js"
+      - "sw.js"
+      - ".github/workflows/verify-publication.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: read
+concurrency:
+  group: chaotic-public-site-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify-public-site:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Consultar endereço e configuração reais do GitHub Pages
+        id: pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}/pages"
+          code="$(curl --location --silent --show-error --max-time 20 \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            --output /tmp/chaotic-pages.json --write-out '%{http_code}' "$api")"
+          if [ "$code" != "200" ]; then
+            echo "::error::Não foi possível consultar a configuração do GitHub Pages (HTTP $code). Verifique Settings > Pages e o acesso do workflow."
+            printf 'GitHub Pages: API HTTP %s\n' "$code" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          url="$(jq -r '.html_url // ""' /tmp/chaotic-pages.json)"
+          status="$(jq -r '.status // "unknown"' /tmp/chaotic-pages.json)"
+          source="$(jq -r '.build_type // (.source.branch // "unknown")' /tmp/chaotic-pages.json)"
+          printf 'Endereço: %s\nStatus: %s\nOrigem: %s\n' "$url" "$status" "$source" >> "$GITHUB_STEP_SUMMARY"
+          echo "GitHub Pages status=$status build_type=$source branch=$(jq -r '.source.branch // "none"' /tmp/chaotic-pages.json) path=$(jq -r '.source.path // "none"' /tmp/chaotic-pages.json) URL=$url"
+          if [[ "$url" != https://* ]]; then
+            echo "::error::Pages não retornou uma URL HTTPS válida."
+            exit 1
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+      - name: Testar página principal e arquivos essenciais
+        env:
+          PUBLIC_URL: ${{ steps.pages.outputs.url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="${PUBLIC_URL%/}/"
+          expected="$(sed -nE 's/.*VERSÃO (0[.]1[.][0-9]+).*/\1/p' index.html | head -1)"
+          [ -n "$expected" ] || { echo "::error::Versão não identificada no index local"; exit 1; }
+          declare -a paths=("index.html" "scanner.html" "login-completo.html" "chaotic-lobby.js" "sw.js" "style.css" "logo.png")
+          for path in "${paths[@]}"; do
+            code="$(curl --location --silent --show-error --max-time 25 \
+              --output "/tmp/chaotic-site-${path##*/}" --write-out '%{http_code}' "${base}${path}")"
+            if [ "$code" != "200" ]; then
+              echo "::error::GitHub Pages: ${path} indisponível (HTTP ${code})"
+              exit 1
+            fi
+            echo "- ${path}: HTTP ${code}" >> "$GITHUB_STEP_SUMMARY"
+          done
+          echo "Versão remota: $(grep -oE 'VERSÃO 0[.]1[.][0-9]+' /tmp/chaotic-site-index.html | head -1 || true)"
+          if ! grep -Fq "VERSÃO ${expected}" /tmp/chaotic-site-index.html; then
+            echo "::error::Página pública está desatualizada; esperada versão ${expected}"
+            exit 1
+          fi
+          if ! grep -Fq "chaotic_ping_preview_3x3_player" /tmp/chaotic-site-chaotic-lobby.js; then
+            echo "::error::O DROME publicado está incompleto ou defasado."
+            exit 1
+          fi
+          echo "✅ Página pública e arquivos críticos verificados na versão ${expected}." >> "$GITHUB_STEP_SUMMARY"

@@ -51,7 +51,7 @@ function makeClient(userId) {
       throw Error("Unexpected RPC "+method);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances"].includes(table));
       return {select(){return this;},eq(_field,id){this.id=id;return this;},
         order(){return this;},
         limit(){return Promise.resolve({data:[],error:null});},
@@ -112,9 +112,9 @@ test("two accounts create and join a private room, host sees ready",async()=>{
   guest.browser.window.abrirSalaPrivadaDrome();
   guest.elem("lobby-input-code").value=code;
   await guest.elem("lobby-join-btn").onclick();
-  assert.match(guest.elem("lobby-status").textContent,/Dois jogadores/);
+  assert.match(guest.elem("lobby-status").textContent,/Sala pronta/);
   await host.elem("lobby-refresh").onclick();
-  assert.match(host.elem("lobby-status").textContent,/Dois jogadores/);
+  assert.match(host.elem("lobby-status").textContent,/Sala pronta/);
   await host.elem("lobby-copy").onclick();
   assert.match(host.getClipboard(),new RegExp(code));
   await guest.elem("lobby-close").onclick();
@@ -137,7 +137,7 @@ test("same account cannot join its own lobby", async()=>{
   assert.match(otherTab.elem("lobby-notice").textContent,/Não é possível entrar/);
 });
 
-test("private room subscribes to four channels and cleans up after closing",async()=>{
+test("private room subscribes to current DROME tables and cleans up after closing",async()=>{
   const host=makeBrowser("live-host"),guest=makeBrowser("live-guest");
   host.browser.window.abrirSalaPrivadaDrome();
   host.elem("lobby-select-mode").value="1x1";
@@ -145,14 +145,14 @@ test("private room subscribes to four channels and cleans up after closing",asyn
   const own=realtimeChannels.findLast(c=>c.userId==="live-host");
   assert.ok(own?.active);
   assert.deepEqual(own.listeners.map(x=>x.filter.table),
-    ["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts"]);
+    ["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances","chaotic_preview_individual_damage","chaotic_preview_equipment_reveals","chaotic_preview_attack_wallets","chaotic_preview_attack_hand","chaotic_preview_initiatives","chaotic_preview_room_locations","chaotic_preview_effect_candidates","chaotic_preview_hp_wallets","chaotic_preview_hp_events","chaotic_preview_resolution_audits","chaotic_preview_burst_windows","chaotic_preview_burst_priority","chaotic_preview_burst_priority_passes","chaotic_preview_burst_mugic_intents","chaotic_preview_burst_mugic_counterplans","chaotic_preview_mugic_token_wallets","chaotic_preview_mugic_token_settlements","chaotic_preview_ability_heal_events","chaotic_preview_harp_token_events","chaotic_preview_3x3_contact_intents","chaotic_preview_3x3_attack_projections","chaotic_preview_3x3_elemental_inspections","chaotic_preview_3x3_training_damage_events","chaotic_preview_3x3_training_attack_locks","chaotic_preview_3x3_training_knockouts","chaotic_preview_3x3_training_outcomes","chaotic_preview_3x3_defense_windows","chaotic_preview_3x3_attack_spends","chaotic_preview_3x3_cost_inspections","chaotic_preview_burst_order_plans","chaotic_preview_burst_equipment_responses","chaotic_preview_burst_equipment_effects"]);
   const code=host.elem("lobby-room-code").textContent;
   guest.browser.window.abrirSalaPrivadaDrome();
   guest.elem("lobby-input-code").value=code;
   await guest.elem("lobby-join-btn").onclick();
   own.listeners[0].handler({eventType:"UPDATE"});
   await new Promise(resolve=>setImmediate(resolve));
-  assert.match(host.elem("lobby-status").textContent,/Dois jogadores/);
+  assert.match(host.elem("lobby-status").textContent,/Sala pronta/);
   await host.elem("lobby-close").onclick();
   assert.equal(own.active,false,"No stale subscription after closing room");
 });
