@@ -27,7 +27,7 @@ begin
  (guest,'00000000-0000-0000-0000-000000000000','authenticated','authenticated',
  'chaotic-test-v51-guest@example.invalid',now(),now());
 
- for i in 1..11 loop
+ for i in 1..12 loop
   attack_id:=case i when 1 then '105' when 2 then '111'
     when 3 then '112' when 4 then '113' when 5 then '114' when 6 then '101' when 7 then '107' else '110' end;
   attack_name:=case i when 1 then 'Vento Forte' when 2 then 'MÃO ELETRÔNICA'
@@ -113,24 +113,30 @@ begin
    card_state,spent_turn,spent_reason)
   values(lobby,host,1,'attack-test-'||attack_id,1,'spent',1,'attack');
 
-  if i in(10,11) then
+  if i in(10,11,12) then
    -- Canonical album-backed synthetic cards in the *private training* deck.
    -- A real SONAR can choose cost 1 Vento Forte or cost 0 SPEED.
    update public.chaotic_game_nodes
-    set data=pg_catalog.jsonb_set(data,'{ataques}',
-      '["attack-test-110","sonar-v55-c105","sonar-v55-c108"]'::jsonb)
+    set data=pg_catalog.jsonb_set(data,'{ataques}',case when i=12
+      then '["attack-test-110","sonar-v55-c110","sonar-v55-c111"]'::jsonb
+      else '["attack-test-110","sonar-v55-c105","sonar-v55-c108"]'::jsonb end)
     where user_id=host and node_path='decks/3x3_slot_1';
    insert into public.chaotic_game_nodes(user_id,node_path,data)
-    values(host,'album','[
-     {"id":"attack-test-110","nome":"SONAR","tipoCarta":"Ataque"},
-     {"id":"sonar-v55-c105","nome":"Vento Forte","tipoCarta":"Ataque"},
-     {"id":"sonar-v55-c108","nome":"SPEED","tipoCarta":"Ataque"}
-    ]'::jsonb)
+    values(host,'album',case when i=12 then '[
+      {"id":"attack-test-110","nome":"SONAR","tipoCarta":"Ataque"},
+      {"id":"sonar-v55-c110","nome":"SONAR","tipoCarta":"Ataque"},
+      {"id":"sonar-v55-c111","nome":"MÃO ELETRÔNICA","tipoCarta":"Ataque"}]'::jsonb
+      else '[
+      {"id":"attack-test-110","nome":"SONAR","tipoCarta":"Ataque"},
+      {"id":"sonar-v55-c105","nome":"Vento Forte","tipoCarta":"Ataque"},
+      {"id":"sonar-v55-c108","nome":"SPEED","tipoCarta":"Ataque"}]'::jsonb end)
     on conflict(user_id,node_path) do update set data=excluded.data;
    insert into public.chaotic_preview_3x3_attack_hand(
     lobby_id,actor_id,card_slot,attack_instance_id,draw_position,card_state)
-   values(lobby,host,2,'sonar-v55-c105',2,'deck'),
-         (lobby,host,3,'sonar-v55-c108',3,'deck');
+   values(lobby,host,2,
+        case when i=12 then 'sonar-v55-c110' else 'sonar-v55-c105' end,2,'deck'),
+         (lobby,host,3,
+        case when i=12 then 'sonar-v55-c111' else 'sonar-v55-c108' end,3,'deck');
   end if;
 
   insert into public.chaotic_preview_3x3_cost_inspections(
@@ -358,6 +364,28 @@ begin
     then raise exception 'SONAR search receipt duplicated';end if;
    end;
   end if;
+  if i=12 then
+   declare check_choices jsonb;finished jsonb;
+   begin
+    check_choices:=public.chaotic_resolve_preview_3x3_sonar_search(lobby,1,null,true);
+    if pg_catalog.jsonb_array_length(check_choices->'choices')<>0
+    then raise exception 'SONAR cost >1 offered as eligible: %',check_choices;end if;
+    error_text:=null;
+    begin
+     perform public.chaotic_resolve_preview_3x3_sonar_search(lobby,1,2,false);
+    exception when others then get stacked diagnostics error_text=message_text;end;
+    if error_text is null or position('Não há carta elegível' in error_text)=0
+    then raise exception 'SONAR accepted cost >1 target: %',error_text;end if;
+    finished:=public.chaotic_resolve_preview_3x3_sonar_search(lobby,1,null,false);
+    if (finished->>'search_succeeded')::boolean
+      or (finished->>'hand_count_after')::integer<>0
+      or not (select effects_fully_resolved from public.chaotic_preview_3x3_training_damage_events
+              where lobby_id=lobby and turn_no=1)
+      or (select count(*) from public.chaotic_preview_3x3_attack_hand
+          where lobby_id=lobby and actor_id=host and card_state='hand')<>0
+    then raise exception 'SONAR no eligible card should end cleanly: %',finished;end if;
+   end;
+  end if;
   if attack_id='113' and (effect.damage_dealt<>0 or
     (select damage_events from public.chaotic_preview_3x3_hp_wallets
     where lobby_id=lobby and actor_id=guest and position=4)<>0)
@@ -410,4 +438,4 @@ begin
  end loop;
 end $integration$;
 rollback;
-select 'PASS v0.1.55: 11 attack RPCs plus 2 SONAR private search selections cost 1/0, actor-only, no replay, rollback' as result;
+select 'PASS v0.1.55: 12 attack RPCs, 2 private SONAR selections cost 0/1, no-target closes, opponent and replay blocked; rollback' as result;
