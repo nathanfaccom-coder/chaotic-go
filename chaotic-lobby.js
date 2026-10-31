@@ -1525,7 +1525,7 @@
       :borrowedPlan3x3?.state==="awaiting_defender"
         ?"Vento Forte emprestado: aguardando passe do defensor. Nenhum ponto foi pago."
       :borrowedPlan3x3?.state==="defender_passed_preview"
-        ?"Defensor passou. Vento Forte emprestado pode causar nocaute INDIVIDUAL ou FINAL DA EQUIPE, sem equipamento ou com Amuleto do Vácuo (202), Bastão da Sabedoria (204) ou Bracelete de Água (207) autenticados; se for final, o resultado vale somente no treino. Revelação opcional não executada."
+        ?"Defensor passou. Vento Forte emprestado pode causar nocaute INDIVIDUAL ou FINAL DA EQUIPE, sem equipamento ou com Amuleto do Vácuo (202), Bastão da Sabedoria (204), Bracelete de Cristal (206) ou Bracelete de Água (207) autenticados; se for final, o resultado vale somente no treino. Revelação opcional não executada."
       :borrowedPlan3x3?.state==="base_resolved_no_optional_reveal"
         ?"Dano-base do Vento Forte emprestado resolvido. Carta original devolvida. "+
          (borrowedRevealEvents3x3.some(x=>x.turn_no===match?.turn_no)
@@ -1565,7 +1565,7 @@
       borrowedPriority3x3?.state==="awaiting_defender"
         ?"Vento Forte emprestado: o defensor deve passar a prioridade (SEM dano ou gasto)."
         :borrowedPriority3x3?.state==="defender_passed_preview"
-        ?"Passe registrado. Dano-base de treino liberado SEM equipamento ou com 202/204/207 originais verificados; Nocaute individual permitido e nocaute final de equipe gera RESULTADO DE TREINO, nunca oficial."
+        ?"Passe registrado. Dano-base de treino liberado SEM equipamento ou com 202/204/206/207 originais verificados; Nocaute individual permitido e nocaute final de equipe gera RESULTADO DE TREINO, nunca oficial."
         :borrowedPriority3x3?.state==="base_resolved_no_optional_reveal"
         ?"Vento Forte emprestado resolvido: custo e 5 de dano-base; carta devolvida, sem revelação opcional."
         :"Nenhuma reação de Vento Forte emprestado pendente.";
@@ -2474,7 +2474,7 @@
       '<button id="lobby-3x3-borrowed-cancel-plan" type="button" hidden>Cancelar preparação (SEM gastar)</button>',
       '<button id="lobby-3x3-borrowed-open-priority" type="button" hidden>Abrir resposta para Vento Forte emprestado (SEM pagar)</button>',
       '<button id="lobby-3x3-borrowed-abort-priority" type="button" hidden>Cancelar reação emprestada (SEM pagar)</button>',
-      '<button id="lobby-3x3-borrowed-settle-base" type="button" hidden>Resolver Vento Forte emprestado: 1 ponto e até 5 dano-base (SEM equipamento ou com 202/204/207 validados)</button>',
+      '<button id="lobby-3x3-borrowed-settle-base" type="button" hidden>Resolver Vento Forte emprestado: 1 ponto e até 5 dano-base (SEM equipamento ou com 202/204/206/207 validados)</button>',
       '<p id="lobby-3x3-borrowed-plan-status" class="lobby-events" role="status" aria-live="polite">Nenhuma intenção de uso preparada.</p>',
       '<p id="lobby-3x3-borrowed-quote-result" class="lobby-events" role="status" aria-live="polite">Prévia não calculada.</p>',
       '</div>',
