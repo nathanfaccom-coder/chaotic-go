@@ -71,3 +71,17 @@ test("v0.1.77: publication pointers and PWA caches are coherent",()=>{
  assert.match(scanner,/full-game-bootstrap\.js\?v=release-77/);
  assert.match(boot,/chaotic-lobby\.js\?v=release-77/);
 });
+
+const positiveSql=await readFile(new URL("../supabase/tests/chaotic-preview-3x3-borrowed-quote-positive-live-v0177.test.sql",import.meta.url),"utf8");
+test("v0.1.77: real Supabase positive loan fixture tests original cost, HP and owner isolation",()=>{
+ for(const marker of [
+  "chaotic_preview_3x3_temporary_card_custody",
+  "chaotic_quote_preview_3x3_borrowed_attack(room,loan,1)",
+  "quoted->>'attack_cost'<>'1'",
+  "quoted->>'base_damage'<>'5'",
+  "quoted->>'defender_hp_after_base_only'<>'15'",
+  "Original owner could quote the borrower card",
+  "rollback;","PASS v0.1.77 borrower-only quote"
+ ])assert.ok(positiveSql.includes(marker),marker);
+ assert.doesNotMatch(positiveSql,/\bcommit\s*;/i);
+});
