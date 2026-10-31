@@ -176,7 +176,7 @@ begin
   then raise exception 'Future attack restriction was not recorded for %',attack_id;end if;
   -- The lobby has one-active-match-per-host uniqueness. Each fixture is deleted
   -- before seeding the next case, within the enclosing rollback transaction.
-  delete from public.chaotic_lobbies where id=lobby;
+  update public.chaotic_lobbies set status='cancelled' where id=lobby;
  end loop;
 end $integration$;
 rollback;
