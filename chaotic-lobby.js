@@ -165,8 +165,14 @@
         &&((x.catalog_attack_id==="105"&&x.optional_reveal_pending)
           ||(x.catalog_attack_id==="110"&&!x.effects_fully_resolved)))
     );
+    // No 3x3 a vez só pode ser passada após recuperar a fase real do servidor.
+    // Sem checkpoint, falhar fechado: ocultar o botão em vez de sugerir um replay.
+    const verifiedTurnStage=room.mode!=="3x3"||(!!resumePhase3x3
+      &&resumePhase3x3.turn_no===match?.turn_no
+      &&!resumePhase3x3.training_finished
+      &&["ready","damage_settled"].includes(resumePhase3x3.phase));
     $("lobby-turn-pass").hidden = !active || match.current_player !== userId ||
-      hold3x3 ||
+      !verifiedTurnStage || hold3x3 ||
       (room.mode==="1x1"&&burstWindows.some(x=>x.turn_no===match.turn_no
         &&x.attacker_id===userId&&
         (x.status==="awaiting_defender"||
@@ -1262,7 +1268,7 @@
         session_closed:"Sessão de treinamento encerrada."
       };
       recoveryText.textContent=!checkpoint
-        ?"Verificação da etapa do ataque indisponível; atualize a conexão."
+        ?"Etapa do ataque ainda não confirmada. Ações bloqueadas por segurança; use Atualizar conexão e turno."
         :!checkpointForTurn
           ?"O servidor está em outro turno. Atualize a conexão antes de agir."
           :("Recuperação do turno "+checkpoint.turn_no+": "+
@@ -1271,8 +1277,9 @@
               " Nenhuma ação de recuperação sua está pendente.")+
             " Nenhuma carta ou dano é repetido ao reconectar.");
     }
+    // A queda da consulta do checkpoint nunca libera botões do atacante.
     const myTurn=!!current&&match.current_player===userId
-      &&(!checkpoint||checkpointForTurn);
+      &&!!checkpoint&&checkpointForTurn&&!checkpoint.training_finished;
     const attackLockedThisTurn=trainingAttackLocks3x3.some(x=>
       x.defender_id===userId&&match?.turn_no>x.inflicted_turn
       &&match?.turn_no<=x.last_blocked_turn);
@@ -1387,28 +1394,31 @@
           "campeão adversário c"+x.revealed_slot+" virado para cima.")+
          " Somente treinamento.").join("\n")
       :"Nenhuma revelação opcional de Vento Forte registrada.";
-    $("lobby-3x3-defense-pass").hidden=!(!!current&&!!defenseWindowThisTurn
+    // Somente o defensor com checkpoint confirmado pode ver as respostas.
+    const verifiedDefense=!!current&&!!checkpoint&&checkpointForTurn
+      &&checkpoint.phase==="awaiting_defender"&&checkpoint.your_action_required;
+    $("lobby-3x3-defense-pass").hidden=!(verifiedDefense&&!!defenseWindowThisTurn
       &&defenseWindowThisTurn.status==="awaiting_defender"
       &&defenseWindowThisTurn.defender_id===userId
       &&defenseWindowThisTurn.attacker_id===match.current_player);
-    $("lobby-3x3-element-review").hidden=!(!!current&&!!defenseWindowThisTurn
+    $("lobby-3x3-element-review").hidden=!(verifiedDefense&&!!defenseWindowThisTurn
       &&defenseWindowThisTurn.status==="awaiting_defender"
       &&defenseWindowThisTurn.defender_id===userId
       &&defenseWindowThisTurn.attacker_id===match.current_player
       &&!elementalInspections3x3.some(x=>x.turn_no===match.turn_no));
-    $("lobby-3x3-creature-elements").hidden=!(!!current&&!!defenseWindowThisTurn
+    $("lobby-3x3-creature-elements").hidden=!(verifiedDefense&&!!defenseWindowThisTurn
       &&defenseWindowThisTurn.status==="awaiting_defender"
       &&defenseWindowThisTurn.defender_id===userId
       &&defenseWindowThisTurn.attacker_id===match.current_player
       &&elementalInspections3x3.some(x=>x.turn_no===match.turn_no)
       &&!creatureChecks3x3.some(x=>x.turn_no===match.turn_no));
-    $("lobby-3x3-dynamic-elements").hidden=!(!!current&&!!defenseWindowThisTurn
+    $("lobby-3x3-dynamic-elements").hidden=!(verifiedDefense&&!!defenseWindowThisTurn
       &&defenseWindowThisTurn.status==="awaiting_defender"
       &&defenseWindowThisTurn.defender_id===userId
       &&defenseWindowThisTurn.attacker_id===match.current_player
       &&creatureChecks3x3.some(x=>x.turn_no===match.turn_no)
       &&!dynamicElementChecks3x3.some(x=>x.turn_no===match.turn_no));
-    $("lobby-3x3-private-equipment").hidden=!(!!current&&!!defenseWindowThisTurn
+    $("lobby-3x3-private-equipment").hidden=!(verifiedDefense&&!!defenseWindowThisTurn
       &&defenseWindowThisTurn.status==="awaiting_defender"
       &&defenseWindowThisTurn.defender_id===userId
       &&defenseWindowThisTurn.attacker_id===match.current_player
