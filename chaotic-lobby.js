@@ -1765,10 +1765,11 @@
   async function refreshRoomOnce() {
     if (!room || !$("lobby-current")) { halt(); return; }
     const requestedRoomId = room.id;
+    const requestedView = viewGeneration;
     const { data, error } = await api.from("chaotic_lobbies")
       .select("id,code,host_id,guest_id,mode,status,expires_at")
       .eq("id", requestedRoomId).maybeSingle();
-    if (room?.id !== requestedRoomId) return;
+    if (room?.id !== requestedRoomId || requestedView!==viewGeneration) return;
     if (error) throw new Error("Falha ao atualizar sala: " + error.message);
     if (!data) { forgetLastRoom(); room = null; halt(); updateRoomUI(); note("Sala não encontrada."); return; }
     room = data; rememberLastRoom(); updateRoomUI();
@@ -1970,6 +1971,13 @@
         note("Sala recuperada. Turno e ações sincronizados com o servidor.");
     } finally {
       restoreInProgress=false;
+      // A second opening invalidates this async read. Retry against the
+      // new screen instead of leaving the player stuck with no room.
+      if(generation!==viewGeneration && !room && savedRoomId()
+        && $("tela-entrada-drome")?.style.display==="flex"){
+        restoreLastRoom(viewGeneration).catch(error=>
+          note("Reconexão da sala interrompida: "+error.message,true));
+      }
     }
   }
   function show() {
