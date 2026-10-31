@@ -597,10 +597,32 @@ begin
     then raise exception 'Vine failed to block a real hand draw: %',error_text;end if;
    end if;
   end if;
+  if i=1 then
+   -- Test guard against a RESULT ROW, not victory generation: three-KO
+   -- creation is verified in the dedicated damage-trigger fixtures.
+   -- The valid same-turn defense window supplies the real FK required
+   -- by the outcomes table. We do not fabricate knockouts or official XP.
+   insert into public.chaotic_preview_3x3_training_outcomes(
+     lobby_id,decided_turn,winner_id,defeated_id)
+   values(lobby,1,host,guest);
+   error_text:=null;
+   begin perform public.chaotic_pass_turn(lobby,1);
+   exception when others then get stacked diagnostics error_text=message_text;end;
+   if error_text is null or position('já teve vencedor' in error_text)=0
+   then raise exception 'Pass accepted after recorded training outcome: %',error_text;end if;
+   if (select turn_no from public.chaotic_match_turns where lobby_id=lobby)<>1
+   then raise exception 'Blocked pass unexpectedly changed the turn';end if;
+   -- The member can still close their *test session* after a result.
+   if (public.chaotic_stop_match(lobby)).status<>'finished'
+   then raise exception 'Cannot close finished training test session';end if;
+   if (select official_match_ended from public.chaotic_preview_3x3_training_outcomes
+    where lobby_id=lobby)
+   then raise exception 'Training-only test incorrectly completed an official match';end if;
+  end if;
   -- The lobby has one-active-match-per-host uniqueness. Each fixture is deleted
   -- before seeding the next case, within the enclosing rollback transaction.
   update public.chaotic_lobbies set status='cancelled' where id=lobby;
  end loop;
 end $integration$;
 rollback;
-select 'PASS v0.1.62: real 12 attack RPCs; paid/defender/Vento/SONAR premature pass denied; previous attack locks preserved; rollback' as result;
+select 'PASS v0.1.62: real 12 attack RPCs; paid/defender/Vento/SONAR premature pass denied; winner cannot pass, member may stop test, locks retained; rollback' as result;
