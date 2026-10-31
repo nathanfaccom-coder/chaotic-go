@@ -1485,7 +1485,7 @@
       :"Nenhuma carta emprestada recebida. Mão Negra (102) ainda não pode ser usada.";
     const borrowedBox=$("lobby-3x3-borrowed-quote-box");
     const borrowedChoice=$("lobby-3x3-borrowed-choice");
-    if(borrowedChoice){
+    if(borrowedChoice&&borrowedAttacks3x3.length>0){
       const previouslySelected=borrowedChoice.value;
       borrowedChoice.replaceChildren();
       for(const borrowed of borrowedAttacks3x3){
