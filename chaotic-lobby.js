@@ -93,13 +93,20 @@
           && /turno|defensor|dano|atac|contato|pagamento|janela|antirreplay|vencedor|resolvi/i.test(message)) {
         try {
           await refreshRoom();
+          // The room may have been replaced while recovering a conflict.
+          if(room?.id!==actionRoomId || viewGeneration!==actionView)return;
           note("O servidor atualizou o combate após o conflito: "+message,true);
         } catch (_syncError) {
+          if(room?.id!==actionRoomId || viewGeneration!==actionView)return;
           note("Ação rejeitada. Reabra ou atualize a sala ao recuperar a conexão: "+message,true);
         }
       }
     }
-    finally { busy = false; buttons.forEach(btn => { if (btn.isConnected) btn.disabled = false; }); }
+    finally {
+      // An older action cannot unlock a newly opened DROME session.
+      if(viewGeneration===actionView)busy=false;
+      buttons.forEach(btn => { if (btn.isConnected) btn.disabled = false; });
+    }
   }
   // Guard two fast taps/tabs with the authoritative state as close to the
   // mutation as possible. The server locks are still the final authority.
@@ -2201,11 +2208,13 @@
   }
   async function refreshRoom() {
     if (refreshInFlight) { refreshQueued = true; return refreshInFlight; }
+    const requestedRoomId=room?.id, requestedView=viewGeneration;
     const pending = (async () => {
       do {
         refreshQueued = false;
         await refreshRoomOnce();
-      } while (refreshQueued && room && $("lobby-current"));
+      } while (refreshQueued && room?.id===requestedRoomId
+        && viewGeneration===requestedView && $("lobby-current"));
     })();
     refreshInFlight = pending;
     try { return await pending; }
@@ -2431,6 +2440,11 @@
     halt(); room = null; match = null; resumePhase3x3 = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = []; burstEquipmentResponses = []; burstEquipmentEffects = []; burstPriority = []; burstPriorityPasses = []; burstMugicIntents = []; burstMugicCounterplans = []; mugicTrainingWallets = []; mugicTrainingSettlements = []; trainingAbilityEvents = []; harpTrainingEvents = []; allies3x3 = []; transfers3x3 = []; hp3x3 = []; board3x3 = []; moves3x3 = []; contacts3x3 = []; attackProjections3x3 = []; hand3x3 = []; borrowedAttacks3x3 = []; borrowedPlan3x3 = null; borrowedPriority3x3 = null; handWallet3x3 = []; costChecks3x3 = []; attackSpends3x3 = []; discard3x3 = []; drawEvents3x3 = []; defenseWindows3x3 = []; elementalInspections3x3 = [], creatureChecks3x3 = [], privateEquipmentChecks3x3 = [], dynamicElementChecks3x3 = [], trainingDamage3x3 = [], trainingKnockouts3x3 = [], trainingOutcomes3x3 = [], trainingAttackLocks3x3 = [], sonarSearchEvents3x3 = [], sonarSearchChoices3x3 = [], sonarChoiceKey3x3 = "", faceStates3x3 = [], ventoRevealEvents3x3 = [], borrowedRevealEvents3x3 = [], playerPresence3x3 = null;
     const screen = $("tela-entrada-drome");
     if (!screen) return;
+    // A prior screen's suspended network request must not keep this new
+    // screen locked or force it to await another room's long refresh chain.
+    busy=false;
+    refreshInFlight=null;
+    refreshQueued=false;
     $("tela-menu").style.display = "none";
     screen.style.display = "flex";
     window.modoMenu = false;
