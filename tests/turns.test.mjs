@@ -304,6 +304,7 @@ function makeClient(actor) {
         const catalog={
           "104":{name:"Fogo Primordial 2.0",fire:5,water:0,earth:0,air:0,
             special:"six_sided_base_multiplier"},
+          "105":{name:"Vento Forte",fire:0,water:0,earth:0,air:0,special:"none"},
           "101":{name:"Ácido Gástrico",fire:5,water:5,earth:0,air:0,special:"none"}
         }[p?.catalog_attack_id];
         if(!m||m.status!=="active"||m.turn_no!==args.p_expected_turn
@@ -361,6 +362,8 @@ function makeClient(actor) {
         const w=hand3x3Wallets.get(room.id+"/"+actor);
         const item=hand3x3Cards.get(room.id+"/"+actor+"/"+p?.attack_card_slot);
         const budget=w?3+(args.p_expected_turn-w.prepared_turn)/2-w.spent_points:null;
+        if(!["101","105","107","110","111","112","113","114"].includes(p?.catalog_attack_id))
+          return {data:null,error:{message:"Ataque ainda não possui dano experimental 3x3"}};
         if(!m||m.status!=="active"||m.turn_no!==args.p_expected_turn
           ||m.current_player!==actor||room.mode!=="3x3"||room.status!=="ready"
           ||![m.host_id,m.guest_id].includes(actor)
@@ -416,6 +419,7 @@ function makeClient(actor) {
         const card=deck?.attacks?.[args.p_attack_card_slot-1];
         const model={"Ácido Gástrico":{catalog:"101",base:10,cost:3},
           "Fogo Primordial 2.0":{catalog:"104",base:5,cost:2},
+          "Vento Forte":{catalog:"105",base:5,cost:1},
           "Mão Negra":{catalog:"102",base:0,cost:0}}[card?.name];
         if(!m||m.status!=="active"||m.turn_no!==args.p_expected_turn
           ||m.current_player!==actor||room.mode!=="3x3"||room.status!=="ready"
@@ -2659,7 +2663,7 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
     {id:"attack-host-102",name:"Mão Negra",quantity:1,danoBase:0,custo:0}
   ];
   deckB.attacks=[
-    {id:"attack-guest-104",name:"Fogo Primordial 2.0",quantity:1,danoBase:5,custo:2},
+    {id:"attack-guest-105",name:"Vento Forte",quantity:1,danoBase:5,custo:1},
     {id:"attack-guest-101",name:"Ácido Gástrico",quantity:1,danoBase:10,custo:3},
     {id:"attack-guest-102",name:"Mão Negra",quantity:1,danoBase:0,custo:0}
   ];
@@ -2858,7 +2862,7 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
   guest("lobby-3x3-attack-slot").value="1";
   await guest("lobby-3x3-attack-project").onclick();
   const guestAttack=attackProjections3x3.get(id+"/2");
-  assert.equal(guestAttack?.catalog_attack_id,"104");
+  assert.equal(guestAttack?.catalog_attack_id,"105");
   assert.equal(guestAttack.base_damage,5);
   assert.equal(guestAttack.defender_hp_before,35);
   assert.equal(guestAttack.defender_hp_projected,30);
@@ -2881,9 +2885,9 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
   const guestCost=costChecks3x3.get(id+"/2");
   assert.equal(guestCost.hand_verified,true);
   assert.equal(guestCost.can_afford,true);
-  assert.equal(guestCost.attack_cost,2);
+  assert.equal(guestCost.attack_cost,1);
   assert.equal(guestCost.points_available,3);
-  assert.equal(guestCost.points_after_if_paid,1);
+  assert.equal(guestCost.points_after_if_paid,2);
   assert.equal(guestCost.actual_attack_cost_paid,false);
   assert.equal(guestCost.original_card_consumed,false);
   assert.equal(hand3x3Wallets.get(id+"/"+opponent).spent_points,0);
@@ -2904,23 +2908,23 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
   blocked.card_state="hand";
   await guest("lobby-3x3-attack-spend").onclick();
   const guestSpend=attackSpends3x3.get(id+"/2");
-  assert.equal(guestSpend?.training_attack_cost,2);
+  assert.equal(guestSpend?.training_attack_cost,1);
   assert.equal(guestSpend?.points_before,3);
-  assert.equal(guestSpend?.points_after,1);
+  assert.equal(guestSpend?.points_after,2);
   assert.equal(guestSpend.training_points_paid,true);
   assert.equal(guestSpend.training_card_spent,true);
   assert.equal(guestSpend.official_points_changed,false);
   assert.equal(guestSpend.original_card_consumed,false);
   assert.equal(guestSpend.training_damage_applied,false);
-  assert.equal(hand3x3Wallets.get(id+"/"+opponent).spent_points,2);
+  assert.equal(hand3x3Wallets.get(id+"/"+opponent).spent_points,1);
   assert.equal(hand3x3Cards.get(id+"/"+opponent+"/1").card_state,"spent");
   assert.equal(hand3x3Cards.get(id+"/"+opponent+"/1").spent_turn,2);
   assert.equal(hand3x3Cards.get(id+"/"+opponent+"/1").spent_reason,"attack");
   assert.equal(guest("lobby-3x3-attack-spend").hidden,true);
-  assert.match(guest("lobby-3x3-spend-history").textContent,/3 → 1 pontos/);
+  assert.match(guest("lobby-3x3-spend-history").textContent,/3 → 2 pontos/);
   assert.ok((await makeClient(opponent).rpc("chaotic_spend_preview_3x3_attack",{
     p_lobby_id:id,p_expected_turn:2})).error,"Clicking twice must never debit twice");
-  assert.equal(hand3x3Wallets.get(id+"/"+opponent).spent_points,2);
+  assert.equal(hand3x3Wallets.get(id+"/"+opponent).spent_points,1);
   assert.equal(hp3x3.get(id+"/"+owner+"/5").hp_remaining,35,
     "Only damage projection is saved; no training HP is changed");
   assert.match(guest("lobby-3x3-attack-history").textContent,/SOMENTE SE dano-base/);
@@ -2967,16 +2971,16 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
     "Attacker cannot issue defender-only elemental audit");
   await host("lobby-3x3-element-review").onclick();
   const firstElements=elementReviews3x3.get(id+"/2");
-  assert.equal(firstElements?.catalog_attack_id,"104");
+  assert.equal(firstElements?.catalog_attack_id,"105");
   assert.equal(firstElements?.base_damage,5);
-  assert.equal(firstElements?.fire_component,5);
+  assert.equal(firstElements?.fire_component,0);
   assert.equal(firstElements?.water_component,0);
-  assert.equal(firstElements?.special_resolution,"six_sided_base_multiplier");
+  assert.equal(firstElements?.special_resolution,"none");
   assert.equal(firstElements?.elemental_eligibility_verified,false);
   assert.equal(firstElements?.special_effect_executed,false);
   assert.equal(firstElements?.training_hp_changed,false);
   assert.equal(hp3x3.get(id+"/"+owner+"/5").hp_remaining,35);
-  assert.match(host("lobby-3x3-element-history").textContent,/dado de 6 lados/);
+  assert.match(host("lobby-3x3-element-history").textContent,/Efeito especial\/condições/);
   assert.equal(host("lobby-3x3-element-review").hidden,true);
   assert.ok((await makeClient(owner).rpc("chaotic_inspect_preview_3x3_elemental_defense",{
     p_lobby_id:id,p_expected_turn:2})).error,
@@ -2991,7 +2995,7 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
   await guest("lobby-turn-pass").onclick();
   assert.equal(matches.get(id).turn_no,2,
     "The attacker must not skip unresolved experimental damage");
-  // This legacy hand/recycle unit scenario uses attack 104 whose final
+  // This legacy hand/recycle unit scenario uses attack 105 whose final
   // damage is NOT implemented. Mark an explicit synthetic completed state
   // only to proceed with later hand tests; this is NOT a damage-RPC test.
   attackSpends3x3.get(id+"/2").training_damage_applied=true;
@@ -3103,7 +3107,7 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
   assert.equal(hand3x3Cards.get(id+"/"+opponent+"/1").card_state,"hand");
   assert.equal(hand3x3Wallets.get(id+"/"+opponent).spent_points,2,
     "Recycling cannot refund the actual previous training payment");
-  assert.equal(attackSpends3x3.get(id+"/2").training_attack_cost,2,
+  assert.equal(attackSpends3x3.get(id+"/2").training_attack_cost,1,
     "The original payment audit survives recycling");
   await guest("lobby-turn-pass").onclick();
   await host("lobby-turn-refresh").onclick();
