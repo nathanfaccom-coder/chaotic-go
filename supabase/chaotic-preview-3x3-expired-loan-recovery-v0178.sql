@@ -33,7 +33,7 @@ begin
  then raise exception 'Não é permitido recuperar empréstimos durante partida ativa';end if;
  if m.turn_no not between 1 and 121
  then raise exception 'Turno de recuperação inconsistente';end if;
- final_turn:=pg_catalog.least(m.turn_no,120);
+ final_turn:=least(m.turn_no,120);
  -- States reserved/used need separate future semantics; do not silently
  -- 'repair' them and lose records belonging to a later game feature.
  if exists(
