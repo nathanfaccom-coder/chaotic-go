@@ -31,7 +31,7 @@ begin
     when 3 then '112' when 4 then '113' else '114' end;
   attack_name:=case i when 1 then 'Vento Forte' when 2 then 'MÃO ELETRÔNICA'
     when 3 then 'MÃO MÃO' when 4 then 'PURGATÓRIO' else 'ESQUELETO' end;
-  base_damage:=case i when 2 or 5 then 10 when 4 then 0 else 5 end;
+  base_damage:=case when i in (2,5) then 10 when i=4 then 0 else 5 end;
   cost:=case i when 1 or 3 then 1 when 2 then 3 when 4 then 0 else 2 end;
   -- ESQUELETO scenario: one ally already defeated, defender has 15 HP.
   prior_hp:=case when i=5 then 15 else 20 end;
