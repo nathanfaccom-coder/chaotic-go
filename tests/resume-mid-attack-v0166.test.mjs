@@ -51,7 +51,7 @@ test("v0.1.66: UI displays recovery instructions but does not replay actions",()
     "chaotic_get_preview_3x3_resume_status",
     "O servidor está em outro turno",
     "Nenhuma carta ou dano é repetido ao reconectar",
-    "Verificação da etapa do ataque indisponível",
+    "Etapa do ataque ainda não confirmada. Ações bloqueadas",
     "document.hidden","navigator.onLine === false","refreshWhenVisible"]){
     assert.ok(ui.includes(key),key);
   }
