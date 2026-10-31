@@ -2024,6 +2024,8 @@
       const recovery=await rpc("chaotic_restore_expired_preview_3x3_loans",{
         p_lobby_id:requestedRoomId
       });
+      // A stale network response must never remove the newer room.
+      if (room?.id!==requestedRoomId || viewGeneration!==requestedView) return;
       forgetLastRoom();
       room=null;match=null;halt();updateRoomUI();
       note("Treino encerrado. Cartas emprestadas recuperadas: "+recovery.restored_count+
@@ -2193,7 +2195,7 @@
     poll = setInterval(() => {
       if (!$("lobby-current") || $("tela-entrada-drome")?.style.display !== "flex") { halt(); return; }
       // Background tabs must NOT keep a phantom user online.
-      if (document.hidden) return;
+      if (document.hidden || (typeof navigator !== "undefined" && navigator.onLine === false)) return;
       refreshRoom().catch(error => note(error.message, true));
     }, 6000);
   }
@@ -2217,7 +2219,8 @@
         const recovery=await rpc("chaotic_restore_expired_preview_3x3_loans",{
           p_lobby_id:id
         });
-        if(generation!==viewGeneration)return;
+        // Keep any room already selected while the older loan recovery was pending.
+        if(generation!==viewGeneration || room || busy)return;
         forgetLastRoom();
         note("Sala anterior encerrada. "+recovery.restored_count+
           " carta(s) temporárias recuperadas; originais preservados.");
@@ -2278,7 +2281,7 @@
       '<p id="lobby-status" role="status"></p>',
       '<section id="lobby-turns" class="lobby-turns" hidden>',
       '<strong>⚔️ SINCRONIZAÇÃO DE TURNOS — TESTE</strong>',
-      '<p>Não utiliza cartas nem decide vitórias.</p>',
+      '<p>O 3x3 valida dano e nocaute de treino no servidor. Outros modos testam turnos.</p>',
       '<p id="lobby-turn-state" role="status"></p>',
       '<p>Turno: <b id="lobby-turn-count">—</b></p>',
       '<div class="lobby-mini-board" role="group" aria-label="Posição dos jogadores">',
@@ -2288,7 +2291,7 @@
       '</div>',
       '<section id="lobby-combat" class="lobby-combat" hidden>',
       '<strong>🃏 DECLARAÇÃO DE CARTAS (TESTE)</strong>',
-      '<p>Sem dano, efeitos, vitória ou recompensas.</p>',
+      '<p>Declaração experimental de cartas. O 3x3 mostra dano e resultado em painel próprio, sem recompensas oficiais.</p>',
       '<div class="lobby-card-sides"><span id="lobby-combat-host">Anfitrião: sem criatura</span>',
       '<span id="lobby-combat-guest">Convidado: sem criatura</span></div>',
       '<label for="lobby-combat-kind">Ação</label>',
@@ -3610,7 +3613,8 @@
   // Mobile browsers may suspend timers and Realtime when the app is
   // backgrounded. Recover immediately when the player returns/gets online.
   function refreshWhenVisible() {
-    if (document.hidden || $("tela-entrada-drome")?.style.display !== "flex") return;
+    if (document.hidden || $("tela-entrada-drome")?.style.display !== "flex"
+      || (typeof navigator !== "undefined" && navigator.onLine === false)) return;
     if (!room) {
       restoreLastRoom(viewGeneration).catch(error=>
         note("Falha ao recuperar a sala: "+error.message,true));
