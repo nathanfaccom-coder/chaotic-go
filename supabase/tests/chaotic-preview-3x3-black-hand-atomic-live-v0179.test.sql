@@ -118,6 +118,11 @@ begin
  if not blocked then raise exception '102 duplicate resolution succeeded';end if;
  if (select count(*) from public.chaotic_preview_3x3_temporary_card_custody
    where lobby_id=room)<>1 then raise exception '102 replay created extra card';end if;
+ -- The spent 102 must not leave the attacker stuck after the defender passes:
+ -- the resolved effect is a zero-damage attack, not an outstanding damage debit.
+ perform public.chaotic_pass_turn(room,1);
+ if (select turn_no from public.chaotic_match_turns where lobby_id=room)<>2
+ then raise exception 'Mão Negra 102 resolved but the next training turn did not open';end if;
 end;
 $test102$;
 rollback;
