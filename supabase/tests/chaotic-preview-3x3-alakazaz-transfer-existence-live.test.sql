@@ -62,7 +62,7 @@ declare
  room uuid:='c1570000-0000-4000-8000-000000000157';
  guest uuid:='b1570000-0000-4000-8000-000000000157';
  host uuid:='a1570000-0000-4000-8000-000000000157';
- report jsonb; masked jsonb; shown jsonb; hp_mask jsonb; own jsonb; board_mask jsonb;
+ report jsonb; masked jsonb; shown jsonb; hp_mask jsonb; own jsonb; board_mask jsonb; hidden_donor jsonb;
 begin
  if (select count(*) from public.chaotic_preview_3x3_allies
    where lobby_id=room)<>3
@@ -89,6 +89,12 @@ begin
   where x->>'actor_id'=guest::text and (x->>'position')::integer=4;
  select x into board_mask from pg_catalog.jsonb_array_elements(report->'board_positions') x
   where x->>'actor_id'=guest::text and (x->>'formation_slot')::integer=4;
+ select x into hidden_donor from pg_catalog.jsonb_array_elements(report->'allies') x
+  where x->>'actor_id'=guest::text and (x->>'position')::integer=6;
+ if hidden_donor->>'created_at' is not null
+  or hidden_donor->>'updated_at' is not null
+  or hidden_donor->>'received_tokens' is not null
+ then raise exception 'Alakazaz identified via hidden ally timestamps: %',hidden_donor;end if;
  if masked->>'creature_name' is not null or masked->>'creature_instance_id' is not null
   or masked->>'starting_tokens' is not null or masked->>'deck_slot' is not null
   or shown->>'creature_name'<>'Promos' or own->>'creature_name'<>'Lion'
