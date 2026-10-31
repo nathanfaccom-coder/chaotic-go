@@ -62,6 +62,13 @@
   }
   async function action(fn) {
     if (busy) return;
+    // Android may suspend a PWA for minutes or lose connectivity mid-turn.
+    // Do not queue a speculative attack/payment while offline. The server is
+    // authoritative; the player must explicitly retry after reconnecting.
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      note("Sem conexão. Nenhuma ação foi enviada nem pontos gastos. Reconecte-se e use Atualizar conexão antes de tentar novamente.",true);
+      return;
+    }
     busy = true;
     const buttons = [...document.querySelectorAll("#tela-entrada-drome button")];
     buttons.forEach(btn => { btn.disabled = true; });
@@ -3614,7 +3621,12 @@
   // Lightweight Node test harnesses do not implement DOM event listeners.
   if (typeof document.addEventListener === "function")
     document.addEventListener("visibilitychange", refreshWhenVisible);
-  if (typeof window.addEventListener === "function")
+  if (typeof window.addEventListener === "function") {
     window.addEventListener("online", refreshWhenVisible);
+    window.addEventListener("offline", () => {
+      if (room && $("tela-entrada-drome")?.style.display === "flex")
+        note("Conexão perdida. As ações ficam suspensas neste aparelho; reconecte-se para sincronizar o turno, sem reenviar ataques automaticamente.",true);
+    });
+  }
   window.abrirSalaPrivadaDrome = show;
 })();
