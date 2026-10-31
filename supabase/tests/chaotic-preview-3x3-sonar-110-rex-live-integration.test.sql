@@ -155,7 +155,7 @@ begin
         when i=7 then '["terra"]'::jsonb
         when i in(8,10) then '["ar"]'::jsonb else '[]'::jsonb end,
    case when i in(8,9) then '["ar"]'::jsonb else '[]'::jsonb end,
-   i in(6,9,11),false,i in(7,9,11),i in(8,10));
+   i=6,false,i in(7,9,11),i in(8,10));
 
   insert into public.chaotic_preview_3x3_private_equipment_checks(
    lobby_id,turn_no,attacker_id,defender_id,defender_slot,
