@@ -86,16 +86,21 @@ test("v0.1.82: database fixtures prove atomic payment and rejection without modi
   "rollback;",
   "PASS v0.1.82"
  ])assert.ok(positive.includes(x),x);
- for(const t of [equipped,lethal]){
-  for(const x of [
+ for(const x of [
    "Unsupported borrowed 105 attack was wrongly paid",
    "Unsafe borrowed 105 request partially charged or altered card",
    "chaotic_abort_preview_3x3_borrowed_105_priority",
    "rollback;",
-   "PASS v0.1."
-  ])assert.ok(t.includes(x),x);
-  assert.doesNotMatch(t,/\bcommit\s*;/i);
- }
+   "PASS v0.1.82"
+ ])assert.ok(equipped.includes(x),x);
+ for(const x of [
+   "Corrupted second loan allowed training winner",
+   "Corrupted second loan caused partial charge, HP, KO, or winner",
+   "chaotic_settle_preview_3x3_borrowed_105_base",
+   "rollback;",
+   "PASS v0.1.84"
+ ])assert.ok(lethal.includes(x),x);
+ for(const x of [equipped,lethal])assert.doesNotMatch(x,/\bcommit\s*;/i);
 });
 test("v0.1.82: private status now reflects actual event while UI retains nonlethal warning",()=>{
  for(const x of [
