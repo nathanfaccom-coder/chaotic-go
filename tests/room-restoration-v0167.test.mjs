@@ -43,10 +43,13 @@ test("v0.1.67: live two-player RLS integration is rolled back and rejects an out
  assert.match(rls,/reset role;\s*rollback;\s*select 'PASS v0\.1\.67/);
  assert.doesNotMatch(rls,/\bcommit\s*;/i);
 });
-test("v0.1.67: Android PWA, scanner and DROME module share the same cache version",()=>{
- assert.match(index,/VERSÃO 0\.1\.67/);
- assert.match(index,/sw\.js\?v=release-67/);
- assert.match(sw,/chaotic-go-release-20261031-67/);
- assert.match(scanner,/full-game-bootstrap\.js\?v=release-67/);
- assert.match(bootstrap,/chaotic-lobby\.js\?v=release-67/);
+test("v0.1.67+: Android PWA modules maintain a shared release number",()=>{
+ const displayed=index.match(/VERSÃO 0\.1\.(\d+)/);
+ const worker=index.match(/sw\.js\?v=release-(\d+)/);
+ const cache=sw.match(/chaotic-go-release-\d{8}-(\d+)/);
+ const scannerLoader=scanner.match(/full-game-bootstrap\.js\?v=release-(\d+)/);
+ const lobbyLoader=bootstrap.match(/chaotic-lobby\.js\?v=release-(\d+)/);
+ assert.ok(displayed&&worker&&cache&&scannerLoader&&lobbyLoader);
+ assert.ok(Number(displayed[1])>=67);
+ for(const x of [worker,cache,scannerLoader,lobbyLoader])assert.equal(x[1],displayed[1]);
 });

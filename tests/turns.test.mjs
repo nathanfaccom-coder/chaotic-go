@@ -18,6 +18,25 @@ function makeClient(actor) {
       }
       const room=[...rooms.values()].find(r=>r.id===args.p_lobby_id||r.id===args.p_id||r.code===args.p_code);
       if(!room)return {data:null,error:{message:"Sala indisponível"}};
+      if(name==="chaotic_get_preview_3x3_resume_status"){
+        const m=matches.get(room.id),turn=m?.turn_no,key=room.id+"/"+turn;
+        if(!m || m.status!=="active" || room.mode!=="3x3" || room.status!=="ready"
+          ||![m.host_id,m.guest_id].includes(actor))
+          return {data:null,error:{message:"Recuperação indisponível para este usuário"}};
+        const contact=contacts3x3.get(key),projection=attackProjections3x3.get(key);
+        const paid=attackSpends3x3.get(key),defense=defenseWindows3x3.get(key);
+        const phase=defense?.status==="awaiting_defender"?"awaiting_defender"
+          :paid && !paid.training_damage_applied?"awaiting_damage"
+          :paid && paid.training_damage_applied?"damage_settled"
+          :projection?"awaiting_payment":contact?"contact_open":"ready";
+        const required=phase==="awaiting_defender"
+          ?defense.defender_id===actor
+          :["awaiting_payment","awaiting_damage"].includes(phase)
+            ?actor===m.current_player:false;
+        return {data:{phase,turn_no:turn,your_turn:m.current_player===actor,
+          your_action_required:required,training_finished:false,
+          you_won_training:null,checkpoint_only:true,training_only:true},error:null};
+      }
       if(name==="chaotic_ping_preview_3x3_player"){
         const m=matches.get(room.id);
         if(!m||m.status!=="active"||room.status!=="ready"||room.mode!=="3x3"
@@ -542,9 +561,15 @@ function makeClient(actor) {
         const state=matches.get(room.id);
         if(!state||state.status!=="active"||room.status!=="ready"
            ||state.current_player!==actor||state.turn_no!==args.p_expected_turn
-           ||(room.mode==="3x3"&&attackSpends3x3.has(room.id+"/"+args.p_expected_turn)
-             &&(defenseWindows3x3.get(room.id+"/"+args.p_expected_turn)?.status!=="defender_passed_preview"
-              ||defenseWindows3x3.get(room.id+"/"+args.p_expected_turn)?.attacker_id!==actor))
+           ||(room.mode==="3x3"&&(
+             (contacts3x3.has(room.id+"/"+args.p_expected_turn)
+               &&!attackSpends3x3.has(room.id+"/"+args.p_expected_turn))
+             ||(attackProjections3x3.has(room.id+"/"+args.p_expected_turn)
+               &&!attackSpends3x3.has(room.id+"/"+args.p_expected_turn))
+             ||(attackSpends3x3.has(room.id+"/"+args.p_expected_turn)
+               &&(!attackSpends3x3.get(room.id+"/"+args.p_expected_turn)?.training_damage_applied
+               ||defenseWindows3x3.get(room.id+"/"+args.p_expected_turn)?.status!=="defender_passed_preview"
+               ||defenseWindows3x3.get(room.id+"/"+args.p_expected_turn)?.attacker_id!==actor))))
            ||(room.mode==="1x1"&&burstWindows.has(room.id+"/"+args.p_expected_turn)&&(
               burstWindows.get(room.id+"/"+args.p_expected_turn)?.status==="awaiting_defender"
               ||burstPriority.get(room.id+"/"+args.p_expected_turn)?.priority_status!=="closed_preview"
@@ -2964,6 +2989,14 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
   await guest("lobby-turn-refresh").onclick();
   assert.match(guest("lobby-3x3-defense-history").textContent,/Defensor PASSOU/);
   await guest("lobby-turn-pass").onclick();
+  assert.equal(matches.get(id).turn_no,2,
+    "The attacker must not skip unresolved experimental damage");
+  // This legacy hand/recycle unit scenario uses attack 104 whose final
+  // damage is NOT implemented. Mark an explicit synthetic completed state
+  // only to proceed with later hand tests; this is NOT a damage-RPC test.
+  attackSpends3x3.get(id+"/2").training_damage_applied=true;
+  await guest("lobby-turn-refresh").onclick();
+  await guest("lobby-turn-pass").onclick();
   await host("lobby-turn-refresh").onclick();
   assert.equal(host("lobby-3x3-hand-sync").hidden,false);
   assert.ok((await makeClient(opponent).rpc("chaotic_sync_preview_3x3_hand",{
@@ -3049,6 +3082,13 @@ test("3x3 Alakazaz transfers a token only to the same player's ally, once per tu
   await guest("lobby-3x3-defense-pass").onclick();
   assert.equal(defenseWindows3x3.get(id+"/3").status,"defender_passed_preview");
   assert.equal(defenseWindows3x3.get(id+"/3").training_hp_changed,false);
+  await host("lobby-turn-refresh").onclick();
+  await host("lobby-turn-pass").onclick();
+  assert.equal(matches.get(id).turn_no,3,
+    "A passed defense alone must not allow skipping an unpaid damage resolution");
+  // Test-only synthetic resolution of attack 101: isolates later hand
+  // recycling assertions without claiming to apply real experimental HP.
+  attackSpends3x3.get(id+"/3").training_damage_applied=true;
   await host("lobby-turn-refresh").onclick();
   await host("lobby-turn-pass").onclick();
   await guest("lobby-turn-refresh").onclick();
