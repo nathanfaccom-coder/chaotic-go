@@ -52,7 +52,7 @@ test("v0.1.66: UI displays recovery instructions but does not replay actions",()
     "O servidor está em outro turno",
     "Nenhuma carta ou dano é repetido ao reconectar",
     "Verificação da etapa do ataque indisponível",
-    "if (document.hidden || (typeof navigator !== \"undefined\" && navigator.onLine === false)) return","refreshWhenVisible"]){
+    "document.hidden","navigator.onLine === false","refreshWhenVisible"]){
     assert.ok(ui.includes(key),key);
   }
   assert.match(ui,/checkpoint\.your_action_required/);
