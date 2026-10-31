@@ -1288,8 +1288,10 @@
         (x.actor_id===userId?"Sua criatura":"Criatura adversária")+
         " · c"+x.position+" · "+
         (isFacedown(x.actor_id,x.position)?"🛡️ Campeão virado para baixo":x.creature_name)+
-        " · HP de treino "+x.hp_remaining+"/"+x.hp_max+
-        " · "+x.damage_events+" ataque(s) de treino recebido(s)"+
+        (isFacedown(x.actor_id,x.position)
+          ?" · HP oculto ("+(x.hp_remaining>0?"viva":"fora de combate")+")"
+          :" · HP de treino "+x.hp_remaining+"/"+x.hp_max+
+            " · "+x.damage_events+" ataque(s) de treino recebido(s)") +
         (x.hp_remaining===0?" · NOCAUTE NO TREINO":"")+
         " · nenhuma alteração no HP oficial.").join("\n")
       :"HP não preparado. Cada jogador deve iniciar suas três criaturas separadamente.";
@@ -1469,10 +1471,13 @@
     $("lobby-3x3-transfer-history").textContent=transfers3x3.length
       ?transfers3x3.slice().sort((a,b)=>a.turn_no-b.turn_no).map(x=>
         "T"+x.turn_no+" · "+(x.actor_id===userId?"Você":"Adversário")+
-        " · Alakazaz c"+x.donor_position+" ("+x.donor_before+"→"+x.donor_after+
-        ") doou 1 ficha para c"+x.receiver_position+
-        " ("+x.receiver_before+"→"+x.receiver_after+
-        "). Apenas treinamento; nenhuma carta oficial alterada.").join("\n")
+        (x.donor_before==null
+          ?" · transferência de ficha entre c"+x.donor_position+
+            " e c"+x.receiver_position+" (identidades viradas para baixo)."
+          :" · Alakazaz c"+x.donor_position+" ("+x.donor_before+"→"+x.donor_after+
+            ") doou 1 ficha para c"+x.receiver_position+
+            " ("+x.receiver_before+"→"+x.receiver_after+").")+
+        " Apenas treinamento; nenhuma carta oficial alterada.").join("\n")
       :"Nenhuma ficha transferida.";
   }
   async function refresh3x3Allies(){
@@ -1480,26 +1485,15 @@
     if(!room||!match||room.mode!=="3x3"){
       allies3x3=[];transfers3x3=[];hp3x3=[];board3x3=[];moves3x3=[];contacts3x3=[];attackProjections3x3=[];hand3x3=[];handWallet3x3=[];costChecks3x3=[];attackSpends3x3=[];discard3x3=[];drawEvents3x3=[];defenseWindows3x3=[];elementalInspections3x3=[];creatureChecks3x3=[];privateEquipmentChecks3x3=[];dynamicElementChecks3x3=[];trainingDamage3x3=[];trainingKnockouts3x3=[];trainingOutcomes3x3=[];trainingAttackLocks3x3=[];sonarSearchEvents3x3=[];sonarSearchChoices3x3=[];sonarChoiceKey3x3="";faceStates3x3=[];ventoRevealEvents3x3=[];update3x3UI();return;
     }
-    const units=await api.from("chaotic_preview_3x3_allies")
-      .select("actor_id,position,deck_slot,creature_instance_id,creature_name,starting_tokens,remaining_tokens,received_tokens")
-      .eq("lobby_id",room.id).limit(6);
-    if(units.error)throw new Error(units.error.message);
-    allies3x3=units.data||[];
-    const hpResult=await api.from("chaotic_preview_3x3_hp_wallets")
-      .select("actor_id,position,creature_instance_id,creature_name,hp_initial,hp_max,hp_remaining,initialized_turn,damage_events,official_match_modified")
-      .eq("lobby_id",room.id).limit(6);
-    if(hpResult.error)throw new Error(hpResult.error.message);
-    hp3x3=hpResult.data||[];
-    const board=await api.from("chaotic_preview_3x3_board_positions")
-      .select("actor_id,formation_slot,creature_instance_id,hex_position,moved_turn,official_position_changed")
-      .eq("lobby_id",room.id).limit(6);
-    if(board.error)throw new Error(board.error.message);
-    board3x3=board.data||[];
-    const movements=await api.from("chaotic_preview_3x3_move_events")
-      .select("actor_id,turn_no,formation_slot,creature_instance_id,from_hex,to_hex,official_position_changed")
-      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(60);
-    if(movements.error)throw new Error(movements.error.message);
-    moves3x3=movements.data||[];
+    // v0.1.57: owner-only raw RLS; the server supplies a masked member view.
+    const safeState=await rpc("chaotic_get_preview_3x3_safe_state",{
+      p_lobby_id:room.id
+    });
+    allies3x3=Array.isArray(safeState?.allies)?safeState.allies:[];
+    hp3x3=Array.isArray(safeState?.hp_wallets)?safeState.hp_wallets:[];
+    board3x3=Array.isArray(safeState?.board_positions)?safeState.board_positions:[];
+    moves3x3=Array.isArray(safeState?.move_events)?safeState.move_events:[];
+    transfers3x3=Array.isArray(safeState?.token_transfers)?safeState.token_transfers:[];
     const contact=await api.from("chaotic_preview_3x3_contact_intents")
       .select("turn_no,attacker_id,defender_id,attacker_slot,defender_slot,attacker_creature_instance_id,defender_creature_instance_id,attacker_hex,defender_hex,attacker_hp_at_contact,defender_hp_at_contact,contact_status,damage_applied,attack_card_validated")
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
@@ -1601,11 +1595,7 @@
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
     if(drawn.error)throw new Error(drawn.error.message);
     drawEvents3x3=drawn.data||[];
-    const history=await api.from("chaotic_preview_3x3_token_transfers")
-      .select("actor_id,turn_no,donor_position,receiver_position,donor_before,donor_after,receiver_before,receiver_after")
-      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(50);
-    if(history.error)throw new Error(history.error.message);
-    transfers3x3=history.data||[];
+    // Token transfers are already sanitized in the safe-state RPC.
     // Refresh the generic turn button as well when the 3x3 training has ended.
     if(trainingOutcomes3x3.length)updateMatchUI();
     else update3x3UI();
@@ -1737,18 +1727,6 @@
           event:"*",schema:"public",table:"chaotic_preview_harp_token_events",filter:"lobby_id=eq."+lobbyId
         },sync)
         .on("postgres_changes",{
-          event:"*",schema:"public",table:"chaotic_preview_3x3_allies",filter:"lobby_id=eq."+lobbyId
-        },sync)
-        .on("postgres_changes",{
-          event:"*",schema:"public",table:"chaotic_preview_3x3_hp_wallets",filter:"lobby_id=eq."+lobbyId
-        },sync)
-        .on("postgres_changes",{
-          event:"*",schema:"public",table:"chaotic_preview_3x3_board_positions",filter:"lobby_id=eq."+lobbyId
-        },sync)
-        .on("postgres_changes",{
-          event:"*",schema:"public",table:"chaotic_preview_3x3_move_events",filter:"lobby_id=eq."+lobbyId
-        },sync)
-        .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_3x3_contact_intents",filter:"lobby_id=eq."+lobbyId
         },sync)
         .on("postgres_changes",{
@@ -1783,9 +1761,6 @@
         },sync)
         .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_3x3_cost_inspections",filter:"lobby_id=eq."+lobbyId
-        },sync)
-        .on("postgres_changes",{
-          event:"*",schema:"public",table:"chaotic_preview_3x3_token_transfers",filter:"lobby_id=eq."+lobbyId
         },sync)
         .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_burst_order_plans",filter:"lobby_id=eq."+lobbyId
