@@ -152,7 +152,7 @@ function makeClient(actor) {
         const valid=Array.isArray(attacks)&&attacks.length>=3&&attacks.length<=20
           &&new Set(attacks.map(x=>x.id)).size===attacks.length
           &&attacks.every(x=>x&&x.id&&x.name&&x.quantity!==0
-            &&Object.hasOwn({"Ácido Gástrico":1,"Fogo Primordial 2.0":1,"Mão Negra":1},x.name));
+            &&Object.hasOwn({"Ácido Gástrico":1,"Fogo Primordial 2.0":1,"Vento Forte":1,"Mão Negra":1},x.name));
         if(!m||m.status!=="active"||m.turn_no!==args.p_expected_turn
           ||m.current_player!==actor||room.mode!=="3x3"||room.status!=="ready"
           ||own.length!==3||own.some(x=>x.deck_slot!==slot)
