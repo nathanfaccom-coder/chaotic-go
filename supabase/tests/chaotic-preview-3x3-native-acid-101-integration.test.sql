@@ -166,6 +166,22 @@ begin
   then raise exception 'Non-attacker was not rejected for %: %',attack_id,error_text;end if;
   perform set_config('request.jwt.claim.sub',host::text,true);
   if auth.uid() is distinct from host then raise exception 'JWT test identity missing';end if;
+  if attack_id='101' then
+   -- Equipment on the ATTACKER must also block 101. An unverified Water
+   -- bracelet could otherwise add a bonus which the subset does not model.
+   update public.chaotic_game_nodes
+    set data=pg_catalog.jsonb_set(data,'{equipamentos,3}','"synthetic-equip-201"'::jsonb)
+    where user_id=host and node_path='decks/3x3_slot_1';
+   error_text:=null;
+   begin
+    perform public.chaotic_apply_preview_3x3_training_acid_101(lobby,1);
+   exception when others then get stacked diagnostics error_text=message_text;end;
+   if error_text is null or position('atacante sem equipamento' in error_text)=0
+   then raise exception 'Acid 101 accepted unknown attacker equipment: %',error_text;end if;
+   update public.chaotic_game_nodes
+    set data=pg_catalog.jsonb_set(data,'{equipamentos,3}','null'::jsonb)
+    where user_id=host and node_path='decks/3x3_slot_1';
+  end if;
   if attack_id='105' then
    -- Equipped defenders are not yet supported by the damage resolver.
    -- Even neutral damage must be blocked until equipment effects are resolved.
