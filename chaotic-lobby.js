@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [], mugicTrainingWallets = [], mugicTrainingSettlements = [], trainingAbilityEvents = [], harpTrainingEvents = [], allies3x3 = [], transfers3x3 = [], hp3x3 = [], board3x3 = [], moves3x3 = [], contacts3x3 = [], attackProjections3x3 = [], hand3x3 = [], handWallet3x3 = [], costChecks3x3 = [], attackSpends3x3 = [], discard3x3 = [], drawEvents3x3 = [], defenseWindows3x3 = [], elementalInspections3x3 = [], creatureChecks3x3 = [], privateEquipmentChecks3x3 = [], dynamicElementChecks3x3 = [], trainingDamage3x3 = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [], mugicTrainingWallets = [], mugicTrainingSettlements = [], trainingAbilityEvents = [], harpTrainingEvents = [], allies3x3 = [], transfers3x3 = [], hp3x3 = [], board3x3 = [], moves3x3 = [], contacts3x3 = [], attackProjections3x3 = [], hand3x3 = [], handWallet3x3 = [], costChecks3x3 = [], attackSpends3x3 = [], discard3x3 = [], drawEvents3x3 = [], defenseWindows3x3 = [], elementalInspections3x3 = [], creatureChecks3x3 = [], privateEquipmentChecks3x3 = [], dynamicElementChecks3x3 = [], trainingDamage3x3 = [], trainingKnockouts3x3 = [], trainingOutcomes3x3 = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -1212,7 +1212,9 @@
         (x.actor_id===userId?"Sua criatura":"Criatura adversária")+
         " · c"+x.position+" · "+x.creature_name+
         " · HP de treino "+x.hp_remaining+"/"+x.hp_max+
-        " · 0 ataques aplicados · nenhuma alteração no HP oficial.").join("\n")
+        " · "+x.damage_events+" ataque(s) de treino recebido(s)"+
+        (x.hp_remaining===0?" · NOCAUTE NO TREINO":"")+
+        " · nenhuma alteração no HP oficial.").join("\n")
       :"HP não preparado. Cada jogador deve iniciar suas três criaturas separadamente.";
     $("lobby-3x3-board-history").textContent=board3x3.length
       ?board3x3.slice().sort((a,b)=>a.actor_id===b.actor_id?
@@ -1296,6 +1298,18 @@
         "Efeito, custos de ativação, imunidade e dano final NÃO resolvidos. "+
         "Nenhuma revelação ao atacante; HP intacto.").join("\n")
       :"Nenhuma conferência privada de equipamento 3x3.";
+    $("lobby-3x3-knockout-history").textContent=trainingKnockouts3x3.length
+      ?trainingKnockouts3x3.slice().sort((a,b)=>a.turn_no-b.turn_no).map(x=>
+        "T"+x.turn_no+" · "+(x.defender_id===userId?"Sua":"Adversária")+
+        " criatura "+x.defender_creature_name+" (c"+x.defender_slot+
+        ") chegou a 0 HP DE TREINO após Vento Forte. Nocaute experimental; sem exclusão de carta.").join("\n")
+      :"Nenhuma criatura nocauteada no treino.";
+    $("lobby-3x3-training-outcome").textContent=trainingOutcomes3x3.length
+      ?trainingOutcomes3x3.map(x=>
+        (x.winner_id===userId?"Sua equipe":"Equipe adversária")+
+        " deixou as 3 criaturas rivais com 0 HP DE TREINO no turno "+x.decided_turn+
+        ". RESULTADO SOMENTE EXPERIMENTAL: não encerra o combate oficial, nem dá XP ou moedas.").join("\n")
+      :"Nenhum resultado de equipe no treino ainda: são necessários 3 nocautes confirmados.";
     $("lobby-3x3-training-damage-history").textContent=trainingDamage3x3.length
       ?trainingDamage3x3.slice().sort((a,b)=>a.turn_no-b.turn_no).map(x=>
         "T"+x.turn_no+" · "+(x.attacker_id===userId?"Seu ataque":"Ataque rival")+
@@ -1358,7 +1372,7 @@
   async function refresh3x3Allies(){
     if(!$("lobby-3x3-allies-panel"))return;
     if(!room||!match||room.mode!=="3x3"){
-      allies3x3=[];transfers3x3=[];hp3x3=[];board3x3=[];moves3x3=[];contacts3x3=[];attackProjections3x3=[];hand3x3=[];handWallet3x3=[];costChecks3x3=[];attackSpends3x3=[];discard3x3=[];drawEvents3x3=[];defenseWindows3x3=[];elementalInspections3x3=[];creatureChecks3x3=[];privateEquipmentChecks3x3=[];dynamicElementChecks3x3=[];trainingDamage3x3=[];update3x3UI();return;
+      allies3x3=[];transfers3x3=[];hp3x3=[];board3x3=[];moves3x3=[];contacts3x3=[];attackProjections3x3=[];hand3x3=[];handWallet3x3=[];costChecks3x3=[];attackSpends3x3=[];discard3x3=[];drawEvents3x3=[];defenseWindows3x3=[];elementalInspections3x3=[];creatureChecks3x3=[];privateEquipmentChecks3x3=[];dynamicElementChecks3x3=[];trainingDamage3x3=[];trainingKnockouts3x3=[];trainingOutcomes3x3=[];update3x3UI();return;
     }
     const units=await api.from("chaotic_preview_3x3_allies")
       .select("actor_id,position,deck_slot,creature_instance_id,creature_name,starting_tokens,remaining_tokens,received_tokens")
@@ -1435,6 +1449,16 @@
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
     if(trainingDmg.error)throw new Error(trainingDmg.error.message);
     trainingDamage3x3=trainingDmg.data||[];
+    const knockouts=await api.from("chaotic_preview_3x3_training_knockouts")
+      .select("turn_no,attacker_id,defender_id,defender_slot,defender_creature_name,hp_before,hp_after,training_only,official_match_modified")
+      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(10);
+    if(knockouts.error)throw new Error(knockouts.error.message);
+    trainingKnockouts3x3=knockouts.data||[];
+    const outcome=await api.from("chaotic_preview_3x3_training_outcomes")
+      .select("decided_turn,winner_id,defeated_id,defeated_team_size,outcome_scope,official_match_ended,experience_awarded,currency_awarded")
+      .eq("lobby_id",room.id).limit(1);
+    if(outcome.error)throw new Error(outcome.error.message);
+    trainingOutcomes3x3=outcome.data||[];
     const equipmentCheck=await api.from("chaotic_preview_3x3_private_equipment_checks")
       .select("turn_no,defender_id,defender_slot,equipment_status,equipment_name,rule_code,air_immunity_candidate,elemental_shield_candidate,official_match_modified")
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
@@ -1612,6 +1636,12 @@
         },sync)
         .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_3x3_training_damage_events",filter:"lobby_id=eq."+lobbyId
+        },sync)
+        .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_3x3_training_knockouts",filter:"lobby_id=eq."+lobbyId
+        },sync)
+        .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_3x3_training_outcomes",filter:"lobby_id=eq."+lobbyId
         },sync)
         .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_3x3_defense_windows",filter:"lobby_id=eq."+lobbyId
@@ -1869,6 +1899,8 @@
       '<p>Após o passe defensivo, o atacante pode aplicar o DANO-BASE DO VENTO FORTE (ID 105) ao HP do TREINAMENTO 3x3, desde que o defensor tenha sido conferido SEM equipamento. A revelação opcional de criatura permanece pendente; não é combate oficial.</p>',
       '<button id="lobby-3x3-training-damage" type="button" hidden>Atacante: causar 5 de dano-base ao HP DE TREINO (somente Vento Forte)</button>',
       '<p id="lobby-3x3-training-damage-history" class="lobby-events" aria-live="polite">Nenhum dano de treino aplicado.</p>',
+      '<p id="lobby-3x3-knockout-history" class="lobby-events" aria-live="polite">Nenhum nocaute de treino.</p>',
+      '<p id="lobby-3x3-training-outcome" class="lobby-events" aria-live="polite">Sem resultado de equipe no treino.</p>',
       '<p>Antes de passar a reação, o DEFENSOR pode revisar os componentes elementais da carta de ataque paga, confirmados pelo catálogo original no banco. A revisão não joga dados, não verifica elementos das criaturas ou equipamento e NÃO calcula nem causa dano final.</p>',
       '<button id="lobby-3x3-element-review" type="button" hidden>Defensor: inspecionar elementos da carta (sem aplicar)</button>',
       '<p id="lobby-3x3-element-history" class="lobby-events" aria-live="polite">Nenhuma inspeção elemental.</p>',
