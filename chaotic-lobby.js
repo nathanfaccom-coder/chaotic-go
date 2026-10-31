@@ -1498,7 +1498,9 @@
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(50);
     if(history.error)throw new Error(history.error.message);
     transfers3x3=history.data||[];
-    update3x3UI();
+    // Refresh the generic turn button as well when the 3x3 training has ended.
+    if(trainingOutcomes3x3.length)updateMatchUI();
+    else update3x3UI();
   }
   function updateRoomUI() {
     if (!$("lobby-create")) return;
