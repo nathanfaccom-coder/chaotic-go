@@ -1498,7 +1498,7 @@
       ?"Cartas recebidas TEMPORARIAMENTE: "+borrowedAttacks3x3.map(x=>
         x.attack_name+" (custo "+x.attack_cost+", dano-base "+x.base_damage+
         ", turno "+x.borrowed_on_turn+").").join(" ")+
-        " Posse experimental; pagamento e uso continuam DESABILITADOS."
+        " Posse experimental: Vento Forte (105) pode ser usado no TREINO com escolha opcional de revelação; outras cartas emprestadas permanecem indisponíveis."
       :"Nenhuma carta emprestada recebida. Para roubar no treino 3x3, pague a Mão Negra e aguarde o passe do defensor.";
     const borrowedBox=$("lobby-3x3-borrowed-quote-box");
     const borrowedChoice=$("lobby-3x3-borrowed-choice");
