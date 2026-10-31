@@ -115,6 +115,13 @@ begin
  begin perform public.chaotic_internal_release_preview_3x3_black_hand(room,loan,1);
  exception when others then get stacked diagnostics failure=message_text;end;
  if failure is null then raise exception '102 duplicate release succeeded';end if;
+ perform set_config('request.jwt.claim.sub',host::text,true);
+ failure:=null;
+ begin perform public.chaotic_internal_hold_preview_3x3_black_hand(room,1);
+ exception when others then get stacked diagnostics failure=message_text;end;
+ if failure is null or position('antirreplay' in failure)=0
+ then raise exception '102 repeat after RELEASE was accepted: %',failure;end if;
+
 end $loan_test$;
 set local role authenticated;
 do $role_test$
