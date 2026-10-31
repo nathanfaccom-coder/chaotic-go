@@ -84,10 +84,14 @@ test("v0.1.80: DROME keeps borrowed plans separate from the owned hand and costs
  ])assert.ok(ui.includes(marker),marker);
  assert.doesNotMatch(ui,/resolvableTrainingAttacks3x3=new Set\([^)]*"102"/);
 });
-test("v0.1.80: displayed PWA version and Android loader all match",()=>{
- assert.match(index,/VERSÃO 0\.1\.80/);
- assert.match(index,/sw\.js\?v=release-80/);
- assert.match(worker,/chaotic-go-release-20261031-80/);
- assert.match(scanner,/full-game-bootstrap\.js\?v=release-80/);
- assert.match(boot,/chaotic-lobby\.js\?v=release-80/);
+test("v0.1.80+: PWA versions remain aligned after subsequent releases",()=>{
+ const displayed=index.match(/VERSÃO 0\.1\.(\d+)/);
+ const swRegistration=index.match(/sw\.js\?v=release-(\d+)/);
+ const cache=worker.match(/chaotic-go-release-\d{8}-(\d+)/);
+ const scannerLoader=scanner.match(/full-game-bootstrap\.js\?v=release-(\d+)/);
+ const dromeLoader=boot.match(/chaotic-lobby\.js\?v=release-(\d+)/);
+ assert.ok(displayed&&swRegistration&&cache&&scannerLoader&&dromeLoader);
+ assert.ok(Number(displayed[1])>=80);
+ for(const match of [swRegistration,cache,scannerLoader,dromeLoader])
+  assert.equal(match[1],displayed[1]);
 });
