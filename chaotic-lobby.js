@@ -1381,7 +1381,9 @@
              x.elemental_bonus_damage+". Sem equipamento dos dois lados. ":"")+
         (x.catalog_attack_id==="110"
           ?"Imunidade Rex impediu "+(x.immunity_prevented_damage||0)+
-             " ponto(s) de dano total. Busca de carta custo até 1 PENDENTE. ":"")+
+             " ponto(s) de dano total. "+
+             (x.effects_fully_resolved?"Busca privada do SONAR concluída. ":
+              "Busca privada de carta custo até 1 aguardando escolha. "):"")+
         (x.optional_reveal_pending?"Revelação opcional pendente. ":"")+
         (["111","112"].includes(x.catalog_attack_id)?"Impedimento de ataque registrado. ":"")+
         "HP oficial não alterado.").join("\n")
@@ -1981,7 +1983,7 @@
       '<button id="lobby-3x3-defense-open" type="button" hidden>Abrir resposta do defensor 3x3</button>',
       '<button id="lobby-3x3-defense-pass" type="button" hidden>Defensor: passar reação (SEM dano)</button>',
       '<p id="lobby-3x3-defense-history" class="lobby-events" aria-live="polite">Nenhuma janela de defesa 3x3.</p>',
-      '<p>Após o passe defensivo, pode resolver no TREINO: Ácido Gástrico (101: 10 + Fogo/Água natural), Vento Forte (105), Armadilha de Vinha (107: 5 + Terra natural; bloqueia atacar e comprar cartas no turno rival seguinte), MÃO ELETRÔNICA (111), MÃO MÃO (112), PURGATÓRIO (113) e ESQUELETO (114). Para 101 e 107, ambos os campeões devem estar sem equipamento e não podem depender de elementos dinâmicos; Naty fica excluída. No 107, habilidades/Mugics ainda não são executados no treino. SONAR (110): dano natural Terra/Ar de até 20; Rex cancela o golpe inteiro por conter Ar. Busca de carta custo até 1 PENDENTE; atacante sem equipamento, sem Naty e sem bônus dinâmico de Guru. Nenhuma carta oficial é alterada.</p>',
+      '<p>Após o passe defensivo, pode resolver no TREINO: Ácido Gástrico (101: 10 + Fogo/Água natural), Vento Forte (105), Armadilha de Vinha (107: 5 + Terra natural; bloqueia atacar e comprar cartas no turno rival seguinte), MÃO ELETRÔNICA (111), MÃO MÃO (112), PURGATÓRIO (113) e ESQUELETO (114). Para 101 e 107, ambos os campeões devem estar sem equipamento e não podem depender de elementos dinâmicos; Naty fica excluída. No 107, habilidades/Mugics ainda não são executados no treino. SONAR (110): dano natural Terra/Ar de até 20; Rex cancela o golpe inteiro por conter Ar. Busca privada de carta com custo até 1 DISPONÍVEL após o dano, pelo botão SONAR; atacante sem equipamento, sem Naty e sem bônus dinâmico de Guru. Nenhuma carta oficial é alterada.</p>',
       '<button id="lobby-3x3-training-damage" type="button" hidden>Atacante: resolver ataque de TREINO (101, 105, 107, 110, 111, 112, 113, 114)</button>',
       '<p id="lobby-3x3-training-damage-history" class="lobby-events" aria-live="polite">Nenhum dano de treino aplicado.</p>',
       '<p>Busca PRIVADA do SONAR (110): após aplicar o dano, consulte as cartas do seu monte com custo até 1 e escolha uma para entrar na sua mão (limite 5). Não altera as cartas originais.</p>',
@@ -2545,7 +2547,8 @@
            "; bloqueio de ataque/compra no próximo turno. Habilidades/Mugics ainda pendentes. ":
          attackId==="110"?"SONAR: bônus Terra/Ar aplicado "+(settled.elemental_bonus_damage||0)+
            "; Rex impediu "+(settled.immunity_prevented_damage||0)+
-           " ponto(s) por imunidade total ao ataque com Ar. Busca de carta pendente. ":
+           " ponto(s) por imunidade total ao ataque com Ar. "+
+           "Use a busca privada do SONAR para escolher uma carta de custo até 1. ":
          ["111","112"].includes(attackId)?"Bloqueio de ataque registrado. ":
          "Bônus por aliado derrotado confirmado no servidor: "+(settled.bonus_damage||0)+". ")+
         "HP oficial, cartas e XP intactos.");
