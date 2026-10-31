@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [], mugicTrainingWallets = [], mugicTrainingSettlements = [], trainingAbilityEvents = [], harpTrainingEvents = [], allies3x3 = [], transfers3x3 = [], hp3x3 = [], board3x3 = [], moves3x3 = [], contacts3x3 = [], attackProjections3x3 = [], hand3x3 = [], handWallet3x3 = [], costChecks3x3 = [], attackSpends3x3 = [], discard3x3 = [], drawEvents3x3 = [], defenseWindows3x3 = [], elementalInspections3x3 = [], creatureChecks3x3 = [], privateEquipmentChecks3x3 = [], dynamicElementChecks3x3 = [], trainingDamage3x3 = [], trainingKnockouts3x3 = [], trainingOutcomes3x3 = [], trainingAttackLocks3x3 = [], sonarSearchEvents3x3 = [], sonarSearchChoices3x3 = [], sonarChoiceKey3x3 = "";
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [], mugicTrainingWallets = [], mugicTrainingSettlements = [], trainingAbilityEvents = [], harpTrainingEvents = [], allies3x3 = [], transfers3x3 = [], hp3x3 = [], board3x3 = [], moves3x3 = [], contacts3x3 = [], attackProjections3x3 = [], hand3x3 = [], handWallet3x3 = [], costChecks3x3 = [], attackSpends3x3 = [], discard3x3 = [], drawEvents3x3 = [], defenseWindows3x3 = [], elementalInspections3x3 = [], creatureChecks3x3 = [], privateEquipmentChecks3x3 = [], dynamicElementChecks3x3 = [], trainingDamage3x3 = [], trainingKnockouts3x3 = [], trainingOutcomes3x3 = [], trainingAttackLocks3x3 = [], sonarSearchEvents3x3 = [], sonarSearchChoices3x3 = [], sonarChoiceKey3x3 = "", faceStates3x3 = [], ventoRevealEvents3x3 = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -1159,6 +1159,34 @@
           ") entrou na sua mão privada.":"encerrada sem carta elegível ou sem espaço na mão.")+
         " Total após: "+x.hand_count_after+". Somente treino.").join("\n")
       :"Nenhuma busca SONAR finalizada na sua mão.";
+    const pendingVento=trainingDamage3x3.find(x=>x.turn_no===match?.turn_no
+      &&x.catalog_attack_id==="105"&&x.attacker_id===userId
+      &&x.optional_reveal_pending&&x.damage_dealt>0);
+    const eligibleFacedown=faceStates3x3.filter(x=>x.actor_id!==userId&&!x.face_up
+      &&hp3x3.some(h=>h.actor_id===x.actor_id&&h.position===x.position&&h.hp_remaining>0))
+      .sort((a,b)=>a.position-b.position);
+    const canRevealVento=myTurn&&!!pendingVento&&!ventoRevealEvents3x3.some(x=>
+      x.turn_no===match?.turn_no);
+    $("lobby-3x3-vento-choose").hidden=!(canRevealVento&&eligibleFacedown.length>0);
+    $("lobby-3x3-vento-skip").hidden=!canRevealVento;
+    const facingPicker=$("lobby-3x3-vento-choice");
+    const priorFacingSelection=facingPicker.value;
+    facingPicker.replaceChildren();
+    for(const facing of eligibleFacedown){
+      const item=document.createElement("option");
+      item.value=String(facing.position);
+      item.textContent="Campeão adversário c"+facing.position+" (virado para baixo)";
+      facingPicker.appendChild(item);
+    }
+    if(eligibleFacedown.some(x=>String(x.position)===priorFacingSelection))
+      facingPicker.value=priorFacingSelection;
+    $("lobby-3x3-vento-history").textContent=ventoRevealEvents3x3.length
+      ?ventoRevealEvents3x3.slice().sort((a,b)=>a.turn_no-b.turn_no).map(x=>
+         "T"+x.turn_no+" · Vento Forte: "+
+         (x.skipped?"revelação opcional dispensada.":
+          "campeão adversário c"+x.revealed_slot+" virado para cima.")+
+         " Somente treinamento.").join("\n")
+      :"Nenhuma revelação opcional de Vento Forte registrada.";
     $("lobby-3x3-defense-pass").hidden=!(!!current&&!!defenseWindowThisTurn
       &&defenseWindowThisTurn.status==="awaiting_defender"
       &&defenseWindowThisTurn.defender_id===userId
@@ -1240,19 +1268,24 @@
       &&!priorTransfer&&allowed.length>0
       &&!clashes.some(x=>x.turn_no===match?.turn_no)
       &&!burstWindows.some(x=>x.turn_no===match?.turn_no));
+    const isFacedown=(actorId,position)=>actorId!==userId
+      &&faceStates3x3.some(f=>f.actor_id===actorId&&f.position===position&&!f.face_up);
     $("lobby-3x3-allies-history").textContent=allies3x3.length
       ?allies3x3.slice().sort((a,b)=>a.actor_id===b.actor_id?
         a.position-b.position:a.actor_id.localeCompare(b.actor_id)).map(x=>
         (x.actor_id===userId?"Seu Deck":"Deck do adversário")+
-        " · c"+x.position+" · "+x.creature_name+
-        " · "+x.remaining_tokens+" fichas de treino"+
-        (x.creature_name==="Alakazaz"?" (pode doar)":"")).join("\n")
+        " · c"+x.position+" · "+
+        (isFacedown(x.actor_id,x.position)?"🛡️ Campeão virado para baixo":x.creature_name)+
+        (isFacedown(x.actor_id,x.position)?" · identidade oculta na interface":
+          " · "+x.remaining_tokens+" fichas de treino")+
+        (!isFacedown(x.actor_id,x.position)&&x.creature_name==="Alakazaz"?" (pode doar)":"")).join("\n")
       :"Nenhuma formação 3x3 congelada.";
     $("lobby-3x3-hp-history").textContent=hp3x3.length
       ?hp3x3.slice().sort((a,b)=>a.actor_id===b.actor_id?
         a.position-b.position:a.actor_id.localeCompare(b.actor_id)).map(x=>
         (x.actor_id===userId?"Sua criatura":"Criatura adversária")+
-        " · c"+x.position+" · "+x.creature_name+
+        " · c"+x.position+" · "+
+        (isFacedown(x.actor_id,x.position)?"🛡️ Campeão virado para baixo":x.creature_name)+
         " · HP de treino "+x.hp_remaining+"/"+x.hp_max+
         " · "+x.damage_events+" ataque(s) de treino recebido(s)"+
         (x.hp_remaining===0?" · NOCAUTE NO TREINO":"")+
@@ -1443,7 +1476,7 @@
   async function refresh3x3Allies(){
     if(!$("lobby-3x3-allies-panel"))return;
     if(!room||!match||room.mode!=="3x3"){
-      allies3x3=[];transfers3x3=[];hp3x3=[];board3x3=[];moves3x3=[];contacts3x3=[];attackProjections3x3=[];hand3x3=[];handWallet3x3=[];costChecks3x3=[];attackSpends3x3=[];discard3x3=[];drawEvents3x3=[];defenseWindows3x3=[];elementalInspections3x3=[];creatureChecks3x3=[];privateEquipmentChecks3x3=[];dynamicElementChecks3x3=[];trainingDamage3x3=[];trainingKnockouts3x3=[];trainingOutcomes3x3=[];trainingAttackLocks3x3=[];sonarSearchEvents3x3=[];sonarSearchChoices3x3=[];sonarChoiceKey3x3="";update3x3UI();return;
+      allies3x3=[];transfers3x3=[];hp3x3=[];board3x3=[];moves3x3=[];contacts3x3=[];attackProjections3x3=[];hand3x3=[];handWallet3x3=[];costChecks3x3=[];attackSpends3x3=[];discard3x3=[];drawEvents3x3=[];defenseWindows3x3=[];elementalInspections3x3=[];creatureChecks3x3=[];privateEquipmentChecks3x3=[];dynamicElementChecks3x3=[];trainingDamage3x3=[];trainingKnockouts3x3=[];trainingOutcomes3x3=[];trainingAttackLocks3x3=[];sonarSearchEvents3x3=[];sonarSearchChoices3x3=[];sonarChoiceKey3x3="";faceStates3x3=[];ventoRevealEvents3x3=[];update3x3UI();return;
     }
     const units=await api.from("chaotic_preview_3x3_allies")
       .select("actor_id,position,deck_slot,creature_instance_id,creature_name,starting_tokens,remaining_tokens,received_tokens")
@@ -1520,6 +1553,16 @@
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
     if(trainingDmg.error)throw new Error(trainingDmg.error.message);
     trainingDamage3x3=trainingDmg.data||[];
+    const facing=await api.from("chaotic_preview_3x3_face_states")
+      .select("actor_id,position,face_up,reveal_reason,revealed_turn")
+      .eq("lobby_id",room.id).limit(6);
+    if(facing.error)throw new Error(facing.error.message);
+    faceStates3x3=facing.data||[];
+    const ventoEvents=await api.from("chaotic_preview_3x3_vento_reveal_events")
+      .select("turn_no,attacker_id,defender_id,revealed_slot,skipped")
+      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(30);
+    if(ventoEvents.error)throw new Error(ventoEvents.error.message);
+    ventoRevealEvents3x3=ventoEvents.data||[];
     const sonarRows=await api.from("chaotic_preview_3x3_sonar_search_events")
       .select("turn_no,actor_id,searched_card_slot,attack_name,search_succeeded,hand_count_after")
       .eq("lobby_id",room.id).eq("actor_id",userId)
@@ -1986,6 +2029,11 @@
       '<p>Após o passe defensivo, pode resolver no TREINO: Ácido Gástrico (101: 10 + Fogo/Água natural), Vento Forte (105), Armadilha de Vinha (107: 5 + Terra natural; bloqueia atacar e comprar cartas no turno rival seguinte), MÃO ELETRÔNICA (111), MÃO MÃO (112), PURGATÓRIO (113) e ESQUELETO (114). Para 101 e 107, ambos os campeões devem estar sem equipamento e não podem depender de elementos dinâmicos; Naty fica excluída. No 107, habilidades/Mugics ainda não são executados no treino. SONAR (110): dano natural Terra/Ar de até 20; Rex cancela o golpe inteiro por conter Ar. Busca privada de carta com custo até 1 DISPONÍVEL após o dano, pelo botão SONAR; atacante sem equipamento, sem Naty e sem bônus dinâmico de Guru. Nenhuma carta oficial é alterada.</p>',
       '<button id="lobby-3x3-training-damage" type="button" hidden>Atacante: resolver ataque de TREINO (101, 105, 107, 110, 111, 112, 113, 114)</button>',
       '<p id="lobby-3x3-training-damage-history" class="lobby-events" aria-live="polite">Nenhum dano de treino aplicado.</p>',
+      '<p>Vento Forte (105): após causar dano, revele um campeão adversário ainda virado para baixo ou dispense o efeito. As cartas que entram no combate viram para cima. A ocultação do nome nesta tela é VISUAL; o sigilo completo das formações na API ainda exige uma etapa posterior.</p>',
+      '<select id="lobby-3x3-vento-choice" aria-label="Campeão adversário virado para baixo"></select>',
+      '<button id="lobby-3x3-vento-choose" type="button" hidden>Vento Forte: revelar campeão escolhido</button>',
+      '<button id="lobby-3x3-vento-skip" type="button" hidden>Vento Forte: dispensar revelação</button>',
+      '<p id="lobby-3x3-vento-history" class="lobby-events" aria-live="polite">Nenhuma revelação opcional de Vento Forte registrada.</p>',
       '<p>Busca PRIVADA do SONAR (110): após aplicar o dano, consulte as cartas do seu monte com custo até 1 e escolha uma para entrar na sua mão (limite 5). Não altera as cartas originais.</p>',
       '<button id="lobby-3x3-sonar-list" type="button" hidden>SONAR: consultar cartas elegíveis do meu monte</button>',
       '<select id="lobby-3x3-sonar-choice" aria-label="Carta de ataque elegível do SONAR"></select>',
@@ -2474,6 +2522,29 @@
       note("Conferência PRIVADA: "+(verified.equipment_name||"slot sem equipamento")+
         ". Nenhuma carta revelada ao atacante, nenhum efeito/HP aplicado.");
     });
+    $("lobby-3x3-vento-choose").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
+      const selected=Number($("lobby-3x3-vento-choice").value);
+      if(!faceStates3x3.some(x=>x.actor_id!==userId&&x.position===selected
+         &&!x.face_up&&hp3x3.some(h=>h.actor_id===x.actor_id&&h.position===selected&&h.hp_remaining>0)))
+        throw new Error("Escolha um campeão adversário ainda virado para baixo.");
+      const result=await rpc("chaotic_resolve_preview_3x3_vento_reveal",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no,
+        p_target_slot:selected,p_skip:false
+      });
+      await refresh3x3Allies();
+      note("Vento Forte: campeão c"+result.revealed_slot+
+        " virado para cima no treinamento, sem alterar o Deck original.");
+    });
+    $("lobby-3x3-vento-skip").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
+      await rpc("chaotic_resolve_preview_3x3_vento_reveal",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no,
+        p_target_slot:null,p_skip:true
+      });
+      await refresh3x3Allies();
+      note("Vento Forte: revelação opcional dispensada, ataque concluído no treinamento.");
+    });
     $("lobby-3x3-sonar-list").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
       const result=await rpc("chaotic_resolve_preview_3x3_sonar_search",{
@@ -2540,7 +2611,7 @@
       await refresh3x3Allies();
       note("Dano no HP DE TREINO: "+settled.hp_before+" → "+
         settled.hp_after+" ("+settled.damage_dealt+"). "+
-        (attackId==="105"?"Revelação opcional pendente. ":
+        (attackId==="105"?"Revelação opcional liberada: escolha um campeão virado para baixo ou dispense. ":
          attackId==="101"?"Bônus elemental NATURAL de Fogo/Água confirmado no servidor: "+
            (settled.elemental_bonus_damage||0)+". ":
          attackId==="107"?"Terra natural +"+(settled.elemental_bonus_damage||0)+
