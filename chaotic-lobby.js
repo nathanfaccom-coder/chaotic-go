@@ -63,8 +63,39 @@
     const buttons = [...document.querySelectorAll("#tela-entrada-drome button")];
     buttons.forEach(btn => { btn.disabled = true; });
     try { await fn(); }
-    catch (error) { note(error.message || "Falha ao conectar com a sala.", true); }
+    catch (error) {
+      const message=error.message || "Falha ao conectar com a sala.";
+      note(message,true);
+      // If another tab/phone committed first, do not leave stale attack
+      // controls visible. A recovery is read-only: never replay the action.
+      if (room?.mode==="3x3" && match?.status==="active"
+          && /turno|defensor|dano|atac|contato|pagamento|janela|antirreplay|vencedor|resolvi/i.test(message)) {
+        try {
+          await refreshRoom();
+          note("O servidor atualizou o combate após o conflito: "+message,true);
+        } catch (_syncError) {
+          note("Ação rejeitada. Reabra ou atualize a sala ao recuperar a conexão: "+message,true);
+        }
+      }
+    }
     finally { busy = false; buttons.forEach(btn => { if (btn.isConnected) btn.disabled = false; }); }
+  }
+  // Guard two fast taps/tabs with the authoritative state as close to the
+  // mutation as possible. The server locks are still the final authority.
+  async function require3x3Phase(expectedTurn,allowedPhases,requiresMyAction=false) {
+    if (!room || !match || room.mode!=="3x3" || match.status!=="active")
+      throw new Error("Partida 3x3 indisponível. Atualize a sala.");
+    const stage=await rpc("chaotic_get_preview_3x3_resume_status",{
+      p_lobby_id:room.id
+    });
+    resumePhase3x3=stage;
+    if(stage.turn_no!==expectedTurn || stage.training_finished
+      || !allowedPhases.includes(stage.phase)
+      || (requiresMyAction && !stage.your_action_required)){
+      updateMatchUI();
+      throw new Error("O turno ou a etapa do ataque mudou em outro aparelho. Atualize o combate.");
+    }
+    return stage;
   }
   function updateMatchUI() {
     const panel = $("lobby-turns");
@@ -109,7 +140,13 @@
     }
     $("lobby-turn-start").hidden = !!match || room.host_id !== userId || room.status !== "ready";
     const hold3x3=room.mode==="3x3"&&match&&(
-      defenseWindows3x3.some(x=>x.turn_no===match.turn_no
+      contacts3x3.some(x=>x.turn_no===match.turn_no && x.attacker_id===userId
+        &&!attackSpends3x3.some(s=>s.turn_no===match.turn_no && s.actor_id===userId))
+      ||attackProjections3x3.some(x=>x.turn_no===match.turn_no
+        &&x.actor_id===userId
+        &&!attackSpends3x3.some(s=>s.turn_no===match.turn_no
+          &&s.actor_id===userId &&s.attack_instance_id===x.attack_instance_id))
+      ||defenseWindows3x3.some(x=>x.turn_no===match.turn_no
         &&x.attacker_id===userId&&x.status==="awaiting_defender")
       ||attackSpends3x3.some(x=>x.turn_no===match.turn_no
         &&x.actor_id===userId&&!x.training_damage_applied)
@@ -2807,6 +2844,8 @@
     });
     $("lobby-3x3-training-damage").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
+      const expectedTurn=match.turn_no;
+      await require3x3Phase(expectedTurn,["awaiting_damage"],true);
       const attackId=attackProjections3x3.find(x=>x.turn_no===match.turn_no
         &&x.actor_id===userId)?.catalog_attack_id;
       if(!["101","105","107","110","111","112","113","114"].includes(attackId))
@@ -2820,7 +2859,7 @@
         ?"chaotic_apply_preview_3x3_training_attack_lock"
         :"chaotic_apply_preview_3x3_training_fallen_allies";
       const settled=await rpc(rpcName,{
-        p_lobby_id:room.id,p_expected_turn:match.turn_no
+        p_lobby_id:room.id,p_expected_turn:expectedTurn
       });
       await refresh3x3Allies();
       note("Dano no HP DE TREINO: "+settled.hp_before+" → "+
@@ -2840,12 +2879,14 @@
     });
     $("lobby-3x3-defense-pass").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3"||match.current_player===userId)return;
+      const expectedTurn=match.turn_no;
+      await require3x3Phase(expectedTurn,["awaiting_defender"],true);
       const window=await rpc("chaotic_pass_preview_3x3_defense",{
-        p_lobby_id:room.id,p_expected_turn:match.turn_no
+        p_lobby_id:room.id,p_expected_turn:expectedTurn
       });
       await refresh3x3Allies();
       note("Defensor passou na janela de treinamento T"+window.turn_no+
-        ". O atacante pode passar o turno; nenhuma carta, HP ou efeito defensivo foi executado.");
+        ". O atacante precisa concluir o dano antes de passar o turno. Nenhuma carta ou HP foi alterado pela defesa.");
     });
     $("lobby-3x3-transfer").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3")return;
@@ -3044,8 +3085,12 @@
     });
     $("lobby-turn-pass").onclick = () => action(async () => {
       if (!room || !match || match.status !== "active" || match.current_player !== userId) return;
-      // O servidor rejeita turnos antigos e ações de quem não está jogando.
-      match = await rpc("chaotic_pass_turn", { p_lobby_id: room.id, p_expected_turn: match.turn_no });
+      const expectedTurn=match.turn_no;
+      if (room.mode==="3x3")
+        await require3x3Phase(expectedTurn,["ready","damage_settled"]);
+      // Server rechecks expected turn under FOR UPDATE. A preflight
+      // cannot bypass the server's contact/payment/defense guards.
+      match = await rpc("chaotic_pass_turn", { p_lobby_id: room.id, p_expected_turn: expectedTurn });
       updateMatchUI();
       await refreshHistory();
       note("Turno registrado. O outro jogador já pode agir.");
