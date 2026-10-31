@@ -120,8 +120,9 @@ jobs:
             echo "::error::O bootstrap publicado não carrega o DROME atualizado."
             exit 1
           fi
-          if ! grep -Fq "chaotic-go-release-" /tmp/chaotic-site-sw.js ||
-             ! grep -Fq "release-${release_tag}" /tmp/chaotic-site-sw.js; then
+          # A chave real do cache inclui a data antes do identificador:
+          # chaotic-go-release-YYYYMMDD-N (não release-N isolado).
+          if ! grep -Eq "chaotic-go-release-[0-9]{8}-${release_tag}([^0-9]|$)" /tmp/chaotic-site-sw.js; then
             echo "::error::Service Worker não corresponde à versão pública."
             exit 1
           fi
