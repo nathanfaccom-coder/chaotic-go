@@ -1347,25 +1347,35 @@
       :"Nenhuma revisão elemental 3x3 feita pelo defensor.";
     $("lobby-3x3-creature-element-history").textContent=creatureChecks3x3.length
       ?creatureChecks3x3.slice().sort((a,b)=>a.turn_no-b.turn_no).map(x=>
-        "T"+x.turn_no+" · "+x.attacker_creature_name+" ["+
-        x.attacker_base_elements.join(", ")+"] versus "+
-        x.defender_creature_name+" ["+x.defender_base_elements.join(", ")+
+        "T"+x.turn_no+" · "+(x.attacker_creature_name||"Campeão oculto")+" ["+
+        (x.attacker_creature_name?(x.attacker_base_elements||[]).join(", "):"elementos ocultos")+"] versus "+
+        (x.defender_creature_name||"Campeão oculto")+" ["+
+        (x.defender_creature_name?(x.defender_base_elements||[]).join(", "):"elementos ocultos")+
         "]. Coincidência BÁSICA com ataque: "+
         ["Fogo","Água","Terra","Ar"].filter((_,i)=>
           [x.fire_base_match,x.water_base_match,x.earth_base_match,x.air_base_match][i]).join(", ")+
-        (x.rex_air_immunity_candidate?" · Rex: possível imunidade a Ar.":"")+
+        (x.rex_air_immunity_candidate==null
+          ?" · Imunidades adversárias ocultas. "
+          :x.rex_air_immunity_candidate?" · Rex: possível imunidade a Ar.":"")+
         " Elementos recebidos por habilidades, equipamento, imunidade e dano final PENDENTES. HP intacto.").join("\n")
       :"Nenhuma verificação básica de criaturas 3x3.";
     $("lobby-3x3-dynamic-element-history").textContent=dynamicElementChecks3x3.length
       ?dynamicElementChecks3x3.slice().sort((a,b)=>a.turn_no-b.turn_no).map(x=>
-        "T"+x.turn_no+" · Guru aliado vivo (atacante): "+x.attacker_guru_support_count+
-        "; Guru aliado vivo (defensor): "+x.defender_guru_support_count+
-        ". Candidato de Ar por Guru no atacante: "+(x.attacker_guru_air_candidate?"SIM":"NÃO")+
-        ". Naty no contato: "+(x.attacker_naty_variable_candidate?"atacante ":"")+
-        (x.defender_naty_variable_candidate?"defensor":"")+
-        ((!x.attacker_naty_variable_candidate&&!x.defender_naty_variable_candidate)?"não":"")+
+        "T"+x.turn_no+" · Guru aliado vivo (atacante): "+
+        (x.attacker_guru_support_count==null?"oculto":x.attacker_guru_support_count)+
+        "; Guru aliado vivo (defensor): "+
+        (x.defender_guru_support_count==null?"oculto":x.defender_guru_support_count)+
+        ". Candidato de Ar por Guru no atacante: "+
+        (x.attacker_guru_air_candidate==null?"oculto":x.attacker_guru_air_candidate?"SIM":"NÃO")+
+        ". Naty no contato: "+
+        (x.attacker_naty_variable_candidate==null||x.defender_naty_variable_candidate==null
+          ?"informação parcialmente oculta"
+          :x.attacker_naty_variable_candidate||x.defender_naty_variable_candidate
+            ?[x.attacker_naty_variable_candidate?"atacante":null,
+               x.defender_naty_variable_candidate?"defensor":null].filter(Boolean).join(" e ")
+            :"não")+
         ". Possível componente de Ar da carta: "+
-        (x.attacker_air_attack_candidate?"SIM":"NÃO")+
+        (x.attacker_air_attack_candidate==null?"oculto":x.attacker_air_attack_candidate?"SIM":"NÃO")+
         ". Efeitos condicionais, dados, imunidades e dano final NÃO aplicados.").join("\n")
       :"Nenhuma revisão de fontes dinâmicas em 3x3.";
     $("lobby-3x3-private-equipment-history").textContent=privateEquipmentChecks3x3.length
@@ -1534,16 +1544,15 @@
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
     if(elementReview.error)throw new Error(elementReview.error.message);
     elementalInspections3x3=elementReview.data||[];
-    const creatureCheck=await api.from("chaotic_preview_3x3_creature_element_checks")
-      .select("turn_no,attacker_creature_name,defender_creature_name,attacker_base_elements,defender_base_elements,fire_base_match,water_base_match,earth_base_match,air_base_match,rex_air_immunity_candidate,final_damage_calculated,official_match_modified")
-      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
-    if(creatureCheck.error)throw new Error(creatureCheck.error.message);
-    creatureChecks3x3=creatureCheck.data||[];
-    const dynamicCheck=await api.from("chaotic_preview_3x3_dynamic_element_checks")
-      .select("turn_no,attacker_guru_support_count,defender_guru_support_count,attacker_guru_air_candidate,defender_guru_air_candidate,attacker_naty_variable_candidate,defender_naty_variable_candidate,attacker_air_attack_candidate,final_damage_calculated,official_match_modified")
-      .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
-    if(dynamicCheck.error)throw new Error(dynamicCheck.error.message);
-    dynamicElementChecks3x3=dynamicCheck.data||[];
+    // v0.1.58: no direct client reads of raw names or Guru-support snapshots.
+    // The RPC checks lobby membership and hides face-down rival metadata.
+    const safeInspect=await rpc("chaotic_get_preview_3x3_safe_inspections",{
+      p_lobby_id:room.id
+    });
+    creatureChecks3x3=Array.isArray(safeInspect?.creature_checks)
+      ?safeInspect.creature_checks:[];
+    dynamicElementChecks3x3=Array.isArray(safeInspect?.dynamic_checks)
+      ?safeInspect.dynamic_checks:[];
     const trainingDmg=await api.from("chaotic_preview_3x3_training_damage_events")
       .select("turn_no,attacker_id,defender_id,attacker_slot,defender_slot,attack_instance_id,catalog_attack_id,base_damage,bonus_damage,elemental_bonus_damage,immunity_prevented_damage,defeated_allies_count,hp_before,hp_after,damage_dealt,optional_reveal_pending,effects_fully_resolved,official_match_modified")
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
@@ -1734,12 +1743,6 @@
         },sync)
         .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_3x3_elemental_inspections",filter:"lobby_id=eq."+lobbyId
-        },sync)
-        .on("postgres_changes",{
-          event:"*",schema:"public",table:"chaotic_preview_3x3_creature_element_checks",filter:"lobby_id=eq."+lobbyId
-        },sync)
-        .on("postgres_changes",{
-          event:"*",schema:"public",table:"chaotic_preview_3x3_dynamic_element_checks",filter:"lobby_id=eq."+lobbyId
         },sync)
         .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_3x3_training_damage_events",filter:"lobby_id=eq."+lobbyId
