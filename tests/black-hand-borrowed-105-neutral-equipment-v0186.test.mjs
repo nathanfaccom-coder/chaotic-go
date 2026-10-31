@@ -92,17 +92,20 @@ test("v0.1.86: DROME explains only 202/204 permitted while keeping original mode
  for(const marker of [
    "Amuleto do Vácuo (202)",
    "Bastão da Sabedoria (204)",
-   "202/204 originais verificados",
-   "SEM equipamento ou com 202/204 validados",
+   "202/204/207 originais verificados",
+   "SEM equipamento ou com 202/204/207 validados",
    "lobby-3x3-borrowed-settle-base",
    "chaotic_resolve_preview_3x3_borrowed_105_reveal"
  ])assert.ok(ui.includes(marker),marker);
  assert.doesNotMatch(ui,/resolvableTrainingAttacks3x3=new Set\([^)]*"102"/);
 });
-test("v0.1.86: game PWA cache, index and scanners all carry release 86",()=>{
- assert.match(index,/VERSÃO 0\.1\.86/);
- assert.match(index,/sw\.js\?v=release-86/);
- assert.match(sw,/chaotic-go-release-20261031-86/);
- assert.match(scanner,/full-game-bootstrap\.js\?v=release-86/);
- assert.match(boot,/chaotic-lobby\.js\?v=release-86/);
+test("v0.1.86+: PWA cache, index and scanners remain synchronized",()=>{
+ const current=index.match(/VERSÃO 0\.1\.(\d+)/);
+ const registered=index.match(/sw\.js\?v=release-(\d+)/);
+ const cache=sw.match(/chaotic-go-release-\d{8}-(\d+)/);
+ const loaded=scanner.match(/full-game-bootstrap\.js\?v=release-(\d+)/);
+ const lobby=boot.match(/chaotic-lobby\.js\?v=release-(\d+)/);
+ assert.ok(current&&registered&&cache&&loaded&&lobby);
+ assert.ok(Number(current[1])>=86);
+ for(const match of [registered,cache,loaded,lobby])assert.equal(match[1],current[1]);
 });
