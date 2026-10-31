@@ -70,15 +70,19 @@ test("v0.1.87: unsupported earth bracelet and forged water bracelet are denied a
 test("v0.1.87: UI describes only validated neutral equipments without exposing private identifiers",()=>{
  for(const s of [
    "Bracelete de Água (207)",
-   "202/204/207 originais verificados",
-   "SEM equipamento ou com 202/204/207 validados",
+   "202/204/206/207 originais verificados",
+   "SEM equipamento ou com 202/204/206/207 validados",
    "chaotic_settle_preview_3x3_borrowed_105_base"
  ])assert.ok(ui.includes(s),s);
 });
-test("v0.1.87: index, cache and scanner loaders remain in release 87",()=>{
- assert.match(index,/VERSÃO 0\.1\.87/);
- assert.match(index,/sw\.js\?v=release-87/);
- assert.match(sw,/chaotic-go-release-20261031-87/);
- assert.match(scanner,/full-game-bootstrap\.js\?v=release-87/);
- assert.match(boot,/chaotic-lobby\.js\?v=release-87/);
+test("v0.1.87+: PWA release pointers remain synchronized",()=>{
+ const version=index.match(/VERSÃO 0\.1\.(\d+)/);
+ const registration=index.match(/sw\.js\?v=release-(\d+)/);
+ const cache=sw.match(/chaotic-go-release-\d{8}-(\d+)/);
+ const scannerScript=scanner.match(/full-game-bootstrap\.js\?v=release-(\d+)/);
+ const dromeScript=boot.match(/chaotic-lobby\.js\?v=release-(\d+)/);
+ assert.ok(version&&registration&&cache&&scannerScript&&dromeScript);
+ assert.ok(Number(version[1])>=87);
+ for(const part of [registration,cache,scannerScript,dromeScript])
+  assert.equal(part[1],version[1]);
 });
