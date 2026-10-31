@@ -64,7 +64,7 @@ test("Real test covers 11 RPC scenarios, Rex on Air AND Earth, regular knockouts
 });
 test("DROME displays SONAR immunity, zero damage and pending card search",()=>{
  for(const key of [
- '["101","105","107","110","111","112","113","114"].includes(attackId)',
+ 'resolvableTrainingAttacks3x3.has(attackId)',
  "chaotic_apply_preview_3x3_training_sonar_110",
  "immunity_prevented_damage",'110:"SONAR"',
  "Busca privada de carta com custo até 1 DISPONÍVEL"]){
