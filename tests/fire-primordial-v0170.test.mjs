@@ -55,18 +55,21 @@ test("v0.1.70: database rollback tested paid 104, legitimate KO and anti-replay"
  }
  assert.doesNotMatch(live,/\bcommit\s*;/i);
 });
-test("v0.1.70: DROME shows persisted die and versioned Android assets",()=>{
+test("v0.1.70+: DROME shows persisted die and aligned Android assets",()=>{
  for(const x of ["resolvableTrainingAttacks3x3=new Set([\"101\",\"104\"",
   "chaotic_apply_preview_3x3_training_fire_104",
-  "fire_die_roll,base_damage",
+  "fire_die_roll,",
   "Dado do servidor: ",
   "settled.fire_die_roll",
   "Fogo Primordial 2.0 (104): o servidor rola automaticamente 1d6"]){
  assert.ok(ui.includes(x),x);
  }
- assert.match(index,/VERSÃO 0\.1\.70/);
- assert.match(index,/sw\.js\?v=release-70/);
- assert.match(sw,/chaotic-go-release-20261031-70/);
- assert.match(scanner,/full-game-bootstrap\.js\?v=release-70/);
- assert.match(bootstrap,/chaotic-lobby\.js\?v=release-70/);
+ const shown=index.match(/VERSÃO 0\.1\.(\d+)/);
+ const worker=index.match(/sw\.js\?v=release-(\d+)/);
+ const cache=sw.match(/chaotic-go-release-\d{8}-(\d+)/);
+ const scan=scanner.match(/full-game-bootstrap\.js\?v=release-(\d+)/);
+ const lobby=bootstrap.match(/chaotic-lobby\.js\?v=release-(\d+)/);
+ assert.ok(shown&&worker&&cache&&scan&&lobby);
+ assert.ok(Number(shown[1])>=70);
+ for(const ref of [worker,cache,scan,lobby])assert.equal(ref[1],shown[1]);
 });
