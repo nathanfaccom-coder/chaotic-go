@@ -64,12 +64,16 @@ test("v0.1.77: SQL smoke is rollback-only and rejects anonymous/outsider context
  ])assert.ok(smoke.includes(marker),marker);
  assert.doesNotMatch(smoke,/\bcommit\s*;/i);
 });
-test("v0.1.77: publication pointers and PWA caches are coherent",()=>{
- assert.match(index,/VERSÃO 0\.1\.77/);
- assert.match(index,/sw\.js\?v=release-77/);
- assert.match(sw,/chaotic-go-release-20261031-77/);
- assert.match(scanner,/full-game-bootstrap\.js\?v=release-77/);
- assert.match(boot,/chaotic-lobby\.js\?v=release-77/);
+test("v0.1.77+: publication pointers and PWA caches remain coherent",()=>{
+ const shown=index.match(/VERSÃO 0\.1\.(\d+)/);
+ const loader=index.match(/sw\.js\?v=release-(\d+)/);
+ const cached=sw.match(/chaotic-go-release-\d{8}-(\d+)/);
+ const scannerLoader=scanner.match(/full-game-bootstrap\.js\?v=release-(\d+)/);
+ const dromeLoader=boot.match(/chaotic-lobby\.js\?v=release-(\d+)/);
+ assert.ok(shown&&loader&&cached&&scannerLoader&&dromeLoader);
+ assert.ok(Number(shown[1])>=77);
+ for(const m of [loader,cached,scannerLoader,dromeLoader])
+  assert.equal(m[1],shown[1]);
 });
 
 const positiveSql=await readFile(new URL("../supabase/tests/chaotic-preview-3x3-borrowed-quote-positive-live-v0177.test.sql",import.meta.url),"utf8");
