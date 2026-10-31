@@ -100,10 +100,14 @@ test("v0.1.81: DROME server status, reaction and cancellation UI are properly co
   "Pagamento e dano NÃO aplicados"
  ])assert.ok(ui.includes(p),p);
 });
-test("v0.1.81: release and PWA cache are aligned",()=>{
- assert.match(index,/VERSÃO 0\.1\.81/);
- assert.match(index,/sw\.js\?v=release-81/);
- assert.match(worker,/chaotic-go-release-20261031-81/);
- assert.match(scanner,/full-game-bootstrap\.js\?v=release-81/);
- assert.match(boot,/chaotic-lobby\.js\?v=release-81/);
+test("v0.1.81+: subsequent public and Android releases remain aligned",()=>{
+ const v=index.match(/VERSÃO 0\.1\.(\d+)/);
+ const swVersion=index.match(/sw\.js\?v=release-(\d+)/);
+ const cacheVersion=worker.match(/chaotic-go-release-\d{8}-(\d+)/);
+ const scannerVersion=scanner.match(/full-game-bootstrap\.js\?v=release-(\d+)/);
+ const bootVersion=boot.match(/chaotic-lobby\.js\?v=release-(\d+)/);
+ assert.ok(v&&swVersion&&cacheVersion&&scannerVersion&&bootVersion);
+ assert.ok(Number(v[1])>=81);
+ for(const m of [swVersion,cacheVersion,scannerVersion,bootVersion])
+  assert.equal(m[1],v[1]);
 });
