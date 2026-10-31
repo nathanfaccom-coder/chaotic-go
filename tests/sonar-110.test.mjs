@@ -67,7 +67,7 @@ test("DROME displays SONAR immunity, zero damage and pending card search",()=>{
  '["101","105","107","110","111","112","113","114"].includes(attackId)',
  "chaotic_apply_preview_3x3_training_sonar_110",
  "immunity_prevented_damage",'110:"SONAR"',
- "Busca de carta custo até 1 PENDENTE"]){
+ "Busca privada de carta com custo até 1 DISPONÍVEL"]){
   assert.ok(ui.includes(key),key);
  }
 });
