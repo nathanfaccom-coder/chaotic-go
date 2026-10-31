@@ -64,10 +64,13 @@ test("v0.1.76: DROME lists borrowed card but never merges into owned hand or ena
  assert.doesNotMatch(ui,/resolvableTrainingAttacks3x3=new Set\([^)]*"102"/);
  assert.match(spend,/projection\.catalog_attack_id not in\('101','104','105','107','108','109','110','111','112','113','114','115'\)/);
 });
-test("v0.1.76: visible release and PWA cache match for Android",()=>{
- assert.match(index,/VERSÃO 0\.1\.76/);
- assert.match(index,/sw\.js\?v=release-76/);
- assert.match(sw,/chaotic-go-release-20261031-76/);
- assert.match(scanner,/full-game-bootstrap\.js\?v=release-76/);
- assert.match(boot,/chaotic-lobby\.js\?v=release-76/);
+test("v0.1.76+: the release and PWA cache never regress below the validated feature",()=>{
+ const shown=index.match(/VERSÃO 0\.1\.(\d+)/);
+ const cache=index.match(/sw\.js\?v=release-(\d+)/);
+ const swCache=sw.match(/chaotic-go-release-\d{8}-(\d+)/);
+ const loaded=scanner.match(/full-game-bootstrap\.js\?v=release-(\d+)/);
+ const lobby=boot.match(/chaotic-lobby\.js\?v=release-(\d+)/);
+ assert.ok(shown&&cache&&swCache&&loaded&&lobby);
+ assert.ok(Number(shown[1])>=76);
+ for(const hit of [cache,swCache,loaded,lobby])assert.equal(hit[1],shown[1]);
 });
