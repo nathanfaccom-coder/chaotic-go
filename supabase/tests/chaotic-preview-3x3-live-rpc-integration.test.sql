@@ -152,6 +152,27 @@ begin
   then raise exception 'Non-attacker was not rejected for %: %',attack_id,error_text;end if;
   perform set_config('request.jwt.claim.sub',host::text,true);
   if auth.uid() is distinct from host then raise exception 'JWT test identity missing';end if;
+  if attack_id='105' then
+   -- Equipped defenders are not yet supported by the damage resolver.
+   -- Even neutral damage must be blocked until equipment effects are resolved.
+   update public.chaotic_preview_3x3_private_equipment_checks
+   set equipment_status='owned_original_equipment_in_slot',
+     equipment_instance_id='synthetic-equip-201',catalog_equipment_id='201',
+     equipment_name='Anel Precioso',
+     rule_code='ignore_elemental_damage_with_energy_cost'
+   where lobby_id=lobby and turn_no=1;
+   error_text:=null;
+   begin
+    perform public.chaotic_apply_preview_3x3_training_base_105(lobby,1);
+   exception when others then get stacked diagnostics error_text=message_text;end;
+   if error_text is null or position('SEM equipamento' in error_text)=0
+   then raise exception 'Defender equipment was ignored: %',error_text;end if;
+   update public.chaotic_preview_3x3_private_equipment_checks
+   set equipment_status='no_equipment_in_slot',
+     equipment_instance_id=null,catalog_equipment_id=null,
+     equipment_name=null,rule_code=null
+   where lobby_id=lobby and turn_no=1;
+  end if;
 
   if attack_id='105' then
    effect:=public.chaotic_apply_preview_3x3_training_base_105(lobby,1);
