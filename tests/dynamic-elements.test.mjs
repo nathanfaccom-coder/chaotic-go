@@ -28,13 +28,17 @@ test("3x3: dynamic check never applies eligibility, damage or private gear",()=>
  assert.doesNotMatch(sql,/chaotic_preview_3x3_private_equipment_checks/);
  assert.doesNotMatch(sql,/update\s+public\.chaotic_preview_3x3_hp_wallets/i);
 });
-test("3x3: DROME exposes safe defender inspection and real-time history",()=>{
- for(const code of ["chaotic_inspect_preview_3x3_dynamic_elements",
-  "lobby-3x3-dynamic-elements","lobby-3x3-dynamic-element-history",
-  "dynamicElementChecks3x3=dynamicCheck.data||[]",
-  'table:"chaotic_preview_3x3_dynamic_element_checks"']){
-   assert.ok(ui.includes(code),code);
+test("3x3: DROME uses private-safe history for dynamic Guru and Naty inspections",()=>{
+ for(const code of [
+ "chaotic_inspect_preview_3x3_dynamic_elements",
+ "chaotic_get_preview_3x3_safe_inspections",
+ "lobby-3x3-dynamic-elements","lobby-3x3-dynamic-element-history",
+ "dynamicElementChecks3x3=Array.isArray(safeInspect?.dynamic_checks)",
+ "informação parcialmente oculta"]){
+  assert.ok(ui.includes(code),code);
  }
+ assert.doesNotMatch(ui,/\.from\("chaotic_preview_3x3_dynamic_element_checks"\)/);
+ assert.doesNotMatch(ui,/table:"chaotic_preview_3x3_dynamic_element_checks"/);
  assert.match(ui,/defenseWindowThisTurn\.defender_id===userId/);
  assert.match(ui,/dynamicElementChecks3x3\.some\(x=>x\.turn_no===match\.turn_no\)/);
 });
