@@ -59,7 +59,7 @@ test("v0.1.76: DROME lists borrowed card but never merges into owned hand or ena
  "lobby-3x3-borrowed-attacks",
  "Cartas recebidas TEMPORARIAMENTE",
  "pagamento e uso continuam DESABILITADOS",
- "Mão Negra (102) ainda não pode ser usada"])
+ "Para roubar no treino 3x3, pague a Mão Negra e aguarde o passe do defensor"])
  assert.ok(ui.includes(x),x);
  assert.doesNotMatch(ui,/resolvableTrainingAttacks3x3=new Set\([^)]*"102"/);
  assert.match(spend,/projection\.catalog_attack_id not in\('101','104','105','107','108','109','110','111','112','113','114','115'\)/);
