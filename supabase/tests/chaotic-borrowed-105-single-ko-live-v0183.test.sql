@@ -138,6 +138,9 @@ begin
  begin perform public.chaotic_settle_preview_3x3_borrowed_105_base(room,3);
  exception when others then denied:=true;end;
  if not denied then raise exception 'Borrowed KO replay accepted';end if;
+ -- Since v0.1.85, each nonterminal paid borrowed 105 must explicitly
+ -- resolve or skip its optional reveal before advancing the turn.
+ perform public.chaotic_resolve_preview_3x3_borrowed_105_reveal(room,3,null,true);
  perform public.chaotic_pass_turn(room,3);
  if (select turn_no from public.chaotic_match_turns where lobby_id=room)<>4
  then raise exception 'Single-target borrowed KO blocked turn';end if;
