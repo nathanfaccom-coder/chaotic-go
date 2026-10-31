@@ -126,6 +126,12 @@ end $guest$;
 -- After revealing ONLY the donor, the opponent may see a sanitized
 -- event, without exposing the still-facedown receiver's card identity.
 reset role;
+-- This independent case leaves the receiver facedown after donor reveal.
+update public.chaotic_preview_3x3_face_states
+ set face_up=false,reveal_reason='face_down',revealed_turn=null
+ where lobby_id='c1570000-0000-4000-8000-000000000157'::uuid
+   and actor_id='b1570000-0000-4000-8000-000000000157'::uuid
+   and position=5;
 update public.chaotic_preview_3x3_face_states
  set face_up=true,reveal_reason='vento_forte',revealed_turn=1
  where lobby_id='c1570000-0000-4000-8000-000000000157'::uuid
