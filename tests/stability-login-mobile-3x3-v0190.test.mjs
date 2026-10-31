@@ -122,7 +122,7 @@ test("stability v0.1.91: authenticated JS and all core loaders refresh together"
   "legacy-import.js","player-backup.js","supabase-game-bridge.js",
   "script.js","batalha.js","chaotic-lobby.js"
  ])assert.ok(boot.includes("./"+module+"?v=release-91"),module);
- assert.ok(Number(index.match(/VERSÃO 0\\.1\\.(\\d+)/)?.[1]||0)>=91);
+ assert.ok(index.includes("VERSÃO 0.1.91"));
  assert.match(index,/sw\.js\?v=release-91/);
  assert.match(worker,/chaotic-go-release-20261031-91/);
  assert.match(worker,/request\.mode==='navigate'/);
