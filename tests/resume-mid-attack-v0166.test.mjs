@@ -45,6 +45,8 @@ test("v0.1.66: live fixture rejects duplicate defense and damage after returning
   assert.doesNotMatch(live,/\bcommit\s*;/i);
 });
 test("v0.1.66: UI displays recovery instructions but does not replay actions",()=>{
+  assert.doesNotMatch(ui,/Dois jogadores conectados/);
+  assert.match(ui,/Dois participantes cadastrados/);
   for(const key of ["resumePhase3x3","lobby-3x3-recovery-state",
     "chaotic_get_preview_3x3_resume_status",
     "O servidor está em outro turno",
