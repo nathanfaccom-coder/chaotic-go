@@ -46,7 +46,7 @@ test("real disposable SQL fixture exercises seven RPCs and rejected next-turn dr
 test("DROME tracks Vine and prevents drawing or attacking on locked turns",()=>{
  for(const s of ["chaotic_apply_preview_3x3_training_vine_107","drawLockedThisTurn",
   '!drawLockedThisTurn&&!!ownHandWallet','blocks_draw,training_only',
-  '["101","105","107","110","111","112","113","114"].includes(attackId)',
+  'resolvableTrainingAttacks3x3.has(attackId)',
   "Armadilha de Vinha","Habilidades/Mugics ainda pendentes"]){
   assert.ok(ui.includes(s),s);
  }

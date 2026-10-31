@@ -48,10 +48,13 @@ test("v0.1.69: DROME warns on unsupported projection and cancels safely",()=>{
  assert.ok(ui.includes(phrase),phrase);
  assert.match(ui,/if\(!resolvableTrainingAttacks3x3\.has\(projectedAttack\?\.catalog_attack_id\)\)/);
 });
-test("v0.1.69: release and all PWA module caches are aligned",()=>{
- assert.match(index,/VERSÃO 0\.1\.69/);
- assert.match(index,/sw\.js\?v=release-69/);
- assert.match(sw,/chaotic-go-release-20261031-69/);
- assert.match(scanner,/full-game-bootstrap\.js\?v=release-69/);
- assert.match(bootstrap,/chaotic-lobby\.js\?v=release-69/);
+test("v0.1.69+: PWA versions stay aligned after newer releases",()=>{
+ const displayed=index.match(/VERSÃO 0\.1\.(\d+)/);
+ const worker=index.match(/sw\.js\?v=release-(\d+)/);
+ const cache=sw.match(/chaotic-go-release-\d{8}-(\d+)/);
+ const scan=scanner.match(/full-game-bootstrap\.js\?v=release-(\d+)/);
+ const lobby=bootstrap.match(/chaotic-lobby\.js\?v=release-(\d+)/);
+ assert.ok(displayed&&worker&&cache&&scan&&lobby);
+ assert.ok(Number(displayed[1])>=69);
+ for(const row of [worker,cache,scan,lobby])assert.equal(row[1],displayed[1]);
 });

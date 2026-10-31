@@ -96,8 +96,7 @@ begin
    err:=null;
    begin perform public.chaotic_spend_preview_3x3_attack(room,t);
    exception when others then get stacked diagnostics err=message_text;end;
-   if err is null or position('ainda não possui dano experimental' in err)=0
-   then raise exception 'Unsupported card 104 was payable: %',err;end if;
+   if err is null then raise exception 'Unprepared 104 could be paid with no wallet/hand';end if;
    perform set_config('request.jwt.claim.sub',guest::text,true);
    err:=null;
    begin perform public.chaotic_cancel_preview_3x3_unpaid_contact(room,t);
@@ -148,22 +147,35 @@ begin
   then raise exception 'Unpaid premature pass changed turn';end if;
   insert into public.chaotic_preview_3x3_attack_hand
   (lobby_id,actor_id,card_slot,attack_instance_id,draw_position,card_state,spent_turn,spent_reason)
-  values(room,host,i,instance,i,'spent',t,'attack');
+  values(room,host,i,instance,i,case when i=1 then 'hand' else 'spent' end,
+   case when i=1 then null else t end,case when i=1 then null else 'attack' end);
   insert into public.chaotic_preview_3x3_cost_inspections
   (lobby_id,turn_no,actor_id,attack_instance_id,card_slot,catalog_attack_id,
    attack_cost,points_available,can_afford,points_after_if_paid)
   values(room,t,host,instance,i,case when i=1 then '104' else '105' end,
- case when i=1 then 2 else 1 end,10,true,case when i=1 then 8 else 9 end);
+ case when i=1 then 2 else 1 end,
+ case when i=1 then 3 else 10 end,true,
+ case when i=1 then 1 else 9 end);
   -- Refresh on a freshly opened, not-yet-paid attack must be safe.
   status_snapshot:=public.chaotic_get_preview_3x3_resume_status(room);
   if status_snapshot->>'phase'<>'awaiting_payment'
     or (status_snapshot->>'your_action_required')::boolean is not true
   then raise exception 'Unpaid attack checkpoint invalid at turn %: %',t,status_snapshot;end if;
-  insert into public.chaotic_preview_3x3_attack_spends
-  (lobby_id,turn_no,actor_id,attack_deck_slot,card_slot,attack_instance_id,
-   catalog_attack_id,training_attack_cost,points_before,points_after)
-  values(room,t,host,1,i,instance,case when i=1 then '104' else '105' end,
- case when i=1 then 2 else 1 end,10,case when i=1 then 8 else 9 end);
+  if i=1 then
+   perform public.chaotic_spend_preview_3x3_attack(room,t);
+   if (select spent_points from public.chaotic_preview_3x3_attack_wallets
+      where lobby_id=room and actor_id=host)<>2
+      or (select card_state from public.chaotic_preview_3x3_attack_hand
+       where lobby_id=room and actor_id=host and card_slot=i)<>'spent'
+      or (select points_after from public.chaotic_preview_3x3_attack_spends
+       where lobby_id=room and turn_no=t)<>1
+   then raise exception 'Original Fogo 104 payment was not atomic';end if;
+  else
+   insert into public.chaotic_preview_3x3_attack_spends
+   (lobby_id,turn_no,actor_id,attack_deck_slot,card_slot,attack_instance_id,
+    catalog_attack_id,training_attack_cost,points_before,points_after)
+   values(room,t,host,1,i,instance,'105',1,10,9);
+  end if;
   if i=1 then
    err:=null;
    begin perform public.chaotic_cancel_preview_3x3_unpaid_contact(room,t);
@@ -301,4 +313,4 @@ begin
  then raise exception 'Training illegally changed official rewards';end if;
 end $verify$;
 rollback;
-select 'PASS v0.1.70: 104 atomic d6 roll, defender denied, no replay; two 105 KOs; outcome and HP correct; rollback' as result;
+select 'PASS v0.1.70: actual paid 104 (2 points), authoritative 1d6, KO, blocked replay; two 105 KOs; rolled back' as result;

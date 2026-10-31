@@ -9,7 +9,7 @@
   let resumePhase3x3 = null;
   // Original attack cards stay intact. Only these catalog IDs currently
   // have experimental 3x3 damage endpoints; projection still supports all.
-  const resolvableTrainingAttacks3x3=new Set(["101","105","107","110","111","112","113","114"]);
+  const resolvableTrainingAttacks3x3=new Set(["101","104","105","107","110","111","112","113","114"]);
   // Persist only the latest room UUID, scoped to the signed-in player.
   // Never store combat actions, hidden cards, login tokens, or Deck contents.
   const lastRoomStorageKey="chaotic-go:last-room:"+userId;
@@ -1309,7 +1309,7 @@
     $("lobby-3x3-training-damage").hidden=!(myTurn&&!!defenseWindowThisTurn
       &&defenseWindowThisTurn.status==="defender_passed_preview"
       &&defenseWindowThisTurn.attacker_id===userId
-      &&["101","105","107","110","111","112","113","114"].includes(currentProjection?.catalog_attack_id)
+      &&resolvableTrainingAttacks3x3.has(currentProjection?.catalog_attack_id)
       &&!trainingDamage3x3.some(x=>x.turn_no===match.turn_no));
     const sonarHitThisTurn=trainingDamage3x3.some(x=>x.turn_no===match?.turn_no
       &&x.catalog_attack_id==="110"&&x.attacker_id===userId);
@@ -1560,7 +1560,7 @@
         "T"+x.turn_no+" · "+(x.defender_id===userId?"Sua":"Adversária")+
         " criatura "+x.defender_creature_name+" (c"+x.defender_slot+
         ") chegou a 0 HP DE TREINO após "+
-        ({101:"Ácido Gástrico",105:"Vento Forte",107:"Armadilha de Vinha",110:"SONAR",111:"MÃO ELETRÔNICA",112:"MÃO MÃO",
+        ({101:"Ácido Gástrico",104:"Fogo Primordial 2.0",105:"Vento Forte",107:"Armadilha de Vinha",110:"SONAR",111:"MÃO ELETRÔNICA",112:"MÃO MÃO",
           113:"PURGATÓRIO",114:"ESQUELETO"}[x.catalog_attack_id]||"um ataque")+
         ". Nocaute experimental; sem exclusão de carta.").join("\n")
       :"Nenhuma criatura nocauteada no treino.";
@@ -1583,10 +1583,12 @@
     $("lobby-3x3-training-damage-history").textContent=trainingDamage3x3.length
       ?trainingDamage3x3.slice().sort((a,b)=>a.turn_no-b.turn_no).map(x=>
         "T"+x.turn_no+" · "+(x.attacker_id===userId?"Seu ataque":"Ataque rival")+
-        " "+({101:"Ácido Gástrico",105:"Vento Forte",107:"Armadilha de Vinha",110:"SONAR",111:"MÃO ELETRÔNICA",112:"MÃO MÃO",
+        " "+({101:"Ácido Gástrico",104:"Fogo Primordial 2.0",105:"Vento Forte",107:"Armadilha de Vinha",110:"SONAR",111:"MÃO ELETRÔNICA",112:"MÃO MÃO",
           113:"PURGATÓRIO",114:"ESQUELETO"}[x.catalog_attack_id]||"Ataque original")+
         ": c"+x.defender_slot+" HP de TREINO "+
         x.hp_before+" → "+x.hp_after+" ("+x.damage_dealt+" de dano). "+
+        (x.catalog_attack_id==="104"
+          ?"Dado do servidor: "+x.fire_die_roll+" (5 × "+x.fire_die_roll+" = "+x.base_damage+"). ":"")+
         (["113","114"].includes(x.catalog_attack_id)
           ?"Aliados derrotados no ataque: "+x.defeated_allies_count+
             "; dano-base "+x.base_damage+" + bônus "+x.bonus_damage+". ":"")+
@@ -1722,7 +1724,7 @@
     dynamicElementChecks3x3=Array.isArray(safeInspect?.dynamic_checks)
       ?safeInspect.dynamic_checks:[];
     const trainingDmg=await api.from("chaotic_preview_3x3_training_damage_events")
-      .select("turn_no,attacker_id,defender_id,attacker_slot,defender_slot,attack_instance_id,catalog_attack_id,base_damage,bonus_damage,elemental_bonus_damage,immunity_prevented_damage,defeated_allies_count,hp_before,hp_after,damage_dealt,optional_reveal_pending,effects_fully_resolved,official_match_modified")
+      .select("turn_no,attacker_id,defender_id,attacker_slot,defender_slot,attack_instance_id,catalog_attack_id,fire_die_roll,base_damage,bonus_damage,elemental_bonus_damage,immunity_prevented_damage,defeated_allies_count,hp_before,hp_after,damage_dealt,optional_reveal_pending,effects_fully_resolved,official_match_modified")
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
     if(trainingDmg.error)throw new Error(trainingDmg.error.message);
     trainingDamage3x3=trainingDmg.data||[];
@@ -2265,8 +2267,9 @@
       '<button id="lobby-3x3-defense-pass" type="button" hidden>Defensor: passar reação (SEM dano)</button>',
       '<p id="lobby-3x3-defense-history" class="lobby-events" aria-live="polite">Nenhuma janela de defesa 3x3.</p>',
       '<p>Após o passe defensivo, pode resolver no TREINO: Ácido Gástrico (101: 10 + Fogo/Água natural), Vento Forte (105), Armadilha de Vinha (107: 5 + Terra natural; bloqueia atacar e comprar cartas no turno rival seguinte), MÃO ELETRÔNICA (111), MÃO MÃO (112), PURGATÓRIO (113) e ESQUELETO (114). Para 101 e 107, ambos os campeões devem estar sem equipamento e não podem depender de elementos dinâmicos; Naty fica excluída. No 107, habilidades/Mugics ainda não são executados no treino. SONAR (110): dano natural Terra/Ar de até 20; Rex cancela o golpe inteiro por conter Ar. Busca privada de carta com custo até 1 DISPONÍVEL após o dano, pelo botão SONAR; atacante sem equipamento, sem Naty e sem bônus dinâmico de Guru. Nenhuma carta oficial é alterada.</p>',
-      '<button id="lobby-3x3-training-damage" type="button" hidden>Atacante: resolver ataque de TREINO (101, 105, 107, 110, 111, 112, 113, 114)</button>',
+      '<button id="lobby-3x3-training-damage" type="button" hidden>Atacante: resolver dano de TREINO (101, 104, 105, 107, 110–114)</button>',
       '<p id="lobby-3x3-training-damage-history" class="lobby-events" aria-live="polite">Nenhum dano de treino aplicado.</p>',
+      '<p>Fogo Primordial 2.0 (104): o servidor rola automaticamente 1d6 ao aplicar o dano (5 × resultado). O dado e o HP são registrados em uma única transação; não há nova rolagem se a conexão cair.</p>',
       '<p>Vento Forte (105): após causar dano, revele um campeão adversário ainda virado para baixo ou dispense o efeito. As cartas que entram no combate viram para cima. A ocultação do nome nesta tela é VISUAL; o sigilo completo das formações na API ainda exige uma etapa posterior.</p>',
       '<select id="lobby-3x3-vento-choice" aria-label="Campeão adversário virado para baixo"></select>',
       '<button id="lobby-3x3-vento-choose" type="button" hidden>Vento Forte: revelar campeão escolhido</button>',
@@ -2884,9 +2887,11 @@
       await require3x3Phase(expectedTurn,["awaiting_damage"],true);
       const attackId=attackProjections3x3.find(x=>x.turn_no===match.turn_no
         &&x.actor_id===userId)?.catalog_attack_id;
-      if(!["101","105","107","110","111","112","113","114"].includes(attackId))
+      if(!resolvableTrainingAttacks3x3.has(attackId))
         throw new Error("Este ataque ainda não tem resolução de dano experimental.");
-      const rpcName=attackId==="105"
+      const rpcName=attackId==="104"
+        ?"chaotic_apply_preview_3x3_training_fire_104"
+        :attackId==="105"
         ?"chaotic_apply_preview_3x3_training_base_105"
         :attackId==="101"?"chaotic_apply_preview_3x3_training_acid_101"
         :attackId==="107"?"chaotic_apply_preview_3x3_training_vine_107"
@@ -2900,7 +2905,9 @@
       await refresh3x3Allies();
       note("Dano no HP DE TREINO: "+settled.hp_before+" → "+
         settled.hp_after+" ("+settled.damage_dealt+"). "+
-        (attackId==="105"?"Revelação opcional liberada: escolha um campeão virado para baixo ou dispense. ":
+        (attackId==="104"?"🎲 Fogo Primordial: dado do servidor "+settled.fire_die_roll+
+          " × 5 = "+settled.base_damage+" de dano calculado; resultado único do turno. ":
+         attackId==="105"?"Revelação opcional liberada: escolha um campeão virado para baixo ou dispense. ":
          attackId==="101"?"Bônus elemental NATURAL de Fogo/Água confirmado no servidor: "+
            (settled.elemental_bonus_damage||0)+". ":
          attackId==="107"?"Terra natural +"+(settled.elemental_bonus_damage||0)+
