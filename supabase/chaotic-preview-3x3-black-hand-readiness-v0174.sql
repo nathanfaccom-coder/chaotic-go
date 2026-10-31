@@ -17,6 +17,7 @@ declare
  owned_cards integer;
  held_cards integer;
  their_cards integer;
+ original_102_in_hand boolean;
  status_text text;
 begin
  if actor is null or p_lobby_id is null or p_expected_turn is null
@@ -59,13 +60,21 @@ begin
  select count(*) into held_cards from public.chaotic_preview_3x3_temporary_card_custody
   where lobby_id=p_lobby_id and borrower_id=actor
    and custody_state in('reserved','held');
+ select exists(select 1 from public.chaotic_preview_3x3_attack_hand h
+    where h.lobby_id=p_lobby_id and h.actor_id=actor
+      and h.card_slot=pr.attack_card_slot
+      and h.attack_instance_id=pr.attack_instance_id
+      and h.card_state='hand') into original_102_in_hand;
  select count(*) into their_cards from public.chaotic_preview_3x3_attack_hand
   where lobby_id=p_lobby_id and actor_id=contact.defender_id and card_state='hand';
  status_text:=case
   when own_wallet.lobby_id is null or own_wallet.last_draw_turn<>p_expected_turn
     then 'prepare_your_hand'
   when opponent_wallet.lobby_id is null then 'opponent_hand_not_prepared'
-  when owned_cards+held_cards>=5 then 'your_hand_is_full'
+  when not original_102_in_hand then 'original_102_not_in_hand'
+  -- The card 102 leaves the hand WHEN eventually paid. Reserve a slot
+  -- for the incoming card after that consumption, not before it.
+  when owned_cards+held_cards-1>=5 then 'your_hand_is_full'
   when their_cards=0 then 'opponent_hand_empty'
   else 'eligible_for_future_borrow' end;
  return pg_catalog.jsonb_build_object(
@@ -73,7 +82,7 @@ begin
    'status',status_text,
    'possible',status_text='eligible_for_future_borrow',
    'playable',false,'payment_enabled',false,
-   'own_free_slots',greatest(0,5-owned_cards-held_cards),
+   'own_free_slots',greatest(0,5-owned_cards-held_cards+1),
    'opponent_has_card',their_cards>0,
    'original_decks_modified',false,
    'card_id_revealed',false);
