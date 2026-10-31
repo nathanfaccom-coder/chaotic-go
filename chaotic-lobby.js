@@ -5,6 +5,8 @@
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
   let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [], mugicTrainingWallets = [], mugicTrainingSettlements = [], trainingAbilityEvents = [], harpTrainingEvents = [], allies3x3 = [], transfers3x3 = [], hp3x3 = [], board3x3 = [], moves3x3 = [], contacts3x3 = [], attackProjections3x3 = [], hand3x3 = [], handWallet3x3 = [], costChecks3x3 = [], attackSpends3x3 = [], discard3x3 = [], drawEvents3x3 = [], defenseWindows3x3 = [], elementalInspections3x3 = [], creatureChecks3x3 = [], privateEquipmentChecks3x3 = [], dynamicElementChecks3x3 = [], trainingDamage3x3 = [], trainingKnockouts3x3 = [], trainingOutcomes3x3 = [], trainingAttackLocks3x3 = [], sonarSearchEvents3x3 = [], sonarSearchChoices3x3 = [], sonarChoiceKey3x3 = "", faceStates3x3 = [], ventoRevealEvents3x3 = [], playerPresence3x3 = null;
+  // Latest privacy-safe, server-owned 3x3 attack checkpoint. No local replay.
+  let resumePhase3x3 = null;
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -1132,6 +1134,8 @@
       &&new Date(room.expires_at).getTime()>Date.now()
       &&trainingOutcomes3x3.length===0;
     const presence=playerPresence3x3;
+    const checkpoint=resumePhase3x3;
+    const checkpointForTurn=checkpoint?.turn_no===match?.turn_no;
     const readyButton=$("lobby-3x3-test-ready");
     const unreadyButton=$("lobby-3x3-test-unready");
     const resyncButton=$("lobby-3x3-refresh-connection");
@@ -1163,7 +1167,34 @@
             "."))
         :"Aguardando diagnóstico de conexão de ambos os jogadores...";
     }
-    const myTurn=!!current&&match.current_player===userId;
+    // Server phase is authoritative. On mismatched turns, never present
+    // an outdated attack as an actionable instruction.
+    const recoveryText=$("lobby-3x3-recovery-state");
+    if(recoveryText){
+      const phaseLabel={
+        ready:"Sem ataque pendente neste turno.",
+        contact_open:"Contato iniciado; aguarde ou conclua a declaração do ataque.",
+        awaiting_payment:"Ataque declarado, aguardando a confirmação do pagamento.",
+        awaiting_defender:"Ataque pago. Aguardando a resposta do defensor.",
+        awaiting_damage:"Defensor respondeu. Aguardando a aplicação do dano pelo atacante.",
+        awaiting_optional_reveal:"Dano aplicado. Falta decidir a revelação opcional de Vento Forte.",
+        awaiting_sonar_search:"Dano aplicado. Falta concluir a busca privada de SONAR.",
+        damage_settled:"Dano aplicado e registrado; a ação de treino não será repetida.",
+        training_finished:"Três nocautes registrados: treinamento encerrado, sem recompensas oficiais.",
+        session_closed:"Sessão de treinamento encerrada."
+      };
+      recoveryText.textContent=!checkpoint
+        ?"Verificação da etapa do ataque indisponível; atualize a conexão."
+        :!checkpointForTurn
+          ?"O servidor está em outro turno. Atualize a conexão antes de agir."
+          :("Recuperação do turno "+checkpoint.turn_no+": "+
+            (phaseLabel[checkpoint.phase]||"Estado do ataque em verificação.")+
+            (checkpoint.your_action_required?" É necessária uma ação sua.":
+              " Nenhuma ação de recuperação sua está pendente.")+
+            " Nenhuma carta ou dano é repetido ao reconectar.");
+    }
+    const myTurn=!!current&&match.current_player===userId
+      &&(!checkpoint||checkpointForTurn);
     const attackLockedThisTurn=trainingAttackLocks3x3.some(x=>
       x.defender_id===userId&&match?.turn_no>x.inflicted_turn
       &&match?.turn_no<=x.last_blocked_turn);
@@ -1549,7 +1580,7 @@
   async function refresh3x3Allies(){
     if(!$("lobby-3x3-allies-panel"))return;
     if(!room||!match||room.mode!=="3x3"){
-      allies3x3=[];transfers3x3=[];hp3x3=[];board3x3=[];moves3x3=[];contacts3x3=[];attackProjections3x3=[];hand3x3=[];handWallet3x3=[];costChecks3x3=[];attackSpends3x3=[];discard3x3=[];drawEvents3x3=[];defenseWindows3x3=[];elementalInspections3x3=[];creatureChecks3x3=[];privateEquipmentChecks3x3=[];dynamicElementChecks3x3=[];trainingDamage3x3=[];trainingKnockouts3x3=[];trainingOutcomes3x3=[];trainingAttackLocks3x3=[];sonarSearchEvents3x3=[];sonarSearchChoices3x3=[];sonarChoiceKey3x3="";faceStates3x3=[];ventoRevealEvents3x3=[];playerPresence3x3=null;update3x3UI();return;
+      allies3x3=[];transfers3x3=[];hp3x3=[];board3x3=[];moves3x3=[];contacts3x3=[];attackProjections3x3=[];hand3x3=[];handWallet3x3=[];costChecks3x3=[];attackSpends3x3=[];discard3x3=[];drawEvents3x3=[];defenseWindows3x3=[];elementalInspections3x3=[];creatureChecks3x3=[];privateEquipmentChecks3x3=[];dynamicElementChecks3x3=[];trainingDamage3x3=[];trainingKnockouts3x3=[];trainingOutcomes3x3=[];trainingAttackLocks3x3=[];sonarSearchEvents3x3=[];sonarSearchChoices3x3=[];sonarChoiceKey3x3="";faceStates3x3=[];ventoRevealEvents3x3=[];playerPresence3x3=null;resumePhase3x3=null;update3x3UI();return;
     }
     // v0.1.57: owner-only raw RLS; the server supplies a masked member view.
     const safeState=await rpc("chaotic_get_preview_3x3_safe_state",{
@@ -1666,6 +1697,16 @@
     playerPresence3x3=await rpc("chaotic_ping_preview_3x3_player",{
       p_lobby_id:room.id,p_ready:null
     });
+    // This checkpoint is read-only and is not a client-side authorization.
+    // Never retry a paid attack or a defense just because the app reopens.
+    try {
+      resumePhase3x3=await rpc("chaotic_get_preview_3x3_resume_status",{
+        p_lobby_id:room.id
+      });
+    } catch (error) {
+      resumePhase3x3=null;
+      note("Não foi possível recuperar a etapa do ataque: "+error.message,true);
+    }
     // Refresh the turn-pass button after updating the defense / settlement
     // state as well as after a KO: never leave a stale pass button visible.
     updateMatchUI();
@@ -1867,7 +1908,7 @@
     }, 6000);
   }
   function show() {
-    halt(); room = null; match = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = []; burstEquipmentResponses = []; burstEquipmentEffects = []; burstPriority = []; burstPriorityPasses = []; burstMugicIntents = []; burstMugicCounterplans = []; mugicTrainingWallets = []; mugicTrainingSettlements = []; trainingAbilityEvents = []; harpTrainingEvents = []; allies3x3 = []; transfers3x3 = []; hp3x3 = []; board3x3 = []; moves3x3 = []; contacts3x3 = []; attackProjections3x3 = []; hand3x3 = []; handWallet3x3 = []; costChecks3x3 = []; attackSpends3x3 = []; discard3x3 = []; drawEvents3x3 = []; defenseWindows3x3 = []; elementalInspections3x3 = [];
+    halt(); room = null; match = null; resumePhase3x3 = null; declarations = []; board = []; clashes = []; baseDamage = []; modifiers = []; dice = []; loadouts = []; attackInstances = []; individualDamage = []; equipmentReveals = []; attackWallets = []; handCards = []; initiatives = []; roomLocations = []; effectCandidates = []; hpWallets = []; hpEvents = []; resolutionAudits = []; burstWindows = []; burstOrderPlans = []; burstEquipmentResponses = []; burstEquipmentEffects = []; burstPriority = []; burstPriorityPasses = []; burstMugicIntents = []; burstMugicCounterplans = []; mugicTrainingWallets = []; mugicTrainingSettlements = []; trainingAbilityEvents = []; harpTrainingEvents = []; allies3x3 = []; transfers3x3 = []; hp3x3 = []; board3x3 = []; moves3x3 = []; contacts3x3 = []; attackProjections3x3 = []; hand3x3 = []; handWallet3x3 = []; costChecks3x3 = []; attackSpends3x3 = []; discard3x3 = []; drawEvents3x3 = []; defenseWindows3x3 = []; elementalInspections3x3 = [];
     const screen = $("tela-entrada-drome");
     if (!screen) return;
     $("tela-menu").style.display = "none";
@@ -2042,6 +2083,7 @@
       '<strong>🛡️ Formação 3x3 — treinamento (v0.1.64)</strong>',
       '<p>Diagnóstico de dois jogadores: cada dispositivo faz uma verificação no servidor a cada atualização da sala. Atividade recente NÃO substitui a validação real em dois celulares e não altera turnos, HP ou resultado oficial.</p>',
       '<p id="lobby-3x3-player-presence" class="lobby-events" aria-live="polite">Aguardando diagnóstico de conexão...</p>',
+      '<p id="lobby-3x3-recovery-state" class="lobby-events" role="status" aria-live="polite">Verificando a etapa atual do ataque...</p>',
       '<button id="lobby-3x3-test-ready" type="button" hidden>Estou pronto para testar o 3x3</button>',
       '<button id="lobby-3x3-test-unready" type="button" hidden>Retirar meu pronto</button>',
       '<button id="lobby-3x3-refresh-connection" type="button" hidden>Atualizar conexão e turno</button>',
@@ -2437,9 +2479,11 @@
     $("lobby-3x3-refresh-connection").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3")return;
       await refreshRoom();
-      note(playerPresence3x3?.peer_synced_current_turn
-        ?"Atualizado: o adversário já consultou o turno atual."
-        :"Atualizado: aguardando o adversário sincronizar o turno atual.");
+      note(resumePhase3x3?.training_finished
+        ?"Resultado experimental recuperado do servidor; nenhuma ação será repetida."
+        :playerPresence3x3?.peer_synced_current_turn
+        ?"Conexão e etapa do ataque atualizadas; o adversário já consultou o turno."
+        :"Etapa do ataque recuperada; aguardando o adversário sincronizar o turno.");
     });
     $("lobby-3x3-prepare").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3")return;
