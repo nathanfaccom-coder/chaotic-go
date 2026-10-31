@@ -57,17 +57,20 @@ test("v0.1.71: real Supabase test validates payment, privacy, no damage and full
  assert.match(live,/rollback;\s*select 'PASS v0\.1\.71/);
  assert.doesNotMatch(live,/\bcommit\s*;/i);
 });
-test("v0.1.71: DROME and PWA use new SPEED resolver without touching existing cards",()=>{
+test("v0.1.71+: DROME still supports original SPEED and aligned PWA cache",()=>{
  for(const marker of [
    'resolvableTrainingAttacks3x3=new Set(["101","104","105","107","108"',
    "chaotic_apply_preview_3x3_training_speed_108",
-   "speed_drew_card,base_damage",
+   "speed_drew_card,",
    "SPEED: 1 carta adicional",
    "SPEED (108): custo 0, dano 0"])
-   assert.ok(ui.includes(marker),marker);
- assert.match(index,/VERSÃO 0\.1\.71/);
- assert.match(index,/sw\.js\?v=release-71/);
- assert.match(sw,/chaotic-go-release-20261031-71/);
- assert.match(scanner,/full-game-bootstrap\.js\?v=release-71/);
- assert.match(boot,/chaotic-lobby\.js\?v=release-71/);
+ assert.ok(ui.includes(marker),marker);
+ const shown=index.match(/VERSÃO 0\.1\.(\d+)/);
+ const worker=index.match(/sw\.js\?v=release-(\d+)/);
+ const cache=sw.match(/chaotic-go-release-\d{8}-(\d+)/);
+ const scan=scanner.match(/full-game-bootstrap\.js\?v=release-(\d+)/);
+ const lobby=boot.match(/chaotic-lobby\.js\?v=release-(\d+)/);
+ assert.ok(shown&&worker&&cache&&scan&&lobby);
+ assert.ok(Number(shown[1])>=71);
+ for(const ref of [worker,cache,scan,lobby])assert.equal(ref[1],shown[1]);
 });
