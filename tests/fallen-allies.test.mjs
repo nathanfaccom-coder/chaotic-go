@@ -51,8 +51,8 @@ test("3x3: KO trigger checks canonical 113/114 dynamic damage",()=>{
 test("3x3: DROME dispatches conditional RPC and displays original damage sources",()=>{
  for(const term of [
   "chaotic_apply_preview_3x3_training_fallen_allies",
-  '["105","111","112","113","114"].includes(currentProjection?.catalog_attack_id)',
-  '["105","111","112","113","114"].includes(attackId)',
+  '["101","105","111","112","113","114"].includes(currentProjection?.catalog_attack_id)',
+  '["101","105","111","112","113","114"].includes(attackId)',
   "defeated_allies_count","bonus_damage","PURGATÓRIO","ESQUELETO"
  ])assert.ok(ui.includes(term),term);
  assert.match(ui,/chaotic_preview_3x3_training_damage_events/);
