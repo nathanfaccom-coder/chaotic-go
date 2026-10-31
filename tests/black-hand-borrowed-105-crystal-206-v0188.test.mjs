@@ -85,10 +85,14 @@ test("v0.1.88: DROME accurately lists crystal passive equipment, not active pois
  ])assert.ok(ui.includes(x),x);
  assert.ok(!ui.includes("Cura de veneno aplicada pelo Bracelete de Cristal"));
 });
-test("v0.1.88: cached PWA and scanners agree on release 88",()=>{
- assert.match(index,/VERSÃO 0\.1\.88/);
- assert.match(index,/sw\.js\?v=release-88/);
- assert.match(sw,/chaotic-go-release-20261031-88/);
- assert.match(scanner,/full-game-bootstrap\.js\?v=release-88/);
- assert.match(bootstrap,/chaotic-lobby\.js\?v=release-88/);
+test("v0.1.88+: cached PWA and scanner release pointers remain synchronized",()=>{
+ const v=index.match(/VERSÃO 0\.1\.(\d+)/);
+ const registered=index.match(/sw\.js\?v=release-(\d+)/);
+ const cache=sw.match(/chaotic-go-release-\d{8}-(\d+)/);
+ const scannerScript=scanner.match(/full-game-bootstrap\.js\?v=release-(\d+)/);
+ const lobbyScript=bootstrap.match(/chaotic-lobby\.js\?v=release-(\d+)/);
+ assert.ok(v&&registered&&cache&&scannerScript&&lobbyScript);
+ assert.ok(Number(v[1])>=88);
+ for(const match of [registered,cache,scannerScript,lobbyScript])
+  assert.equal(match[1],v[1]);
 });
