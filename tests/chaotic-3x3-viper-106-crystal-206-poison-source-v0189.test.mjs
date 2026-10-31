@@ -98,7 +98,7 @@ test("v0.1.89: own-character poison inspection UI warns cure and periodic damage
   "Dano periódico de 5 por turno ainda NÃO está ativo",
   "nenhuma carta será sacrificada",
   "Cura: desabilitada",
-  "hp_modified"
+  "Nenhum ponto, HP ou equipamento foi alterado"
  ])assert.ok(ui.includes(mark),mark);
 });
 test("v0.1.89: public and PWA scanners synchronized at release-89",()=>{
