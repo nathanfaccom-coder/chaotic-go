@@ -95,9 +95,15 @@
   async function require3x3Phase(expectedTurn,allowedPhases,requiresMyAction=false) {
     if (!room || !match || room.mode!=="3x3" || match.status!=="active")
       throw new Error("Partida 3x3 indisponível. Atualize a sala.");
+    const requestedRoomId=room.id, requestedView=viewGeneration;
     const stage=await rpc("chaotic_get_preview_3x3_resume_status",{
-      p_lobby_id:room.id
+      p_lobby_id:requestedRoomId
     });
+    // Never apply a checkpoint returned after the player has switched rooms.
+    // A successful preflight must refer to the same room, screen and turn.
+    if(room?.id!==requestedRoomId || viewGeneration!==requestedView
+      || match?.turn_no!==expectedTurn)
+      throw new Error("A sala ou o turno mudou durante a verificação. Atualize antes de agir.");
     resumePhase3x3=stage;
     if(stage.turn_no!==expectedTurn || stage.training_finished
       || !allowedPhases.includes(stage.phase)
@@ -1927,9 +1933,11 @@
     if(contacts3x3.some(x=>x.turn_no===match?.turn_no)
       && (borrowedAttacks3x3.length>0
         || hand3x3.some(x=>x.actor_id===userId&&x.card_state==="loaned"))){
-      borrowedPriority3x3=await rpc("chaotic_get_preview_3x3_borrowed_105_priority",{
+      const pendingBorrowedPriority=await rpc("chaotic_get_preview_3x3_borrowed_105_priority",{
         p_lobby_id:requestedRoomId
       });
+      if(!isCurrent3x3Request())return;
+      borrowedPriority3x3=pendingBorrowedPriority;
     if(!isCurrent3x3Request())return;
     }
     const checks=await api.from("chaotic_preview_3x3_cost_inspections")
@@ -2045,17 +2053,19 @@
     // Token transfers are already sanitized in the safe-state RPC.
     // Heartbeat confirms a recent server request, NOT a guaranteed live
     // browser tab or true two-device test. Player identity remains private.
-    playerPresence3x3=await rpc("chaotic_ping_preview_3x3_player",{
+    const latestPresence3x3=await rpc("chaotic_ping_preview_3x3_player",{
       p_lobby_id:requestedRoomId,p_ready:null
     });
     if(!isCurrent3x3Request())return;
+    playerPresence3x3=latestPresence3x3;
     // This checkpoint is read-only and is not a client-side authorization.
     // Never retry a paid attack or a defense just because the app reopens.
     try {
-      resumePhase3x3=await rpc("chaotic_get_preview_3x3_resume_status",{
+      const latestCheckpoint3x3=await rpc("chaotic_get_preview_3x3_resume_status",{
         p_lobby_id:requestedRoomId
       });
-    if(!isCurrent3x3Request())return;
+      if(!isCurrent3x3Request())return;
+      resumePhase3x3=latestCheckpoint3x3;
     } catch (error) {
       if(!isCurrent3x3Request())return;
       resumePhase3x3=null;
