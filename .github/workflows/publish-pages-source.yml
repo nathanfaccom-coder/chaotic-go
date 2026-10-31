@@ -1,0 +1,64 @@
+name: Publicar versão aprovada no GitHub Pages (Chaotic GO)
+on:
+  workflow_run:
+    workflows:
+      - "Validar Decks e Supabase (Chaotic GO)"
+    types: [completed]
+    branches: [main]
+permissions:
+  contents: write
+  pages: read
+concurrency:
+  group: chaotic-pages-legacy-publish
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Atualizar a origem do Pages sem apagar histórico
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner,repo}=context.repo;
+            const pagesBranch="feature/contas-e-salvamento-supabase";
+            const verifiedSha=context.payload.workflow_run.head_sha;
+            const {data:pages}=await github.rest.repos.getPages({owner,repo});
+            if(pages.build_type!=="legacy" || pages.source?.branch!==pagesBranch || pages.source?.path!=="/"){
+              core.warning("O Pages não usa mais a origem legada esperada. Não alterei nenhum ramo.");
+              return;
+            }
+            const {data:main}=await github.rest.git.getRef({owner,repo,ref:"heads/main"});
+            if(main.object.sha!==verifiedSha){
+              core.notice("O teste aprovado não corresponde ao HEAD atual; publicação mais nova prevalece.");
+              return;
+            }
+            const {data:oldPages}=await github.rest.git.getRef({owner,repo,ref:"heads/"+pagesBranch});
+            const [{data:mainCommit},{data:oldCommit}]=await Promise.all([
+              github.rest.git.getCommit({owner,repo,commit_sha:verifiedSha}),
+              github.rest.git.getCommit({owner,repo,commit_sha:oldPages.object.sha})
+            ]);
+            if(mainCommit.tree.sha===oldCommit.tree.sha){
+              core.notice("Pages já contém exatamente os mesmos arquivos do main.");
+              return;
+            }
+            // Merge snapshot: publication follows the verified main tree while
+            // preserving the previous Pages branch AND main commit history.
+            const {data:commit}=await github.rest.git.createCommit({
+              owner,repo,
+              message:"deploy(pages): sincronizar site com main validado "+verifiedSha.slice(0,12),
+              tree:mainCommit.tree.sha,
+              parents:[oldPages.object.sha,verifiedSha]
+            });
+            await github.rest.git.updateRef({
+              owner,repo,ref:"heads/"+pagesBranch,sha:commit.sha,force:false
+            });
+            core.notice("Origem do Pages sincronizada sem force-push: "+commit.sha);
+            await core.summary.addHeading("Chaotic GO — publicação")
+              .addRaw("A origem GitHub Pages foi avançada para o conteúdo testado de main.").addBreak()
+              .addLink("Abrir Chaotic GO","https://nathanfaccom-coder.github.io/chaotic-go/")
+              .write();
