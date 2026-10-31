@@ -76,7 +76,8 @@ begin
   if i in(6,7) then
    insert into public.chaotic_game_nodes(user_id,node_path,data)
     values(host,'decks/3x3_slot_1',
-      '{"criaturas":[null,null,null,"H4","H5","H6"],"equipamentos":[null,null,null,null,null,null]}'::jsonb);
+      '{"criaturas":[null,null,null,"H4","H5","H6"],"equipamentos":[null,null,null,null,null,null]}'::jsonb)
+    on conflict(user_id,node_path) do update set data=excluded.data;
   end if;
   insert into public.chaotic_preview_3x3_board_positions(
    lobby_id,actor_id,formation_slot,creature_instance_id,hex_position)
