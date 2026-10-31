@@ -1525,7 +1525,7 @@
       :borrowedPlan3x3?.state==="awaiting_defender"
         ?"Vento Forte emprestado: aguardando passe do defensor. Nenhum ponto foi pago."
       :borrowedPlan3x3?.state==="defender_passed_preview"
-        ?"Defensor passou. O Vento Forte emprestado pode causar nocaute INDIVIDUAL, sem equipamento; o último nocaute da equipe ainda é bloqueado. Revelação opcional não executada."
+        ?"Defensor passou. Vento Forte emprestado pode causar nocaute INDIVIDUAL ou FINAL DA EQUIPE, sem equipamento; se for final, o resultado vale somente no treino. Revelação opcional não executada."
       :borrowedPlan3x3?.state==="base_resolved_no_optional_reveal"
         ?"Dano-base do Vento Forte emprestado resolvido. A carta original voltou ao dono; revelação opcional não realizada."
       :borrowedPlan3x3?.state==="cancelled"
@@ -1560,7 +1560,7 @@
       borrowedPriority3x3?.state==="awaiting_defender"
         ?"Vento Forte emprestado: o defensor deve passar a prioridade (SEM dano ou gasto)."
         :borrowedPriority3x3?.state==="defender_passed_preview"
-        ?"Passe registrado. Dano-base de treino liberado sem equipamento; nocaute individual permitido. Último nocaute da equipe continua bloqueado."
+        ?"Passe registrado. Dano-base de treino liberado sem equipamento; Nocaute individual permitido e nocaute final de equipe gera RESULTADO DE TREINO, nunca oficial."
         :borrowedPriority3x3?.state==="base_resolved_no_optional_reveal"
         ?"Vento Forte emprestado resolvido: custo e 5 de dano-base; carta devolvida, sem revelação opcional."
         :"Nenhuma reação de Vento Forte emprestado pendente.";
@@ -2938,7 +2938,9 @@
         " → "+settled.points_after+"; HP "+settled.hp_before+" → "+
         settled.hp_after+(settled.hp_after===0?" (NOCAUTE de criatura)":"")+
         ". Carta original devolvida ao dono. "+
-        "Revelação opcional NÃO executada; ataque oficial preservado.");
+        (settled.training_outcome_recorded
+          ?" VITÓRIA NO TREINO 3x3! Todos os empréstimos devolvidos; sem XP, moedas ou vitória oficial.":"")+
+        " Revelação opcional NÃO executada; ataque oficial preservado.");
     });
     $("lobby-3x3-borrowed-quote").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
@@ -2952,7 +2954,7 @@
         " · custo "+q.attack_cost+" · pontos "+q.points_available+
         " · "+(q.can_afford_if_enabled?"custo suficiente":"pontos insuficientes")+
         " · HP-base hipotético "+q.defender_hp_before+" → "+q.defender_hp_after_base_only+
-        ". Prévia somente. O dano-base e nocaute individual exigem passe defensivo e ausência de equipamento. Nocaute final de equipe bloqueado.";
+        ". Prévia somente. O dano-base e nocaute individual exigem passe defensivo e ausência de equipamento. Nocaute final registra o vencedor SOMENTE no treino e devolve todas as cartas emprestadas.";
       $("lobby-3x3-borrowed-quote-result").textContent=msg;
       note(msg);
     });
