@@ -46,7 +46,7 @@ test("3x3: DROME shows locked turns and resolves only original eligible attacks"
  "chaotic_preview_3x3_training_attack_locks","lobby-3x3-training-attack-locks",
  "trainingAttackLocks3x3=locks.data||[]",
  'table:"chaotic_preview_3x3_training_attack_locks"',
- '["101","105","111","112","113","114"].includes(currentProjection?.catalog_attack_id)',
+ '["101","105","107","111","112","113","114"].includes(currentProjection?.catalog_attack_id)',
  "attackLockedThisTurn","MÃO ELETRÔNICA","MÃO MÃO"]){
   assert.ok(ui.includes(text),text);
  }
