@@ -78,13 +78,24 @@
       guestTile.style.borderColor = active && match.current_player === room.guest_id ? "#86ff9b" : "#315b43";
     }
     $("lobby-turn-start").hidden = !!match || room.host_id !== userId || room.status !== "ready";
+    const hold3x3=room.mode==="3x3"&&match&&(
+      defenseWindows3x3.some(x=>x.turn_no===match.turn_no
+        &&x.attacker_id===userId&&x.status==="awaiting_defender")
+      ||attackSpends3x3.some(x=>x.turn_no===match.turn_no
+        &&x.actor_id===userId&&!x.training_damage_applied)
+      ||trainingDamage3x3.some(x=>x.turn_no===match.turn_no
+        &&x.attacker_id===userId
+        &&((x.catalog_attack_id==="105"&&x.optional_reveal_pending)
+          ||(x.catalog_attack_id==="110"&&!x.effects_fully_resolved)))
+    );
     $("lobby-turn-pass").hidden = !active || match.current_player !== userId ||
+      hold3x3 ||
       (room.mode==="1x1"&&burstWindows.some(x=>x.turn_no===match.turn_no
         &&x.attacker_id===userId&&
         (x.status==="awaiting_defender"||
           !burstPriority.some(p=>p.turn_no===match.turn_no&&p.priority_status==="closed_preview")
           ||!burstOrderPlans.some(p=>p.turn_no===match.turn_no))));
-    $("lobby-turn-stop").hidden = !active;
+    $("lobby-turn-stop").hidden = !active && !(trainingComplete&&match?.status==="active");
   }
   // Conexões entre lados extraídas de batalha.js/obterAdjacencias.
   // Mesmo mapa para anfitrião e convidado: os pares são simétricos.
@@ -1632,9 +1643,9 @@
     playerPresence3x3=await rpc("chaotic_ping_preview_3x3_player",{
       p_lobby_id:room.id,p_ready:null
     });
-    // Refresh the generic turn button as well when the 3x3 training has ended.
-    if(trainingOutcomes3x3.length)updateMatchUI();
-    else update3x3UI();
+    // Refresh the turn-pass button after updating the defense / settlement
+    // state as well as after a KO: never leave a stale pass button visible.
+    updateMatchUI();
   }
   function updateRoomUI() {
     if (!$("lobby-create")) return;
@@ -2873,7 +2884,9 @@
       match = await rpc("chaotic_stop_match", { p_lobby_id: room.id });
       updateMatchUI();
       await refreshHistory();
-      note("Teste encerrado sem alterar cartas nem estatísticas.");
+      note(room?.mode==="3x3"&&trainingOutcomes3x3.length
+        ?"Treino 3x3 encerrado após o resultado. Sem vitória oficial, XP ou moedas."
+        :"Teste encerrado sem alterar cartas nem estatísticas.");
     });
     $("lobby-close").onclick = () => action(async () => {
       if (!room) return;
