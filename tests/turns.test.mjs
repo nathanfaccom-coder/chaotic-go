@@ -4,6 +4,7 @@ import {readFile} from "node:fs/promises";
 import vm from "node:vm";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
+const presence3x3Mock=new Map();
 const rooms=new Map(),matches=new Map(),journals=new Map(),declarations=new Map(),board=new Map(),clashes=new Map(),baseDamage=new Map(),modifiers=new Map(),dice=new Map(),loadouts=new Map(),attackInstances=new Map(),individualDamage=new Map(),equipmentReveals=new Map(),wallets=new Map(),hands=new Map(),initiatives=new Map(),locations=new Map(),effectCandidates=new Map(),hpWallets=new Map(),hpEvents=new Map(),resolutionAudits=new Map(),burstWindows=new Map(),burstOrderPlans=new Map(),burstPriority=new Map(),burstPriorityPasses=new Map(),burstMugicIntents=new Map(),burstMugicCounterplans=new Map(),mugicTrainingWallets=new Map(),mugicTrainingSettlements=new Map(),trainingAbilityEvents=new Map(),harpTrainingEvents=new Map(),allies3x3=new Map(),transfers3x3=new Map(),decks3x3=new Map(),hp3x3=new Map(),boardPositions3x3=new Map(),moveEvents3x3=new Map(),contacts3x3=new Map(),attackProjections3x3=new Map(),hand3x3Wallets=new Map(),hand3x3Cards=new Map(),hand3x3Discards=new Map(),hand3x3DrawEvents=new Map(),costChecks3x3=new Map(),attackSpends3x3=new Map(),defenseWindows3x3=new Map(),elementReviews3x3=new Map(),burstEquipmentResponses=new Map(),burstEquipmentEffects=new Map();
 let seq=0;
 function makeClient(actor) {
@@ -17,6 +18,27 @@ function makeClient(actor) {
       }
       const room=[...rooms.values()].find(r=>r.id===args.p_lobby_id||r.id===args.p_id||r.code===args.p_code);
       if(!room)return {data:null,error:{message:"Sala indisponível"}};
+      if(name==="chaotic_ping_preview_3x3_player"){
+        const m=matches.get(room.id);
+        if(!m||m.status!=="active"||room.status!=="ready"||room.mode!=="3x3"
+         ||![m.host_id,m.guest_id].includes(actor))
+          return {data:null,error:{message:"Diagnóstico disponível somente para dois membros ativos"}};
+        const key=room.id+"/"+actor,peer=actor===m.host_id?m.guest_id:m.host_id;
+        const now=Date.now(),older=presence3x3Mock.get(key);
+        const ready=args.p_ready==null?(older?.ready??false):args.p_ready;
+        presence3x3Mock.set(key,{ready,lastSeen:now});
+        const other=presence3x3Mock.get(room.id+"/"+peer);
+        const peerActive=!!other&&other.lastSeen>=now-25000;
+        return {data:{
+          self_active:true,peer_active:peerActive,
+          self_ready:ready,peer_ready:other?.ready??false,
+          both_ready_now:ready&&peerActive&&!!other?.ready,
+          active_turn:m.turn_no,your_turn:m.current_player===actor,
+          training_finished:false,you_won_training:null,
+          presence_window_seconds:25,training_only:true,
+          official_match_modified:false
+        },error:null};
+      }
       if(name==="chaotic_get_preview_3x3_safe_inspections"){
         if(![room.host_id,room.guest_id].includes(actor))
           return {data:null,error:{message:"Acesso a inspeções 3x3 negado"}};
