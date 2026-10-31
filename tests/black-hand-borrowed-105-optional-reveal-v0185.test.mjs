@@ -41,7 +41,7 @@ test("v0.1.85: borrower can choose or skip ONLY after paid settled damage; no do
  "if not p_skip then",
  "face.face_up",
  "hp.hp_remaining>0",
- "set face_up=true,reveal_reason='vento_forte',revealed_turn=p_expected_turn",
+ "face_up=true,reveal_reason='vento_forte',revealed_turn=p_expected_turn",
  "return pg_catalog.jsonb_build_object",
  "'payment_applied_again',false",
  "'damage_applied_again',false",
