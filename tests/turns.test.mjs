@@ -63,6 +63,17 @@ function makeClient(actor) {
           return {data:null,error:{message:"Acesso a inspeções 3x3 negado"}};
         return {data:{creature_checks:[],dynamic_checks:[]},error:null};
       }
+      if(name==="chaotic_get_preview_3x3_borrowed_attacks"){
+        if(room.mode!=="3x3"||room.status!=="ready"
+          ||![room.host_id,room.guest_id].includes(actor))
+          return {data:null,error:{message:"Consulta privada de empréstimos negada"}};
+        // The 102 action remains disabled, so normal test rooms have zero loans.
+        // Keep this authenticated server endpoint mocked in refresh workflows.
+        return {data:{
+          borrowed_attacks:[],held_count:0,training_only:true,
+          ownership_transferred:false,playable:false,payment_enabled:false
+        },error:null};
+      }
       if(name==="chaotic_get_preview_3x3_safe_state"){
         if(![room.host_id,room.guest_id].includes(actor))
           return {data:null,error:{message:"Acesso à formação 3x3 negado"}};
