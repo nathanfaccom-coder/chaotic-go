@@ -32,7 +32,8 @@ test("3x3: KO creatures do not appear in actionable movement or contact controls
  'updateSlotChoices("lobby-3x3-contact-defender",defensePositions.map(x=>x.formation_slot))',
  "availableMoves.length>0",
  "Treinamento 3x3 concluído!",
- "if(trainingOutcomes3x3.length)updateMatchUI();",
+ "updateMatchUI();",
+ "const hold3x3=room.mode",
  "const trainingComplete=room.mode"]
  )assert.ok(ui.includes(fragment),fragment);
 });
