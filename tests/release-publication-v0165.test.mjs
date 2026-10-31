@@ -39,10 +39,13 @@ test("v0.1.65: publication job reads real Pages endpoint and checks critical fil
   assert.match(smoke,/expected=/);
   assert.match(smoke,/página pública|Página pública/i);
 });
-test("v0.1.65: cache busting loads the newest DROME on phone",()=>{
-  assert.match(index,/VERSÃO 0\.1\.65/);
-  assert.match(index,/sw\.js\?v=release-65/);
-  assert.match(sw,/chaotic-go-release-20261031-65/);
-  assert.match(scanner,/full-game-bootstrap\.js\?v=release-65/);
-  assert.match(bootstrap,/chaotic-lobby\.js\?v=release-65/);
+test("v0.1.65+: cache busting loads the newest DROME on phone",()=>{
+  const visible=index.match(/VERSÃO 0\.1\.(\d+)/);
+  const loader=index.match(/sw\.js\?v=release-(\d+)/);
+  const cache=sw.match(/chaotic-go-release-\d{8}-(\d+)/);
+  const scannerLoader=scanner.match(/full-game-bootstrap\.js\?v=release-(\d+)/);
+  const lobbyLoader=bootstrap.match(/chaotic-lobby\.js\?v=release-(\d+)/);
+  assert.ok(visible&&loader&&cache&&scannerLoader&&lobbyLoader,"identificadores de versão são obrigatórios");
+  assert.ok(Number(visible[1])>=65,"não voltar a uma versão anterior");
+  for(const hit of [loader,cache,scannerLoader,lobbyLoader])assert.equal(hit[1],visible[1]);
 });
