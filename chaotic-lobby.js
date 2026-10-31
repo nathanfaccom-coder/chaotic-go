@@ -1958,7 +1958,10 @@
         return;
       }
       room=data;
-      setDefaultCreatureSlot();
+      // The normal default-slot helper belongs to show(); restoration has
+      // its own safe setup because it runs outside that closure.
+      const combatSlot=$("lobby-combat-slot");
+      if(combatSlot)combatSlot.value=room.mode==="1x1"?"6":room.mode==="3x3"?"4":"1";
       updateRoomUI();
       watch();
       note("Sala anterior recuperada. Conferindo turno e ações no servidor...");
