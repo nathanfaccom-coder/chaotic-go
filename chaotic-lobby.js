@@ -1169,17 +1169,19 @@
       x.turn_no===match?.turn_no);
     $("lobby-3x3-vento-choose").hidden=!(canRevealVento&&eligibleFacedown.length>0);
     $("lobby-3x3-vento-skip").hidden=!canRevealVento;
-    const facingPicker=$("lobby-3x3-vento-choice");
-    const priorFacingSelection=facingPicker.value;
-    facingPicker.replaceChildren();
-    for(const facing of eligibleFacedown){
-      const item=document.createElement("option");
-      item.value=String(facing.position);
-      item.textContent="Campeão adversário c"+facing.position+" (virado para baixo)";
-      facingPicker.appendChild(item);
+    if(canRevealVento&&eligibleFacedown.length){
+      const facingPicker=$("lobby-3x3-vento-choice");
+      const priorFacingSelection=facingPicker.value;
+      facingPicker.replaceChildren();
+      for(const facing of eligibleFacedown){
+        const item=document.createElement("option");
+        item.value=String(facing.position);
+        item.textContent="Campeão adversário c"+facing.position+" (virado para baixo)";
+        facingPicker.appendChild(item);
+      }
+      if(eligibleFacedown.some(x=>String(x.position)===priorFacingSelection))
+        facingPicker.value=priorFacingSelection;
     }
-    if(eligibleFacedown.some(x=>String(x.position)===priorFacingSelection))
-      facingPicker.value=priorFacingSelection;
     $("lobby-3x3-vento-history").textContent=ventoRevealEvents3x3.length
       ?ventoRevealEvents3x3.slice().sort((a,b)=>a.turn_no-b.turn_no).map(x=>
          "T"+x.turn_no+" · Vento Forte: "+
