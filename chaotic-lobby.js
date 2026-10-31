@@ -2485,13 +2485,16 @@
     });
     $("lobby-3x3-dynamic-elements").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3"||match.current_player===userId)return;
-      const review=await rpc("chaotic_inspect_preview_3x3_dynamic_elements",{
+      const review=await rpc("chaotic_inspect_preview_3x3_dynamic_elements_safe",{
         p_lobby_id:room.id,p_expected_turn:match.turn_no
       });
       await refresh3x3Allies();
-      note("Fontes candidatas conferidas: Guru vivo em formação e Naty no contato. "+
-        (review.attacker_air_attack_candidate?"Possível Ar no ataque. ":"")+
-        "Nada foi ativado; nenhum dano/HP foi alterado.");
+      note("Fontes dinâmicas conferidas no servidor, sem ativar habilidades ou alterar HP. "+
+        (review.attacker_air_attack_candidate===null
+          ?"Bônus de Guru na equipe adversária continua OCULTO."
+          :review.attacker_air_attack_candidate
+            ?"Existe possibilidade de Ar no ataque após a inspeção."
+            :"Nenhum candidato adicional de Ar no ataque."));
     });
     $("lobby-3x3-private-equipment").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3"||match.current_player===userId)return;
