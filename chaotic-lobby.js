@@ -1137,7 +1137,7 @@
     $("lobby-3x3-training-damage").hidden=!(myTurn&&!!defenseWindowThisTurn
       &&defenseWindowThisTurn.status==="defender_passed_preview"
       &&defenseWindowThisTurn.attacker_id===userId
-      &&["105","111","112"].includes(currentProjection?.catalog_attack_id)
+      &&["105","111","112","113","114"].includes(currentProjection?.catalog_attack_id)
       &&!trainingDamage3x3.some(x=>x.turn_no===match.turn_no));
     $("lobby-3x3-defense-pass").hidden=!(!!current&&!!defenseWindowThisTurn
       &&defenseWindowThisTurn.status==="awaiting_defender"
@@ -1324,7 +1324,10 @@
       ?trainingKnockouts3x3.slice().sort((a,b)=>a.turn_no-b.turn_no).map(x=>
         "T"+x.turn_no+" · "+(x.defender_id===userId?"Sua":"Adversária")+
         " criatura "+x.defender_creature_name+" (c"+x.defender_slot+
-        ") chegou a 0 HP DE TREINO após Vento Forte. Nocaute experimental; sem exclusão de carta.").join("\n")
+        ") chegou a 0 HP DE TREINO após "+
+        ({105:"Vento Forte",111:"MÃO ELETRÔNICA",112:"MÃO MÃO",
+          113:"PURGATÓRIO",114:"ESQUELETO"}[x.catalog_attack_id]||"um ataque")+
+        ". Nocaute experimental; sem exclusão de carta.").join("\n")
       :"Nenhuma criatura nocauteada no treino.";
     $("lobby-3x3-training-outcome").textContent=trainingOutcomes3x3.length
       ?trainingOutcomes3x3.map(x=>
@@ -1343,9 +1346,13 @@
     $("lobby-3x3-training-damage-history").textContent=trainingDamage3x3.length
       ?trainingDamage3x3.slice().sort((a,b)=>a.turn_no-b.turn_no).map(x=>
         "T"+x.turn_no+" · "+(x.attacker_id===userId?"Seu ataque":"Ataque rival")+
-        " "+({105:"Vento Forte",111:"MÃO ELETRÔNICA",112:"MÃO MÃO"}[x.catalog_attack_id]||"Ataque original")+
+        " "+({105:"Vento Forte",111:"MÃO ELETRÔNICA",112:"MÃO MÃO",
+          113:"PURGATÓRIO",114:"ESQUELETO"}[x.catalog_attack_id]||"Ataque original")+
         ": c"+x.defender_slot+" HP de TREINO "+
         x.hp_before+" → "+x.hp_after+" ("+x.damage_dealt+" de dano). "+
+        (["113","114"].includes(x.catalog_attack_id)
+          ?"Aliados derrotados no ataque: "+x.defeated_allies_count+
+            "; dano-base "+x.base_damage+" + bônus "+x.bonus_damage+". ":"")+
         (x.optional_reveal_pending?"Revelação opcional pendente. ":"")+
         (["111","112"].includes(x.catalog_attack_id)?"Impedimento de ataque registrado. ":"")+
         "HP oficial não alterado.").join("\n")
@@ -1478,7 +1485,7 @@
     if(dynamicCheck.error)throw new Error(dynamicCheck.error.message);
     dynamicElementChecks3x3=dynamicCheck.data||[];
     const trainingDmg=await api.from("chaotic_preview_3x3_training_damage_events")
-      .select("turn_no,attacker_id,defender_id,attacker_slot,defender_slot,attack_instance_id,catalog_attack_id,hp_before,hp_after,damage_dealt,optional_reveal_pending,effects_fully_resolved,official_match_modified")
+      .select("turn_no,attacker_id,defender_id,attacker_slot,defender_slot,attack_instance_id,catalog_attack_id,base_damage,bonus_damage,defeated_allies_count,hp_before,hp_after,damage_dealt,optional_reveal_pending,effects_fully_resolved,official_match_modified")
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
     if(trainingDmg.error)throw new Error(trainingDmg.error.message);
     trainingDamage3x3=trainingDmg.data||[];
@@ -1488,7 +1495,7 @@
     if(locks.error)throw new Error(locks.error.message);
     trainingAttackLocks3x3=locks.data||[];
     const knockouts=await api.from("chaotic_preview_3x3_training_knockouts")
-      .select("turn_no,attacker_id,defender_id,defender_slot,defender_creature_name,hp_before,hp_after,training_only,official_match_modified")
+      .select("turn_no,attacker_id,defender_id,defender_slot,defender_creature_name,catalog_attack_id,hp_before,hp_after,training_only,official_match_modified")
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(10);
     if(knockouts.error)throw new Error(knockouts.error.message);
     trainingKnockouts3x3=knockouts.data||[];
@@ -1939,8 +1946,8 @@
       '<button id="lobby-3x3-defense-open" type="button" hidden>Abrir resposta do defensor 3x3</button>',
       '<button id="lobby-3x3-defense-pass" type="button" hidden>Defensor: passar reação (SEM dano)</button>',
       '<p id="lobby-3x3-defense-history" class="lobby-events" aria-live="polite">Nenhuma janela de defesa 3x3.</p>',
-      '<p>Após o passe defensivo, o atacante pode aplicar Vento Forte (105: 5 de dano-base, revelação opcional pendente), MÃO ELETRÔNICA (111: 10 de dano e impede os próximos 2 turnos de ataque adversários) ou MÃO MÃO (112: 5 de dano e impede o próximo turno de ataque adversário). Só no TREINO 3x3 e com defensor SEM equipamento. Nenhuma carta oficial é alterada.</p>',
-      '<button id="lobby-3x3-training-damage" type="button" hidden>Atacante: resolver dano e efeitos de TREINO (105, 111 ou 112)</button>',
+      '<p>Após o passe defensivo, o atacante pode resolver: Vento Forte (105: 5 de dano-base, revelação opcional pendente), MÃO ELETRÔNICA (111: 10 e bloqueio de 2 ataques), MÃO MÃO (112: 5 e bloqueio de 1 ataque), PURGATÓRIO (113: 5 por aliado derrotado, inclusive zero dano) e ESQUELETO (114: 10 + 5 por aliado derrotado). Só no TREINO 3x3, com defensor SEM equipamento. Nenhuma carta oficial é alterada.</p>',
+      '<button id="lobby-3x3-training-damage" type="button" hidden>Atacante: resolver ataque do TREINO (105, 111, 112, 113 ou 114)</button>',
       '<p id="lobby-3x3-training-damage-history" class="lobby-events" aria-live="polite">Nenhum dano de treino aplicado.</p>',
       '<p id="lobby-3x3-training-attack-locks" class="lobby-events" aria-live="polite">Nenhum bloqueio de ataque registrado.</p>',
       '<p id="lobby-3x3-knockout-history" class="lobby-events" aria-live="polite">Nenhum nocaute de treino.</p>',
@@ -2427,18 +2434,22 @@
       if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
       const attackId=attackProjections3x3.find(x=>x.turn_no===match.turn_no
         &&x.actor_id===userId)?.catalog_attack_id;
-      if(!["105","111","112"].includes(attackId))
+      if(!["105","111","112","113","114"].includes(attackId))
         throw new Error("Este ataque ainda não tem resolução de dano experimental.");
       const rpcName=attackId==="105"
         ?"chaotic_apply_preview_3x3_training_base_105"
-        :"chaotic_apply_preview_3x3_training_attack_lock";
+        :["111","112"].includes(attackId)
+        ?"chaotic_apply_preview_3x3_training_attack_lock"
+        :"chaotic_apply_preview_3x3_training_fallen_allies";
       const settled=await rpc(rpcName,{
         p_lobby_id:room.id,p_expected_turn:match.turn_no
       });
       await refresh3x3Allies();
       note("Dano no HP DE TREINO: "+settled.hp_before+" → "+
         settled.hp_after+" ("+settled.damage_dealt+"). "+
-        (attackId==="105"?"Revelação opcional pendente. ":"Bloqueio de ataque registrado. ")+
+        (attackId==="105"?"Revelação opcional pendente. ":
+         ["111","112"].includes(attackId)?"Bloqueio de ataque registrado. ":
+         "Bônus por aliado derrotado confirmado no servidor: "+(settled.bonus_damage||0)+". ")+
         "HP oficial, cartas e XP intactos.");
     });
     $("lobby-3x3-defense-pass").onclick=()=>action(async()=>{
