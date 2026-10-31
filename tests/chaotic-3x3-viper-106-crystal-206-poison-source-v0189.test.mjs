@@ -25,8 +25,8 @@ test("v0.1.89: poison status has REAL paid damage FK, no tick/cure, private RLS"
   "ticks_applied integer not null default 0 check(ticks_applied=0)",
   "curable boolean not null default false check(not curable)",
   "crystal_206_cure_allowed boolean not null default false check(not crystal_206_cure_allowed)",
-  "references public.chaotic_preview_3x3_training_damage_events(lobby_id,turn_no)",
-  "references public.chaotic_preview_3x3_hp_wallets(lobby_id,actor_id,position)",
+  "public.chaotic_preview_3x3_training_damage_events(lobby_id,turn_no)",
+  "public.chaotic_preview_3x3_hp_wallets(lobby_id,actor_id,position)",
   "enable row level security",
   "revoke all on public.chaotic_preview_3x3_poison_statuses",
   "grant select on public.chaotic_preview_3x3_poison_statuses to authenticated",
@@ -37,7 +37,7 @@ test("v0.1.89: poison status has REAL paid damage FK, no tick/cure, private RLS"
 test("v0.1.89: poison provenance requires paid 106 in original owned hand and verified damaged victim",()=>{
  for(const mark of [
   "if tg_op='UPDATE' or tg_op='DELETE'",
-  "source_turn=new.source_turn",
+  "turn_no=new.source_turn",
   "hit.catalog_attack_id<>'106' or spend.catalog_attack_id<>'106'",
   "not spend.training_points_paid or not spend.training_card_spent",
   "not spend.training_damage_applied",
@@ -59,7 +59,7 @@ test("v0.1.89: Crystal inspection is owner-only, read-only, proves original equi
   "chaotic_preview_3x3_poison_statuses",
   "user_id=actor and g.node_path in(",
   "deck->'criaturas'->>(p_position-1)",
-  "x.value",
+  "e.value",
   "e.value->>'tipoCarta'='Equipamento'",
   "equip_matches=1",
   "equip_rule.equipment_id='206'",
@@ -96,7 +96,7 @@ test("v0.1.89: own-character poison inspection UI warns cure and periodic damage
   "chaotic_inspect_preview_3x3_poison_crystal_206",
   "NÃO PODE SER CURADO",
   "Dano periódico de 5 por turno ainda NÃO está ativo",
-  "Nenhuma carta será sacrificada",
+  "nenhuma carta será sacrificada",
   "Cura: desabilitada",
   "hp_modified"
  ])assert.ok(ui.includes(mark),mark);
