@@ -58,11 +58,14 @@ test("v0.1.75: real DB rollback test includes synthetic paid 102, random hold an
  assert.ok(live.includes(x),x);
  assert.doesNotMatch(live,/\bcommit\s*;/i);
 });
-test("v0.1.75: visible release and PWA imports aligned, 102 still unplayable",()=>{
- assert.match(index,/VERSÃO 0\.1\.75/);
- assert.match(index,/sw\.js\?v=release-75/);
- assert.match(sw,/chaotic-go-release-20261031-75/);
- assert.match(scanner,/full-game-bootstrap\.js\?v=release-75/);
- assert.match(bootstrap,/chaotic-lobby\.js\?v=release-75/);
+test("v0.1.75+: latest PWA cache aligned and 102 still unplayable",()=>{
+ const displayed=index.match(/VERSÃO 0\.1\.(\d+)/);
+ const workerTag=index.match(/sw\.js\?v=release-(\d+)/);
+ const cache=sw.match(/chaotic-go-release-\d{8}-(\d+)/);
+ const scan=scanner.match(/full-game-bootstrap\.js\?v=release-(\d+)/);
+ const lobby=bootstrap.match(/chaotic-lobby\.js\?v=release-(\d+)/);
+ assert.ok(displayed&&workerTag&&cache&&scan&&lobby);
+ assert.ok(Number(displayed[1])>=75);
+ for(const ref of [workerTag,cache,scan,lobby])assert.equal(ref[1],displayed[1]);
  assert.ok(ui.includes("Ainda não é possível roubar, pagar ou usar a carta"));
 });
