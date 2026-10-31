@@ -71,12 +71,14 @@ test("v0.1.83: live rollback fixtures test individual KO, replay and final-team 
   "rollback;",
   "PASS 0.1.83"
  ])assert.ok(positive.includes(marker),marker);
+ // The v0.1.83 final-team denial was superseded in v0.1.84.
+ // Its historical file now checks that inconsistent loan custody rolls back.
  for(const marker of [
-  "position in(5,6) then 0 else 20 end",
-  "Unsupported borrowed 105 attack was wrongly paid",
-  "Unsafe borrowed 105 request partially charged or altered card",
+  "chaotic_preview_3x3_temporary_card_custody",
+  "Corrupted second loan allowed training winner",
+  "Corrupted second loan caused partial charge, HP, KO, or winner",
   "rollback;",
-  "PASS v0.1.83 last-team-knockout"
+  "PASS v0.1.84"
  ])assert.ok(finalTeam.includes(marker),marker);
 });
 test("v0.1.83: DROME shows knockout history from both native and borrowed attacks",()=>{
@@ -88,10 +90,13 @@ test("v0.1.83: DROME shows knockout history from both native and borrowed attack
   "Nocaute individual permitido".toLowerCase()
  ])assert.ok(ui.toLowerCase().includes(marker.toLowerCase()),marker);
 });
-test("v0.1.83: cache and PWA point to same release",()=>{
- assert.match(index,/VERSÃO 0\.1\.83/);
- assert.match(index,/sw\.js\?v=release-83/);
- assert.match(sw,/chaotic-go-release-20261031-83/);
- assert.match(scanner,/full-game-bootstrap\.js\?v=release-83/);
- assert.match(boot,/chaotic-lobby\.js\?v=release-83/);
+test("v0.1.83+: cache and PWA remain aligned after later releases",()=>{
+ const v=index.match(/VERSÃO 0\.1\.(\d+)/);
+ const swVersion=index.match(/sw\.js\?v=release-(\d+)/);
+ const cache=sw.match(/chaotic-go-release-\d{8}-(\d+)/);
+ const scannerVersion=scanner.match(/full-game-bootstrap\.js\?v=release-(\d+)/);
+ const bootVersion=boot.match(/chaotic-lobby\.js\?v=release-(\d+)/);
+ assert.ok(v&&swVersion&&cache&&scannerVersion&&bootVersion);
+ assert.ok(Number(v[1])>=83);
+ for(const m of [swVersion,cache,scannerVersion,bootVersion]) assert.equal(m[1],v[1]);
 });
