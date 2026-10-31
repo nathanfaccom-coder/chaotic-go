@@ -1525,7 +1525,9 @@
       :borrowedPlan3x3?.state==="awaiting_defender"
         ?"Vento Forte emprestado: aguardando passe do defensor. Nenhum ponto foi pago."
       :borrowedPlan3x3?.state==="defender_passed_preview"
-        ?"Defensor passou. Pagamento e dano da carta emprestada AINDA DESABILITADOS. Você pode cancelar."
+        ?"Defensor passou. Treino base 105 permitido SOMENTE sem equipamento e sem nocaute. Efeito opcional de revelação não executado; pode cancelar sem pagar."
+      :borrowedPlan3x3?.state==="base_resolved_no_optional_reveal"
+        ?"Dano-base do Vento Forte emprestado resolvido. A carta original voltou ao dono; revelação opcional não realizada."
       :borrowedPlan3x3?.state==="cancelled"
         ?"Intenção cancelada neste turno; nenhuma cobrança ou dano realizado."
         :"Nenhuma intenção de uso da carta emprestada preparada.";
@@ -1542,6 +1544,11 @@
     const borrowedPriorityAbort=$("lobby-3x3-borrowed-abort-priority");
     if(borrowedPriorityAbort)borrowedPriorityAbort.hidden=!(myTurn
       &&["awaiting_defender","defender_passed_preview"].includes(borrowedPlan3x3?.state));
+    const borrowedSettle=$("lobby-3x3-borrowed-settle-base");
+    if(borrowedSettle)borrowedSettle.hidden=!(myTurn
+      &&borrowedPlan3x3?.state==="defender_passed_preview"
+      &&borrowedPriority3x3?.state==="defender_passed_preview"
+      &&borrowedPriority3x3.your_attack===true);
     const borrowedDefensePass=$("lobby-3x3-borrowed-defender-pass");
     if(borrowedDefensePass)borrowedDefensePass.hidden=!(
       borrowedPriority3x3?.state==="awaiting_defender"
@@ -1553,7 +1560,9 @@
       borrowedPriority3x3?.state==="awaiting_defender"
         ?"Vento Forte emprestado: o defensor deve passar a prioridade (SEM dano ou gasto)."
         :borrowedPriority3x3?.state==="defender_passed_preview"
-        ?"Passe do defensor registrado. Nenhum dano ou pagamento foi aplicado."
+        ?"Passe registrado. Atacante pode resolver o DANO-BASE de treino apenas se defensor não tiver equipamento e HP maior que 5."
+        :borrowedPriority3x3?.state==="base_resolved_no_optional_reveal"
+        ?"Vento Forte emprestado resolvido: custo e 5 de dano-base; carta devolvida, sem revelação opcional."
         :"Nenhuma reação de Vento Forte emprestado pendente.";
     if(borrowedBox)borrowedBox.hidden=!(myTurn&&!!currentContact
       &&currentContact.contact_status==="awaiting_validated_attack_preview"
@@ -2414,6 +2423,7 @@
       '<button id="lobby-3x3-borrowed-cancel-plan" type="button" hidden>Cancelar preparação (SEM gastar)</button>',
       '<button id="lobby-3x3-borrowed-open-priority" type="button" hidden>Abrir resposta para Vento Forte emprestado (SEM pagar)</button>',
       '<button id="lobby-3x3-borrowed-abort-priority" type="button" hidden>Cancelar reação emprestada (SEM pagar)</button>',
+      '<button id="lobby-3x3-borrowed-settle-base" type="button" hidden>Resolver Vento Forte emprestado: custo 1 e 5 dano-base (SEM nocaute/equipamento)</button>',
       '<p id="lobby-3x3-borrowed-plan-status" class="lobby-events" role="status" aria-live="polite">Nenhuma intenção de uso preparada.</p>',
       '<p id="lobby-3x3-borrowed-quote-result" class="lobby-events" role="status" aria-live="polite">Prévia não calculada.</p>',
       '</div>',
@@ -2905,6 +2915,20 @@
       await refresh3x3Allies();
       note("Janela de reação cancelada. Pontos, HP e posse da carta preservados.");
     });
+    $("lobby-3x3-borrowed-settle-base").onclick=()=>action(async()=>{
+      if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
+      // One server transaction spends 1 training point, applies 5 nonlethal
+      // base damage, records the event and restores the original owner's card.
+      // Any incompatible defender equipment/KO aborts without spending.
+      const settled=await rpc("chaotic_settle_preview_3x3_borrowed_105_base",{
+        p_lobby_id:room.id,p_expected_turn:match.turn_no
+      });
+      await refresh3x3Allies();
+      note("Vento Forte EMPRESTADO no treino: pontos "+settled.points_before+
+        " → "+settled.points_after+"; HP "+settled.hp_before+" → "+
+        settled.hp_after+". Carta original devolvida ao dono. "+
+        "Revelação opcional NÃO executada; ataque oficial preservado.");
+    });
     $("lobby-3x3-borrowed-quote").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
       const choice=$("lobby-3x3-borrowed-choice").value;
@@ -2917,7 +2941,7 @@
         " · custo "+q.attack_cost+" · pontos "+q.points_available+
         " · "+(q.can_afford_if_enabled?"custo suficiente":"pontos insuficientes")+
         " · HP-base hipotético "+q.defender_hp_before+" → "+q.defender_hp_after_base_only+
-        ". Sem elementos, efeitos de defesa ou dano real. PAGAMENTO E USO DESABILITADOS.";
+        ". Prévia somente. A resolução de dano-base não letal exige passe do defensor, sem equipamento, e HP acima de 5.";
       $("lobby-3x3-borrowed-quote-result").textContent=msg;
       note(msg);
     });
