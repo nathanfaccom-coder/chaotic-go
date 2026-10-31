@@ -33,7 +33,7 @@
       if(!data || typeof data.id!=="string" || data.id.length>128
         || typeof data.expires_at!=="string"
         || !Number.isFinite(new Date(data.expires_at).getTime())
-        || new Date(data.expires_at).getTime()<=Date.now()){
+        ){
         forgetLastRoom();return null;
       }
       return data.id;
@@ -1873,6 +1873,19 @@
     if (room?.id !== requestedRoomId || requestedView!==viewGeneration) return;
     if (error) throw new Error("Falha ao atualizar sala: " + error.message);
     if (!data) { forgetLastRoom(); room = null; halt(); updateRoomUI(); note("Sala não encontrada."); return; }
+    if(data.mode==="3x3" && [data.host_id,data.guest_id].includes(userId)
+      && (data.status==="cancelled" || new Date(data.expires_at).getTime()<=Date.now())){
+      // Room ID is a lookup hint, never permission. The server rechecks membership,
+      // room expiry and every borrowed instance before restoring it to its owner.
+      const recovery=await rpc("chaotic_restore_expired_preview_3x3_loans",{
+        p_lobby_id:requestedRoomId
+      });
+      forgetLastRoom();
+      room=null;match=null;halt();updateRoomUI();
+      note("Treino encerrado. Cartas emprestadas recuperadas: "+recovery.restored_count+
+        ". Os Decks e álbuns originais foram preservados.");
+      return;
+    }
     room = data; rememberLastRoom(); updateRoomUI();
     await refreshMatch();
   }
@@ -2052,6 +2065,20 @@
         .eq("id",id).maybeSingle();
       if(generation!==viewGeneration || room || busy)return;
       if(error)throw new Error(error.message);
+      if(data && [data.host_id,data.guest_id].includes(userId)
+        && data.mode==="3x3"
+        && (data.status==="cancelled" || new Date(data.expires_at).getTime()<=Date.now())){
+        // Expired rooms are not resumed. Recover their temporary cards
+        // before forgetting the room ID, so mobile reconnection is safe.
+        const recovery=await rpc("chaotic_restore_expired_preview_3x3_loans",{
+          p_lobby_id:id
+        });
+        if(generation!==viewGeneration)return;
+        forgetLastRoom();
+        note("Sala anterior encerrada. "+recovery.restored_count+
+          " carta(s) temporárias recuperadas; originais preservados.");
+        return;
+      }
       if(!data || ![data.host_id,data.guest_id].includes(userId)
         || !["waiting","ready"].includes(data.status)
         || new Date(data.expires_at).getTime()<=Date.now()){
