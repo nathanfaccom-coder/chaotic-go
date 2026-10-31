@@ -32,13 +32,15 @@ test("3x3: server verifies canonical snapshots without changing official HP",()=
  assert.match(sql,/a_elements \? 'ar'/);
  assert.match(sql,/defender\.creature_name='Rex' and review\.air_component>0/);
 });
-test("3x3: defender-only DROME reads and displays the new unmodified snapshots",()=>{
- for(const identifier of ["chaotic_preview_3x3_creature_element_checks",
+test("3x3: DROME inspects creature elements without exposing raw face-down snapshots",()=>{
+ for(const identifier of [
    "chaotic_inspect_preview_3x3_creature_elements",
+   "chaotic_get_preview_3x3_safe_inspections",
    "lobby-3x3-creature-elements","lobby-3x3-creature-element-history",
-   "creatureChecks3x3=creatureCheck.data||[]"]){
+   "creatureChecks3x3=Array.isArray(safeInspect?.creature_checks)"]){
   assert.ok(ui.includes(identifier),identifier);
  }
+ assert.doesNotMatch(ui,/\.from\("chaotic_preview_3x3_creature_element_checks"\)/);
  assert.match(ui,/elementalInspections3x3\.some\(x=>x\.turn_no===match\.turn_no\)/);
  assert.match(ui,/creatureChecks3x3\.some\(x=>x\.turn_no===match\.turn_no\)/);
 });
