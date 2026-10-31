@@ -163,7 +163,7 @@ begin
  order by pg_catalog.random() limit 1 for update;
  if found then
    update public.chaotic_preview_3x3_attack_hand
-     set card_state='spent',spent_turn=p_expected_turn,spent_reason='sopro_115'
+     set card_state='spent',spent_turn=p_expected_turn,spent_reason='discard'
      where lobby_id=p_lobby_id and actor_id=w.defender_id
        and card_slot=victim_card.card_slot and card_state='hand';
    if not found then raise exception 'Carta privada mudou durante SOPRO';end if;
