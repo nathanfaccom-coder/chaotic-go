@@ -18,6 +18,7 @@ declare
  current_hp integer;
  knockout_count integer;
  status_after text;
+ error_text text;
  i int;
 begin
  insert into auth.users(id,instance_id,role,aud,email,created_at,updated_at)
@@ -134,6 +135,21 @@ begin
    defender_creature_instance_id,source_deck_slot,equipment_status)
   values(lobby,1,host,guest,4,'G4',1,'no_equipment_in_slot');
 
+  -- A valid participant who is not the current attacker cannot execute the
+  -- settlement RPC, even with the correct room and turn identifiers.
+  perform set_config('request.jwt.claim.sub',guest::text,true);
+  error_text:=null;
+  begin
+   if attack_id='105' then
+    perform public.chaotic_apply_preview_3x3_training_base_105(lobby,1);
+   elsif attack_id in ('111','112') then
+    perform public.chaotic_apply_preview_3x3_training_attack_lock(lobby,1);
+   else
+    perform public.chaotic_apply_preview_3x3_training_fallen_allies(lobby,1);
+   end if;
+  exception when others then get stacked diagnostics error_text=message_text;end;
+  if error_text is null or position('Apenas o atacante' in error_text)=0
+  then raise exception 'Non-attacker was not rejected for %: %',attack_id,error_text;end if;
   perform set_config('request.jwt.claim.sub',host::text,true);
   if auth.uid() is distinct from host then raise exception 'JWT test identity missing';end if;
 
@@ -164,6 +180,25 @@ begin
   if status_after='paid_training_unresolved'
   then raise exception 'Attack % paid but unresolved',attack_id;end if;
 
+  -- One attempt per turn. The second call must fail without double-debiting.
+  error_text:=null;
+  begin
+   if attack_id='105' then
+    perform public.chaotic_apply_preview_3x3_training_base_105(lobby,1);
+   elsif attack_id in ('111','112') then
+    perform public.chaotic_apply_preview_3x3_training_attack_lock(lobby,1);
+   else
+    perform public.chaotic_apply_preview_3x3_training_fallen_allies(lobby,1);
+   end if;
+  exception when others then get stacked diagnostics error_text=message_text;end;
+  if error_text is null then
+   raise exception 'Replay attack % was accepted',attack_id;end if;
+  if (select count(*) from public.chaotic_preview_3x3_training_damage_events
+    where lobby_id=lobby)<>1
+   or (select hp_remaining from public.chaotic_preview_3x3_hp_wallets
+    where lobby_id=lobby and actor_id=guest and position=4)<>expected_hp
+  then raise exception 'Replay attack % duplicated an HP transaction',attack_id;end if;
+
   if attack_id='113' and (effect.damage_dealt<>0 or
     (select damage_events from public.chaotic_preview_3x3_hp_wallets
     where lobby_id=lobby and actor_id=guest and position=4)<>0)
@@ -174,6 +209,23 @@ begin
     where lobby_id=lobby and blocked_turn_count=
       case when attack_id='111' then 2 else 1 end)
   then raise exception 'Future attack restriction was not recorded for %',attack_id;end if;
+  if attack_id in('111','112') then
+   -- Attacker completes the turn. The blocked defender MUST be unable
+   -- to open another contact when they become the active player.
+   perform public.chaotic_pass_turn(lobby,1);
+   perform set_config('request.jwt.claim.sub',guest::text,true);
+   error_text:=null;
+   begin
+    insert into public.chaotic_preview_3x3_contact_intents(
+     lobby_id,turn_no,attacker_id,defender_id,attacker_slot,defender_slot,
+     attacker_creature_instance_id,defender_creature_instance_id,
+     attacker_hex,defender_hex,attacker_hp_at_contact,defender_hp_at_contact)
+    values(lobby,2,guest,host,4,4,'G4','H4',4,4,expected_hp,20);
+   exception when others then get stacked diagnostics error_text=message_text;end;
+   if error_text is null or position('impedida de atacar' in error_text)=0
+   then raise exception 'Blocked opponent opened attack: % %',attack_id,error_text;end if;
+   perform set_config('request.jwt.claim.sub',host::text,true);
+  end if;
   -- The lobby has one-active-match-per-host uniqueness. Each fixture is deleted
   -- before seeding the next case, within the enclosing rollback transaction.
   update public.chaotic_lobbies set status='cancelled' where id=lobby;
