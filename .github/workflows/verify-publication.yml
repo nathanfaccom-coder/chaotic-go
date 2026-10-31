@@ -42,6 +42,7 @@ jobs:
           status="$(jq -r '.status // "unknown"' /tmp/chaotic-pages.json)"
           source="$(jq -r '.build_type // (.source.branch // "unknown")' /tmp/chaotic-pages.json)"
           printf 'Endereço: %s\nStatus: %s\nOrigem: %s\n' "$url" "$status" "$source" >> "$GITHUB_STEP_SUMMARY"
+          echo "GitHub Pages status=$status build_type=$source URL=$url"
           if [[ "$url" != https://* ]]; then
             echo "::error::Pages não retornou uma URL HTTPS válida."
             exit 1
@@ -66,6 +67,7 @@ jobs:
             fi
             echo "- ${path}: HTTP ${code}" >> "$GITHUB_STEP_SUMMARY"
           done
+          echo "Versão remota: $(grep -oE 'VERSÃO 0[.]1[.][0-9]+' /tmp/chaotic-site-index.html | head -1 || true)"
           if ! grep -Fq "VERSÃO ${expected}" /tmp/chaotic-site-index.html; then
             echo "::error::Página pública está desatualizada; esperada versão ${expected}"
             exit 1
