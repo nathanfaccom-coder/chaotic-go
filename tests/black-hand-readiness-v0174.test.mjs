@@ -21,7 +21,7 @@ test("v0.1.74: 102 readiness validates current turn, original card, opponent and
  "pr.attack_cost_paid",
  "own_wallet.last_draw_turn<>p_expected_turn",
  "opponent_wallet.lobby_id is null",
- "owned_cards+held_cards>=5",
+ "owned_cards+held_cards-1>=5",
  "their_cards=0"])
  assert.ok(rpc.includes(name),name);
 });
