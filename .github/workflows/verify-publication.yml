@@ -1,13 +1,10 @@
 name: Verificar publicação pública (Chaotic GO)
 on:
-  push:
+  workflow_run:
+    workflows:
+      - "Publicar versão aprovada no GitHub Pages (Chaotic GO)"
+    types: [completed]
     branches: [main]
-    paths:
-      - "index.html"
-      - "scanner.html"
-      - "chaotic-lobby.js"
-      - "sw.js"
-      - ".github/workflows/verify-publication.yml"
   workflow_dispatch:
 permissions:
   contents: read
@@ -17,10 +14,13 @@ concurrency:
   cancel-in-progress: true
 jobs:
   verify-public-site:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       - name: Consultar endereço e configuração reais do GitHub Pages
         id: pages
         env:
@@ -57,6 +57,21 @@ jobs:
           base="${PUBLIC_URL%/}/"
           expected="$(sed -nE 's/.*VERSÃO (0[.]1[.][0-9]+).*/\1/p' index.html | head -1)"
           [ -n "$expected" ] || { echo "::error::Versão não identificada no index local"; exit 1; }
+          # Pages deploy can finish after the publishing action. Wait for the
+          # public version to match before asserting the remaining assets.
+          current=""
+          for attempt in {1..12}; do
+            code="$(curl --location --silent --show-error --max-time 20 \
+              --output /tmp/chaotic-site-index.html --write-out '%{http_code}' "${base}index.html")"
+            current="$(grep -oE 'VERSÃO 0[.]1[.][0-9]+' /tmp/chaotic-site-index.html | head -1 || true)"
+            if [ "$code" = "200" ] && [ "$current" = "VERSÃO ${expected}" ]; then break; fi
+            echo "Aguardando versão pública: ${current:-sem versão}; esperada: ${expected}"
+            sleep 10
+          done
+          if [ "$current" != "VERSÃO ${expected}" ]; then
+            echo "::error::Página pública desatualizada: ${current:-desconhecida}; esperada ${expected}"
+            exit 1
+          fi
           declare -a paths=("index.html" "scanner.html" "login-completo.html" "chaotic-lobby.js" "sw.js" "style.css" "logo.png")
           for path in "${paths[@]}"; do
             code="$(curl --location --silent --show-error --max-time 25 \
