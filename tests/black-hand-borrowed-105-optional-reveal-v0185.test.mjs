@@ -103,10 +103,13 @@ test("v0.1.85: DROME still shows reveal controls after the borrowed card is retu
  "Sem custo adicional"
  ])assert.ok(ui.includes(marker),marker);
 });
-test("v0.1.85: PWA release number and static loaders are synchronized",()=>{
- assert.match(index,/VERSÃO 0\.1\.85/);
- assert.match(index,/sw\.js\?v=release-85/);
- assert.match(sw,/chaotic-go-release-20261031-85/);
- assert.match(scanner,/full-game-bootstrap\.js\?v=release-85/);
- assert.match(loader,/chaotic-lobby\.js\?v=release-85/);
+test("v0.1.85+: PWA release numbers stay synchronized",()=>{
+ const current=index.match(/VERSÃO 0\.1\.(\d+)/);
+ const swReg=index.match(/sw\.js\?v=release-(\d+)/);
+ const cache=sw.match(/chaotic-go-release-\d{8}-(\d+)/);
+ const scannerLoader=scanner.match(/full-game-bootstrap\.js\?v=release-(\d+)/);
+ const lobbyLoader=loader.match(/chaotic-lobby\.js\?v=release-(\d+)/);
+ assert.ok(current&&swReg&&cache&&scannerLoader&&lobbyLoader);
+ assert.ok(Number(current[1])>=85);
+ for(const x of [swReg,cache,scannerLoader,lobbyLoader])assert.equal(x[1],current[1]);
 });
