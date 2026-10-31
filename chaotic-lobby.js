@@ -4,7 +4,7 @@
   const api = window.ChaoticAuth?.getClient();
   const userId = window.ChaoticAuthUser?.id;
   if (!api || !userId) return;
-  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [], mugicTrainingWallets = [], mugicTrainingSettlements = [], trainingAbilityEvents = [], harpTrainingEvents = [], allies3x3 = [], transfers3x3 = [], hp3x3 = [], board3x3 = [], moves3x3 = [], contacts3x3 = [], attackProjections3x3 = [], hand3x3 = [], handWallet3x3 = [], costChecks3x3 = [], attackSpends3x3 = [], discard3x3 = [], drawEvents3x3 = [], defenseWindows3x3 = [], elementalInspections3x3 = [], creatureChecks3x3 = [], privateEquipmentChecks3x3 = [], dynamicElementChecks3x3 = [], trainingDamage3x3 = [], trainingKnockouts3x3 = [], trainingOutcomes3x3 = [];
+  let room = null, poll = null, liveChannel = null, busy = false, match = null, declarations = [], board = [], clashes = [], baseDamage = [], modifiers = [], dice = [], loadouts = [], attackInstances = [], individualDamage = [], equipmentReveals = [], attackWallets = [], handCards = [], initiatives = [], roomLocations = [], effectCandidates = [], hpWallets = [], hpEvents = [], resolutionAudits = [], burstWindows = [], burstOrderPlans = [], burstEquipmentResponses = [], burstEquipmentEffects = [], burstPriority = [], burstPriorityPasses = [], burstMugicIntents = [], burstMugicCounterplans = [], mugicTrainingWallets = [], mugicTrainingSettlements = [], trainingAbilityEvents = [], harpTrainingEvents = [], allies3x3 = [], transfers3x3 = [], hp3x3 = [], board3x3 = [], moves3x3 = [], contacts3x3 = [], attackProjections3x3 = [], hand3x3 = [], handWallet3x3 = [], costChecks3x3 = [], attackSpends3x3 = [], discard3x3 = [], drawEvents3x3 = [], defenseWindows3x3 = [], elementalInspections3x3 = [], creatureChecks3x3 = [], privateEquipmentChecks3x3 = [], dynamicElementChecks3x3 = [], trainingDamage3x3 = [], trainingKnockouts3x3 = [], trainingOutcomes3x3 = [], trainingAttackLocks3x3 = [];
   const $ = id => document.getElementById(id);
   function halt() {
     if (poll !== null) { clearInterval(poll); poll = null; }
@@ -1108,6 +1108,9 @@
       &&new Date(room.expires_at).getTime()>Date.now()
       &&trainingOutcomes3x3.length===0;
     const myTurn=!!current&&match.current_player===userId;
+    const attackLockedThisTurn=trainingAttackLocks3x3.some(x=>
+      x.defender_id===userId&&match?.turn_no>x.inflicted_turn
+      &&match?.turn_no<=x.last_blocked_turn);
     const own=allies3x3.filter(x=>x.actor_id===userId).sort((a,b)=>a.position-b.position);
     const donor=own.find(x=>x.creature_name==="Alakazaz");
     const priorTransfer=transfers3x3.some(x=>x.turn_no===match?.turn_no
@@ -1121,7 +1124,7 @@
     const currentContact=contacts3x3.find(x=>x.turn_no===match?.turn_no
       &&x.attacker_id===userId);
     const projected=attackProjections3x3.some(x=>x.turn_no===match?.turn_no);
-    $("lobby-3x3-attack-project").hidden=!(myTurn&&!!currentContact&&!projected);
+    $("lobby-3x3-attack-project").hidden=!(myTurn&&!attackLockedThisTurn&&!!currentContact&&!projected);
     const ownHandWallet=handWallet3x3.find(x=>x.actor_id===userId);
     const currentProjection=attackProjections3x3.find(x=>x.turn_no===match?.turn_no
       &&x.actor_id===userId);
@@ -1134,7 +1137,7 @@
     $("lobby-3x3-training-damage").hidden=!(myTurn&&!!defenseWindowThisTurn
       &&defenseWindowThisTurn.status==="defender_passed_preview"
       &&defenseWindowThisTurn.attacker_id===userId
-      &&currentProjection?.catalog_attack_id==="105"
+      &&["105","111","112"].includes(currentProjection?.catalog_attack_id)
       &&!trainingDamage3x3.some(x=>x.turn_no===match.turn_no));
     $("lobby-3x3-defense-pass").hidden=!(!!current&&!!defenseWindowThisTurn
       &&defenseWindowThisTurn.status==="awaiting_defender"
@@ -1163,7 +1166,7 @@
       &&defenseWindowThisTurn.attacker_id===match.current_player
       &&creatureChecks3x3.some(x=>x.turn_no===match.turn_no)
       &&!privateEquipmentChecks3x3.some(x=>x.turn_no===match.turn_no));
-    $("lobby-3x3-attack-spend").hidden=!(myTurn&&!!costThisTurn?.can_afford
+    $("lobby-3x3-attack-spend").hidden=!(myTurn&&!attackLockedThisTurn&&!!costThisTurn?.can_afford
       &&!!currentProjection&&!alreadySpent&&ownHandWallet?.last_draw_turn===match?.turn_no
       &&hand3x3.some(x=>x.actor_id===userId&&x.card_slot===currentProjection.attack_card_slot
         &&x.attack_instance_id===currentProjection.attack_instance_id&&x.card_state==="hand"));
@@ -1197,7 +1200,7 @@
       &&livingEnemy.has(x.formation_slot)&&[4,5].includes(x.hex_position));
     updateSlotChoices("lobby-3x3-contact-attacker",attackPositions.map(x=>x.formation_slot));
     updateSlotChoices("lobby-3x3-contact-defender",defensePositions.map(x=>x.formation_slot));
-    $("lobby-3x3-contact").hidden=!(myTurn&&myBoard.length===3
+    $("lobby-3x3-contact").hidden=!(myTurn&&!attackLockedThisTurn&&myBoard.length===3
       &&board3x3.length===6&&attackPositions.length>0&&defensePositions.length>0
       &&!contactAlready&&!clashes.some(x=>x.turn_no===match?.turn_no)
       &&!burstWindows.some(x=>x.turn_no===match?.turn_no));
@@ -1329,12 +1332,23 @@
         " deixou as 3 criaturas rivais com 0 HP DE TREINO no turno "+x.decided_turn+
         ". RESULTADO SOMENTE EXPERIMENTAL: não encerra o combate oficial, nem dá XP ou moedas.").join("\n")
       :"Nenhum resultado de equipe no treino ainda: são necessários 3 nocautes confirmados.";
+    $("lobby-3x3-training-attack-locks").textContent=trainingAttackLocks3x3.length
+      ?trainingAttackLocks3x3.slice().sort((a,b)=>a.inflicted_turn-b.inflicted_turn).map(x=>
+        "T"+x.inflicted_turn+" · "+(x.defender_id===userId?"Sua equipe":"Equipe adversária")+
+        " impedida de atacar nos "+x.blocked_turn_count+" próximo(s) turno(s) próprio(s)"+
+        (match&&x.defender_id===match.current_player&&match.turn_no>x.inflicted_turn
+          &&match.turn_no<=x.last_blocked_turn?" · BLOQUEIO ATIVO NESTE TURNO":"")+
+        ". Somente treinamento; pode se movimentar e passar o turno.").join("\n")
+      :"Nenhuma equipe impedida de atacar no treino.";
     $("lobby-3x3-training-damage-history").textContent=trainingDamage3x3.length
       ?trainingDamage3x3.slice().sort((a,b)=>a.turn_no-b.turn_no).map(x=>
         "T"+x.turn_no+" · "+(x.attacker_id===userId?"Seu ataque":"Ataque rival")+
-        " Vento Forte: c"+x.defender_slot+" HP de TREINO "+
+        " "+({105:"Vento Forte",111:"MÃO ELETRÔNICA",112:"MÃO MÃO"}[x.catalog_attack_id]||"Ataque original")+
+        ": c"+x.defender_slot+" HP de TREINO "+
         x.hp_before+" → "+x.hp_after+" ("+x.damage_dealt+" de dano). "+
-        "Revelação opcional de criatura pendente; HP oficial não alterado.").join("\n")
+        (x.optional_reveal_pending?"Revelação opcional pendente. ":"")+
+        (["111","112"].includes(x.catalog_attack_id)?"Impedimento de ataque registrado. ":"")+
+        "HP oficial não alterado.").join("\n")
       :"Nenhum dano de HP de treinamento 3x3 aplicado.";
     $("lobby-3x3-defense-history").textContent=defenseWindows3x3.length
       ?defenseWindows3x3.slice().sort((a,b)=>a.turn_no-b.turn_no).map(x=>
@@ -1391,7 +1405,7 @@
   async function refresh3x3Allies(){
     if(!$("lobby-3x3-allies-panel"))return;
     if(!room||!match||room.mode!=="3x3"){
-      allies3x3=[];transfers3x3=[];hp3x3=[];board3x3=[];moves3x3=[];contacts3x3=[];attackProjections3x3=[];hand3x3=[];handWallet3x3=[];costChecks3x3=[];attackSpends3x3=[];discard3x3=[];drawEvents3x3=[];defenseWindows3x3=[];elementalInspections3x3=[];creatureChecks3x3=[];privateEquipmentChecks3x3=[];dynamicElementChecks3x3=[];trainingDamage3x3=[];trainingKnockouts3x3=[];trainingOutcomes3x3=[];update3x3UI();return;
+      allies3x3=[];transfers3x3=[];hp3x3=[];board3x3=[];moves3x3=[];contacts3x3=[];attackProjections3x3=[];hand3x3=[];handWallet3x3=[];costChecks3x3=[];attackSpends3x3=[];discard3x3=[];drawEvents3x3=[];defenseWindows3x3=[];elementalInspections3x3=[];creatureChecks3x3=[];privateEquipmentChecks3x3=[];dynamicElementChecks3x3=[];trainingDamage3x3=[];trainingKnockouts3x3=[];trainingOutcomes3x3=[];trainingAttackLocks3x3=[];update3x3UI();return;
     }
     const units=await api.from("chaotic_preview_3x3_allies")
       .select("actor_id,position,deck_slot,creature_instance_id,creature_name,starting_tokens,remaining_tokens,received_tokens")
@@ -1464,10 +1478,15 @@
     if(dynamicCheck.error)throw new Error(dynamicCheck.error.message);
     dynamicElementChecks3x3=dynamicCheck.data||[];
     const trainingDmg=await api.from("chaotic_preview_3x3_training_damage_events")
-      .select("turn_no,attacker_id,defender_id,attacker_slot,defender_slot,attack_instance_id,catalog_attack_id,hp_before,hp_after,damage_dealt,optional_reveal_pending,official_match_modified")
+      .select("turn_no,attacker_id,defender_id,attacker_slot,defender_slot,attack_instance_id,catalog_attack_id,hp_before,hp_after,damage_dealt,optional_reveal_pending,effects_fully_resolved,official_match_modified")
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(40);
     if(trainingDmg.error)throw new Error(trainingDmg.error.message);
     trainingDamage3x3=trainingDmg.data||[];
+    const locks=await api.from("chaotic_preview_3x3_training_attack_locks")
+      .select("inflicted_turn,attacker_id,defender_id,catalog_attack_id,blocked_turn_count,last_blocked_turn,training_only")
+      .eq("lobby_id",room.id).order("inflicted_turn",{ascending:false}).limit(40);
+    if(locks.error)throw new Error(locks.error.message);
+    trainingAttackLocks3x3=locks.data||[];
     const knockouts=await api.from("chaotic_preview_3x3_training_knockouts")
       .select("turn_no,attacker_id,defender_id,defender_slot,defender_creature_name,hp_before,hp_after,training_only,official_match_modified")
       .eq("lobby_id",room.id).order("turn_no",{ascending:false}).limit(10);
@@ -1657,6 +1676,9 @@
         },sync)
         .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_3x3_training_damage_events",filter:"lobby_id=eq."+lobbyId
+        },sync)
+        .on("postgres_changes",{
+          event:"*",schema:"public",table:"chaotic_preview_3x3_training_attack_locks",filter:"lobby_id=eq."+lobbyId
         },sync)
         .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_3x3_training_knockouts",filter:"lobby_id=eq."+lobbyId
@@ -1917,9 +1939,10 @@
       '<button id="lobby-3x3-defense-open" type="button" hidden>Abrir resposta do defensor 3x3</button>',
       '<button id="lobby-3x3-defense-pass" type="button" hidden>Defensor: passar reação (SEM dano)</button>',
       '<p id="lobby-3x3-defense-history" class="lobby-events" aria-live="polite">Nenhuma janela de defesa 3x3.</p>',
-      '<p>Após o passe defensivo, o atacante pode aplicar o DANO-BASE DO VENTO FORTE (ID 105) ao HP do TREINAMENTO 3x3, desde que o defensor tenha sido conferido SEM equipamento. A revelação opcional de criatura permanece pendente; não é combate oficial.</p>',
-      '<button id="lobby-3x3-training-damage" type="button" hidden>Atacante: causar 5 de dano-base ao HP DE TREINO (somente Vento Forte)</button>',
+      '<p>Após o passe defensivo, o atacante pode aplicar Vento Forte (105: 5 de dano-base, revelação opcional pendente), MÃO ELETRÔNICA (111: 10 de dano e impede os próximos 2 turnos de ataque adversários) ou MÃO MÃO (112: 5 de dano e impede o próximo turno de ataque adversário). Só no TREINO 3x3 e com defensor SEM equipamento. Nenhuma carta oficial é alterada.</p>',
+      '<button id="lobby-3x3-training-damage" type="button" hidden>Atacante: resolver dano e efeitos de TREINO (105, 111 ou 112)</button>',
       '<p id="lobby-3x3-training-damage-history" class="lobby-events" aria-live="polite">Nenhum dano de treino aplicado.</p>',
+      '<p id="lobby-3x3-training-attack-locks" class="lobby-events" aria-live="polite">Nenhum bloqueio de ataque registrado.</p>',
       '<p id="lobby-3x3-knockout-history" class="lobby-events" aria-live="polite">Nenhum nocaute de treino.</p>',
       '<p id="lobby-3x3-training-outcome" class="lobby-events" aria-live="polite">Sem resultado de equipe no treino.</p>',
       '<p>Antes de passar a reação, o DEFENSOR pode revisar os componentes elementais da carta de ataque paga, confirmados pelo catálogo original no banco. A revisão não joga dados, não verifica elementos das criaturas ou equipamento e NÃO calcula nem causa dano final.</p>',
@@ -2402,13 +2425,21 @@
     });
     $("lobby-3x3-training-damage").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
-      const settled=await rpc("chaotic_apply_preview_3x3_training_base_105",{
+      const attackId=attackProjections3x3.find(x=>x.turn_no===match.turn_no
+        &&x.actor_id===userId)?.catalog_attack_id;
+      if(!["105","111","112"].includes(attackId))
+        throw new Error("Este ataque ainda não tem resolução de dano experimental.");
+      const rpcName=attackId==="105"
+        ?"chaotic_apply_preview_3x3_training_base_105"
+        :"chaotic_apply_preview_3x3_training_attack_lock";
+      const settled=await rpc(rpcName,{
         p_lobby_id:room.id,p_expected_turn:match.turn_no
       });
       await refresh3x3Allies();
-      note("Dano real no HP DE TREINO: "+settled.hp_before+" → "+
+      note("Dano no HP DE TREINO: "+settled.hp_before+" → "+
         settled.hp_after+" ("+settled.damage_dealt+"). "+
-        "Efeito opcional de revelação pendente; HP oficial, cartas e XP intactos.");
+        (attackId==="105"?"Revelação opcional pendente. ":"Bloqueio de ataque registrado. ")+
+        "HP oficial, cartas e XP intactos.");
     });
     $("lobby-3x3-defense-pass").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3"||match.current_player===userId)return;
