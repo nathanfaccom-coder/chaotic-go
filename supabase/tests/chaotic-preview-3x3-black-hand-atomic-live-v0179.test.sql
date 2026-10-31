@@ -118,6 +118,23 @@ begin
  if not blocked then raise exception '102 duplicate resolution succeeded';end if;
  if (select count(*) from public.chaotic_preview_3x3_temporary_card_custody
    where lobby_id=room)<>1 then raise exception '102 replay created extra card';end if;
+
+ -- Four held/owned cards plus one loan fill the five-card effective hand cap.
+ -- A sixth card must be rejected even when an ordinary draw was requested.
+ insert into public.chaotic_preview_3x3_attack_hand
+ (lobby_id,actor_id,card_slot,attack_instance_id,draw_position,card_state)
+ select room,host,n,'HX'||n,n,'hand'
+ from pg_catalog.generate_series(4,7) n;
+ blocked:=false;
+ begin
+  insert into public.chaotic_preview_3x3_attack_hand
+   (lobby_id,actor_id,card_slot,attack_instance_id,draw_position,card_state)
+   values(room,host,8,'HX8',8,'hand');
+ exception when others then blocked:=true;end;
+ if not blocked then raise exception 'Borrowed card did not count toward five-card cap';end if;
+ if (select count(*) from public.chaotic_preview_3x3_attack_hand
+   where lobby_id=room and actor_id=host and card_state='hand')<>4
+ then raise exception 'Invalid sixth card persisted in training hand';end if;
  -- The spent 102 must not leave the attacker stuck after the defender passes:
  -- the resolved effect is a zero-damage attack, not an outstanding damage debit.
  perform public.chaotic_pass_turn(room,1);
