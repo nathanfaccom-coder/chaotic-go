@@ -70,3 +70,24 @@ test("v0.1.79: DROME shows payment, priority window and theft only in the matchi
  ])assert.ok(ui.includes(part),part);
  assert.doesNotMatch(ui,/resolvableTrainingAttacks3x3=new Set\([^)]*"102"/);
 });
+
+const handCap=await readFile(new URL("../supabase/chaotic-preview-3x3-effective-hand-cap-v0179.sql",import.meta.url),"utf8");
+test("v0.1.79: borrowed attack counts toward five-card cap for every draw source",()=>{
+ for(const token of [
+ "chaotic_guard_preview_3x3_effective_hand_cap",
+ "chaotic_preview_3x3_attack_hand",
+ "chaotic_preview_3x3_temporary_card_custody",
+ "new.card_state<>'hand'",
+ "new.custody_state<>'held'",
+ "where lobby_id=lobby and actor_id=borrower and card_state='hand'",
+ "where lobby_id=lobby and borrower_id=borrower and custody_state='held'",
+ "if hands+loans>=5",
+ "chaotic_3x3_attack_hand_effective_five_cap",
+ "chaotic_3x3_custody_effective_five_cap"
+ ])assert.ok(handCap.includes(token),token);
+ for(const token of [
+  "Borrowed card did not count toward five-card cap",
+  "Invalid sixth card persisted in training hand",
+  "chaotic_pass_turn(room,1)"
+ ])assert.ok(live.includes(token),token);
+});
