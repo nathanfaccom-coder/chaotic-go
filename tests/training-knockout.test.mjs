@@ -32,7 +32,8 @@ test("3x3: training outcome requires all three seeded units at 0 HP",()=>{
 test("3x3: DROME shows KO/outcome and correct damage events without official victory",()=>{
  for(const term of ["lobby-3x3-knockout-history","lobby-3x3-training-outcome",
   "chaotic_preview_3x3_training_knockouts","chaotic_preview_3x3_training_outcomes",
-  "trainingKnockouts3x3=knockouts.data||[]",
+  "trainingKnockouts3x3=(knockouts.data||[]).concat(",
+  "chaotic_preview_3x3_borrowed_105_knockouts",
   "trainingOutcomes3x3=outcome.data||[]",
   'table:"chaotic_preview_3x3_training_knockouts"',
   'table:"chaotic_preview_3x3_training_outcomes"',
