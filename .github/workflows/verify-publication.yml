@@ -72,7 +72,17 @@ jobs:
             echo "::error::Página pública desatualizada: ${current:-desconhecida}; esperada ${expected}"
             exit 1
           fi
-          declare -a paths=("index.html" "scanner.html" "login-completo.html" "chaotic-lobby.js" "sw.js" "style.css" "logo.png")
+          # Verify the real entry chain: splash -> login -> scanner -> authenticated
+          # bootstrap -> private DROME. A 200 on index alone does not prove
+          # that login or the battle can load on Android.
+          declare -a paths=(
+            "index.html" "login-completo.html" "scanner.html" "scanner-completo.html"
+            "login-auth.js" "auth-client.js" "supabase-config.js"
+            "full-game-bootstrap.js" "supabase-game-bridge.js"
+            "script.js" "batalha.js" "cartas.js" "efeitos.js" "entrada-drome.js"
+            "chaotic-lobby.js" "sw.js" "style.css" "entrada-drome.css"
+            "manifest.json" "logo.png"
+          )
           for path in "${paths[@]}"; do
             code="$(curl --location --silent --show-error --max-time 25 \
               --output "/tmp/chaotic-site-${path##*/}" --write-out '%{http_code}' "${base}${path}")"
@@ -91,4 +101,29 @@ jobs:
             echo "::error::O DROME publicado está incompleto ou defasado."
             exit 1
           fi
-          echo "✅ Página pública e arquivos críticos verificados na versão ${expected}." >> "$GITHUB_STEP_SUMMARY"
+          release_tag="${expected##*.}"
+          # These are the exact routes/modules reached by a real player.
+          if ! grep -Fq 'href="login-completo.html"' /tmp/chaotic-site-index.html; then
+            echo "::error::A abertura não encaminha para o login atual."
+            exit 1
+          fi
+          if ! grep -Fq 'login-auth.js' /tmp/chaotic-site-login-completo.html ||
+             ! grep -Fq 'auth-client.js' /tmp/chaotic-site-login-completo.html; then
+            echo "::error::Login publicado sem os scripts de autenticação."
+            exit 1
+          fi
+          if ! grep -Fq "full-game-bootstrap.js?v=release-${release_tag}" /tmp/chaotic-site-scanner-completo.html; then
+            echo "::error::Scanner completo não carrega o bootstrap da versão ${expected}."
+            exit 1
+          fi
+          if ! grep -Fq "chaotic-lobby.js?v=release-${release_tag}" /tmp/chaotic-site-full-game-bootstrap.js; then
+            echo "::error::O bootstrap publicado não carrega o DROME atualizado."
+            exit 1
+          fi
+          if ! grep -Fq "chaotic-go-release-" /tmp/chaotic-site-sw.js ||
+             ! grep -Fq "release-${release_tag}" /tmp/chaotic-site-sw.js; then
+            echo "::error::Service Worker não corresponde à versão pública."
+            exit 1
+          fi
+          echo "✅ Abertura, login, scanner, bootstrap, DROME e cache verificados na versão ${expected}." >> "$GITHUB_STEP_SUMMARY"
+          echo "Observação: HTTP 200 e scripts atualizados não substituem teste com dois celulares." >> "$GITHUB_STEP_SUMMARY"

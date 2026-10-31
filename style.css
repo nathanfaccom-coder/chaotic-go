@@ -1868,3 +1868,60 @@ html, body {
 .lobby-official-card img[hidden]{display:none!important;}
 .lobby-official-versus {font-size:12px;font-weight:800;color:#ffe7a0;text-align:center;}
 #lobby-clash-open{background:#66501e;border-color:#e0b654;}
+
+/* v0.1.90 — sala privada e conta utilizáveis em celulares pequenos.
+   A carcaça do scanner pode permanecer fixa, mas o DROME precisa rolar. */
+#tela-entrada-drome {
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    box-sizing: border-box;
+    padding: 10px 8px max(16px, env(safe-area-inset-bottom));
+    align-items: flex-start;
+}
+#tela-entrada-drome .lobby-test {
+    width: min(100%, 480px);
+    min-width: 0;
+    margin: 0 auto 20px;
+}
+#tela-entrada-drome .lobby-test button,
+#tela-entrada-drome .lobby-test input,
+#tela-entrada-drome .lobby-test select {
+    min-height: 44px;
+    font-size: max(13px, .875rem);
+}
+#tela-entrada-drome .lobby-test button:focus-visible,
+#tela-entrada-drome .lobby-test input:focus-visible,
+#tela-entrada-drome .lobby-test select:focus-visible,
+#btn-alert-logout:focus-visible {
+    outline: 2px solid #d8ffd8;
+    outline-offset: 3px;
+}
+#lobby-room-code {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+#btn-alert-logout {
+    min-height: 44px;
+    background: #1b5932;
+    border-color: #77daa2;
+    padding: 10px 12px;
+}
+@media(max-width: 480px) {
+    #tela-entrada-drome .lobby-test {
+        font-size: 12px;
+    }
+    #tela-entrada-drome .lobby-events {
+        max-height: 180px;
+    }
+    .modal-ativo {
+        padding: 8px;
+        box-sizing: border-box;
+    }
+}

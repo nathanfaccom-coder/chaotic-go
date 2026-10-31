@@ -101,10 +101,13 @@ test("v0.1.89: own-character poison inspection UI warns cure and periodic damage
   "Nenhum ponto, HP ou equipamento foi alterado"
  ])assert.ok(ui.includes(mark),mark);
 });
-test("v0.1.89: public and PWA scanners synchronized at release-89",()=>{
- assert.match(index,/VERSÃO 0\.1\.89/);
- assert.match(index,/sw\.js\?v=release-89/);
- assert.match(sw,/chaotic-go-release-20261031-89/);
- assert.match(scanner,/full-game-bootstrap\.js\?v=release-89/);
- assert.match(boot,/chaotic-lobby\.js\?v=release-89/);
+test("v0.1.89+: public and PWA scanners remain aligned across releases",()=>{
+ const v=index.match(/VERSÃO 0\.1\.(\d+)/);
+ const reg=index.match(/sw\.js\?v=release-(\d+)/);
+ const cache=sw.match(/chaotic-go-release-\d{8}-(\d+)/);
+ const mobile=scanner.match(/full-game-bootstrap\.js\?v=release-(\d+)/);
+ const drome=boot.match(/chaotic-lobby\.js\?v=release-(\d+)/);
+ assert.ok(v&&reg&&cache&&mobile&&drome);
+ assert.ok(Number(v[1])>=89);
+ for(const item of [reg,cache,mobile,drome])assert.equal(item[1],v[1]);
 });

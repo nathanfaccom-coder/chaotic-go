@@ -62,6 +62,13 @@
   }
   async function action(fn) {
     if (busy) return;
+    // Android may suspend a PWA for minutes or lose connectivity mid-turn.
+    // Do not queue a speculative attack/payment while offline. The server is
+    // authoritative; the player must explicitly retry after reconnecting.
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      note("Sem conexão. Nenhuma ação foi enviada nem pontos gastos. Reconecte-se e use Atualizar conexão antes de tentar novamente.",true);
+      return;
+    }
     busy = true;
     const buttons = [...document.querySelectorAll("#tela-entrada-drome button")];
     buttons.forEach(btn => { btn.disabled = true; });
@@ -2256,11 +2263,11 @@
     screen.innerHTML = [
       '<div class="lobby-test">',
       '<h3>🔐 SALA PRIVADA</h3>',
-      '<p>Convite por código — teste de conexão. Nenhuma batalha ou troca acontece aqui.</p>',
+      '<p>Treino 3x3 por código: dois jogadores, turnos e combate experimental. 1x1 e 6x6 ainda são modos de teste; não há recompensas oficiais nem troca de cartas.</p>',
       '<div id="lobby-create">',
       '<label for="lobby-select-mode">Modo da sala</label>',
-      '<select id="lobby-select-mode"><option value="1x1">1x1 Duelo</option>',
-      '<option value="3x3">3x3 Rápido</option><option value="6x6">6x6 Principal</option></select>',
+      '<select id="lobby-select-mode"><option value="1x1">1x1 Duelo (teste)</option>',
+      '<option value="3x3" selected>3x3 Rápido (treino)</option><option value="6x6">6x6 Principal (teste)</option></select>',
       '<button id="lobby-create-btn" type="button">Criar sala</button></div>',
       '<div id="lobby-join"><label for="lobby-input-code">Código recebido de outro jogador</label>',
       '<input id="lobby-input-code" type="text" maxlength="12" autocomplete="off"',
@@ -3614,7 +3621,12 @@
   // Lightweight Node test harnesses do not implement DOM event listeners.
   if (typeof document.addEventListener === "function")
     document.addEventListener("visibilitychange", refreshWhenVisible);
-  if (typeof window.addEventListener === "function")
+  if (typeof window.addEventListener === "function") {
     window.addEventListener("online", refreshWhenVisible);
+    window.addEventListener("offline", () => {
+      if (room && $("tela-entrada-drome")?.style.display === "flex")
+        note("Conexão perdida. As ações ficam suspensas neste aparelho; reconecte-se para sincronizar o turno, sem reenviar ataques automaticamente.",true);
+    });
+  }
   window.abrirSalaPrivadaDrome = show;
 })();
