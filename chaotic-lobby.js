@@ -69,11 +69,13 @@
       note("Sem conexão. Nenhuma ação foi enviada nem pontos gastos. Reconecte-se e use Atualizar conexão antes de tentar novamente.",true);
       return;
     }
+    const actionRoomId=room?.id,actionView=viewGeneration;
     busy = true;
     const buttons = [...document.querySelectorAll("#tela-entrada-drome button")];
     buttons.forEach(btn => { btn.disabled = true; });
     try { await fn(); }
     catch (error) {
+      if(room?.id!==actionRoomId || viewGeneration!==actionView)return;
       const message=error.message || "Falha ao conectar com a sala.";
       note(message,true);
       // If another tab/phone committed first, do not leave stale attack
@@ -89,6 +91,15 @@
       }
     }
     finally { busy = false; buttons.forEach(btn => { if (btn.isConnected) btn.disabled = false; }); }
+  }
+  // Attach each asynchronous action to its original room, turn and screen.
+  function isActionContextCurrent(roomId,turn,view) {
+    return room?.id===roomId && viewGeneration===view &&
+      (turn==null || match?.turn_no===turn);
+  }
+  function requireActionContext(roomId,turn,view) {
+    if(!isActionContextCurrent(roomId,turn,view))
+      throw new Error("Sala ou turno alterado durante a confirmação. Atualize o DROME.");
   }
   // Guard two fast taps/tabs with the authoritative state as close to the
   // mutation as possible. The server locks are still the final authority.
@@ -3037,12 +3048,15 @@
     });
     $("lobby-3x3-cancel-contact").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
-      const expectedTurn=match.turn_no;
+      const expectedRoomId=room.id,expectedView=viewGeneration,expectedTurn=match.turn_no;
       await require3x3Phase(expectedTurn,["contact_open","awaiting_payment"]);
+      requireActionContext(expectedRoomId,expectedTurn,expectedView);
       const result=await rpc("chaotic_cancel_preview_3x3_unpaid_contact",{
-        p_lobby_id:room.id,p_expected_turn:expectedTurn
+        p_lobby_id:expectedRoomId,p_expected_turn:expectedTurn
       });
+      if(!isActionContextCurrent(expectedRoomId,expectedTurn,expectedView))return;
       await refresh3x3Allies();
+      if(!isActionContextCurrent(expectedRoomId,expectedTurn,expectedView))return;
       note("Contato sem pagamento cancelado no turno "+result.turn_no+
         ". Nenhum ponto, carta ou HP foi alterado. Criaturas já reveladas permanecem visíveis.");
     });
@@ -3168,12 +3182,15 @@
     });
     $("lobby-3x3-black-hand-pay").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
-      const expectedTurn=match.turn_no;
+      const expectedRoomId=room.id,expectedView=viewGeneration,expectedTurn=match.turn_no;
       await require3x3Phase(expectedTurn,["awaiting_payment"],true);
+      requireActionContext(expectedRoomId,expectedTurn,expectedView);
       const paid=await rpc("chaotic_pay_preview_3x3_black_hand",{
-        p_lobby_id:room.id,p_expected_turn:expectedTurn
+        p_lobby_id:expectedRoomId,p_expected_turn:expectedTurn
       });
+      if(!isActionContextCurrent(expectedRoomId,expectedTurn,expectedView))return;
       await refresh3x3Allies();
+      if(!isActionContextCurrent(expectedRoomId,expectedTurn,expectedView))return;
       note("Mão Negra (102) paga só no TREINO: "+paid.points_before+
         " → "+paid.points_after+" pontos. Abra a reação do defensor; ainda NÃO houve roubo.");
     });
@@ -3270,16 +3287,19 @@
     });
     $("lobby-3x3-attack-spend").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
-      const expectedTurn=match.turn_no;
+      const expectedRoomId=room.id,expectedView=viewGeneration,expectedTurn=match.turn_no;
       const projectedAttack=attackProjections3x3.find(x=>x.turn_no===expectedTurn
         &&x.actor_id===userId);
       if(!resolvableTrainingAttacks3x3.has(projectedAttack?.catalog_attack_id))
         throw new Error("Este ataque ainda não tem dano no treino 3x3. Cancele o contato sem gastar pontos.");
       await require3x3Phase(expectedTurn,["awaiting_payment"],true);
+      requireActionContext(expectedRoomId,expectedTurn,expectedView);
       const paid=await rpc("chaotic_spend_preview_3x3_attack",{
-        p_lobby_id:room.id,p_expected_turn:expectedTurn
+        p_lobby_id:expectedRoomId,p_expected_turn:expectedTurn
       });
+      if(!isActionContextCurrent(expectedRoomId,expectedTurn,expectedView))return;
       await refresh3x3Allies();
+      if(!isActionContextCurrent(expectedRoomId,expectedTurn,expectedView))return;
       note("Ataque usado SOMENTE NO TREINO: "+paid.points_before+" → "+
         paid.points_after+" pontos; carta retirada apenas da mão experimental. "+
         "HP e coleção original permanecem intactos.");
@@ -3406,8 +3426,9 @@
     });
     $("lobby-3x3-training-damage").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
-      const expectedTurn=match.turn_no;
+      const expectedRoomId=room.id,expectedView=viewGeneration,expectedTurn=match.turn_no;
       await require3x3Phase(expectedTurn,["awaiting_damage"],true);
+      requireActionContext(expectedRoomId,expectedTurn,expectedView);
       const attackId=attackProjections3x3.find(x=>x.turn_no===match.turn_no
         &&x.actor_id===userId)?.catalog_attack_id;
       if(!resolvableTrainingAttacks3x3.has(attackId))
@@ -3429,9 +3450,11 @@
         ?"chaotic_apply_preview_3x3_training_attack_lock"
         :"chaotic_apply_preview_3x3_training_fallen_allies";
       const settled=await rpc(rpcName,{
-        p_lobby_id:room.id,p_expected_turn:expectedTurn
+        p_lobby_id:expectedRoomId,p_expected_turn:expectedTurn
       });
+      if(!isActionContextCurrent(expectedRoomId,expectedTurn,expectedView))return;
       await refresh3x3Allies();
+      if(!isActionContextCurrent(expectedRoomId,expectedTurn,expectedView))return;
       note("Dano no HP DE TREINO: "+settled.hp_before+" → "+
         settled.hp_after+" ("+settled.damage_dealt+"). "+
         (attackId==="109"?"TORNADO: "+settled.tornado_shuffled_count+
@@ -3460,12 +3483,15 @@
     });
     $("lobby-3x3-defense-pass").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3"||match.current_player===userId)return;
-      const expectedTurn=match.turn_no;
+      const expectedRoomId=room.id,expectedView=viewGeneration,expectedTurn=match.turn_no;
       await require3x3Phase(expectedTurn,["awaiting_defender"],true);
+      requireActionContext(expectedRoomId,expectedTurn,expectedView);
       const window=await rpc("chaotic_pass_preview_3x3_defense",{
-        p_lobby_id:room.id,p_expected_turn:expectedTurn
+        p_lobby_id:expectedRoomId,p_expected_turn:expectedTurn
       });
+      if(!isActionContextCurrent(expectedRoomId,expectedTurn,expectedView))return;
       await refresh3x3Allies();
+      if(!isActionContextCurrent(expectedRoomId,expectedTurn,expectedView))return;
       note("Defensor passou na janela de treinamento T"+window.turn_no+
         ". O atacante precisa concluir o dano antes de passar o turno. Nenhuma carta ou HP foi alterado pela defesa.");
     });
@@ -3659,32 +3685,44 @@
     });
     $("lobby-turn-start").onclick = () => action(async () => {
       if (!room || room.host_id !== userId || room.status !== "ready") return;
-      match = await rpc("chaotic_start_match", { p_lobby_id: room.id });
+      const expectedRoomId=room.id,expectedView=viewGeneration;
+      const started=await rpc("chaotic_start_match", { p_lobby_id: expectedRoomId });
+      if(!isActionContextCurrent(expectedRoomId,null,expectedView))return;
+      match=started;
       // O anfitrião precisa confirmar a etapa do servidor antes de
       // desbloquear preparação/ações do primeiro turno 3x3.
-      if(room.mode==="3x3")
-        resumePhase3x3=await rpc("chaotic_get_preview_3x3_resume_status",{
-          p_lobby_id:room.id
+      if(room.mode==="3x3"){
+        const firstPhase=await rpc("chaotic_get_preview_3x3_resume_status",{
+          p_lobby_id:expectedRoomId
         });
+        if(!isActionContextCurrent(expectedRoomId,started.turn_no,expectedView))return;
+        resumePhase3x3=firstPhase;
+      }
       updateMatchUI();
       await refreshHistory();
       note("Teste de turnos iniciado. O anfitrião começa.");
     });
     $("lobby-turn-pass").onclick = () => action(async () => {
       if (!room || !match || match.status !== "active" || match.current_player !== userId) return;
-      const expectedTurn=match.turn_no;
+      const expectedRoomId=room.id,expectedView=viewGeneration,expectedTurn=match.turn_no;
       if (room.mode==="3x3")
         await require3x3Phase(expectedTurn,["ready","damage_settled"]);
+      requireActionContext(expectedRoomId,expectedTurn,expectedView);
       // Server rechecks expected turn under FOR UPDATE. A preflight
       // cannot bypass the server's contact/payment/defense guards.
-      match = await rpc("chaotic_pass_turn", { p_lobby_id: room.id, p_expected_turn: expectedTurn });
+      const nextTurn=await rpc("chaotic_pass_turn", { p_lobby_id: expectedRoomId, p_expected_turn: expectedTurn });
+      if(!isActionContextCurrent(expectedRoomId,expectedTurn,expectedView))return;
+      match=nextTurn;
       updateMatchUI();
       await refreshHistory();
       note("Turno registrado. O outro jogador já pode agir.");
     });
     $("lobby-turn-stop").onclick = () => action(async () => {
       if (!room || match?.status !== "active") return;
-      match = await rpc("chaotic_stop_match", { p_lobby_id: room.id });
+      const expectedRoomId=room.id,expectedView=viewGeneration,expectedTurn=match.turn_no;
+      const stopped=await rpc("chaotic_stop_match", { p_lobby_id: expectedRoomId });
+      if(!isActionContextCurrent(expectedRoomId,expectedTurn,expectedView))return;
+      match=stopped;
       updateMatchUI();
       await refreshHistory();
       note(room?.mode==="3x3"&&trainingOutcomes3x3.length
@@ -3693,8 +3731,10 @@
     });
     $("lobby-close").onclick = () => action(async () => {
       if (!room) return;
+      const expectedRoomId=room.id,expectedView=viewGeneration;
       const method = room.host_id === userId ? "chaotic_close_lobby" : "chaotic_leave_lobby";
-      const success = await rpc(method, { p_id: room.id });
+      const success = await rpc(method, { p_id: expectedRoomId });
+      if(!isActionContextCurrent(expectedRoomId,null,expectedView))return;
       if (!success) throw new Error("A sala já pode ter sido encerrada. Atualize.");
       forgetLastRoom(); ++viewGeneration;
       halt(); room = null; match = null; resumePhase3x3=null;
