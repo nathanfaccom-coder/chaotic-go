@@ -1216,6 +1216,15 @@
     // selected match. Never paint an older checkpoint after a local pass.
     expectedMatchRef=match;
     updateMatchUI();
+    // A finished 3x3 training match needs the historical event list and the
+    // member-scoped final receipt, not 30+ live-combat reads. In particular,
+    // never enter active-only presence/card flows after a server-confirmed end.
+    if(room.mode==="3x3" && match?.status==="finished"){
+      await refreshHistory();
+      if(!isCurrentMatchRequest())return;
+      await refresh3x3Allies();
+      return;
+    }
     // Fast heartbeat before dozens of sequential card/board reads.
     // A long refresh must not make a healthy phone seem disconnected.
     if (room.mode === "3x3" && match?.status === "active") {
