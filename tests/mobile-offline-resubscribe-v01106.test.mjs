@@ -71,3 +71,42 @@ test("v0.1.106: offline event records current room only; no combat action is rep
  assert.match(fn,/watch\(\)/);
  assert.match(fn,/refreshRoom\(\)/);
 });
+
+test("v0.1.107: Android background/foreground without offline event re-subscribes once",()=>{
+ const f=harness({rememberedRoom:null,hidden:true});
+ f.resume();
+ assert.equal(f.counters.watch,0);
+ assert.equal(f.counters.refresh,0);
+ assert.equal(f.ctx.offlineRealtimeRoomId,"room-A");
+ f.ctx.document.hidden=false;
+ f.resume();
+ assert.equal(f.counters.watch,1);
+ assert.equal(f.counters.refresh,1);
+ assert.equal(f.ctx.offlineRealtimeRoomId,null);
+ f.resume();
+ assert.equal(f.counters.watch,1,"duplicate foreground event does not duplicate channel");
+ assert.equal(f.counters.refresh,2);
+});
+test("v0.1.107: hidden DROME waits for internet before re-subscribing",()=>{
+ const f=harness({rememberedRoom:null,hidden:true,online:false});
+ f.resume();
+ assert.equal(f.ctx.offlineRealtimeRoomId,"room-A");
+ f.ctx.document.hidden=false;
+ f.resume();
+ assert.equal(f.counters.watch,0);
+ assert.equal(f.counters.refresh,0);
+ f.ctx.navigator.onLine=true;
+ f.resume();
+ assert.equal(f.counters.watch,1);
+ assert.equal(f.counters.refresh,1);
+});
+test("v0.1.107: a hidden unrelated screen does not trigger DROME reconnection",()=>{
+ const f=harness({rememberedRoom:null,hidden:true});
+ f.ctx.$=()=>({style:{display:"none"}});
+ f.resume();
+ assert.equal(f.ctx.offlineRealtimeRoomId,null);
+ f.ctx.document.hidden=false;
+ f.resume();
+ assert.equal(f.counters.watch,0);
+ assert.equal(f.counters.refresh,0);
+});
