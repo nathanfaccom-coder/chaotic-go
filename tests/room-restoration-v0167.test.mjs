@@ -28,7 +28,7 @@ test("v0.1.67: reloading requires server membership, non-expired status, same vi
 });
 test("v0.1.67: local state is forgotten upon closing, expiry and revoked membership",()=>{
  for(const token of ["forgetLastRoom();\n      show();",
-   "if (!data) { forgetLastRoom(); room = null;",
+   "if (!data) {\n      // Another player",
    'room.status==="cancelled"',
    'window.localStorage?.removeItem(lastRoomStorageKey)',
    "A sala anterior terminou ou não pertence a esta conta"])

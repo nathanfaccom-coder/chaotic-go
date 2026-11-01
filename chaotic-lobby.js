@@ -2205,9 +2205,18 @@
       .eq("id", requestedRoomId).maybeSingle();
     if (room?.id !== requestedRoomId || requestedView!==viewGeneration) return;
     if (error) throw new Error("Falha ao atualizar sala: " + error.message);
-    if (!data) { forgetLastRoom(); room = null; halt(); updateRoomUI(); note("Sala não encontrada."); return; }
+    if (!data) {
+      // Another player may have closed the lobby or revoked membership.
+      // Rebuild the DROME rather than retaining its hidden hand/turn state.
+      forgetLastRoom();
+      show();
+      note("Sala não encontrada ou acesso encerrado. Você já pode criar outra.");
+      return;
+    }
+    const serverRoomEnded=data.status==="cancelled"
+      || new Date(data.expires_at).getTime()<=Date.now();
     if(data.mode==="3x3" && [data.host_id,data.guest_id].includes(userId)
-      && (data.status==="cancelled" || new Date(data.expires_at).getTime()<=Date.now())){
+      && serverRoomEnded){
       // Room ID is a lookup hint, never permission. The server rechecks membership,
       // room expiry and every borrowed instance before restoring it to its owner.
       const recovery=await rpc("chaotic_restore_expired_preview_3x3_loans",{
@@ -2216,9 +2225,17 @@
       // A stale network response must never remove the newer room.
       if (room?.id!==requestedRoomId || viewGeneration!==requestedView) return;
       forgetLastRoom();
-      room=null;match=null;halt();updateRoomUI();
+      show();
       note("Treino encerrado. Cartas emprestadas recuperadas: "+recovery.restored_count+
-        ". Os Decks e álbuns originais foram preservados.");
+        ". Os Decks e álbuns originais foram preservados. Você já pode criar outra sala.");
+      return;
+    }
+    if(serverRoomEnded || ![data.host_id,data.guest_id].includes(userId)){
+      // Non-3x3 and revoked rooms have no 3x3 loan recovery to perform.
+      // The original card collections are never mutated by this UI reset.
+      forgetLastRoom();
+      show();
+      note("Sala encerrada, expirada ou sem acesso. Você já pode criar outra.");
       return;
     }
     room = data; rememberLastRoom(); updateRoomUI();
@@ -2449,7 +2466,16 @@
       updateRoomUI();
       watch();
       note("Sala anterior recuperada. Conferindo turno e ações no servidor...");
-      await refreshRoom(); // Reads data; does not replay defense, attack or spend.
+      try {
+        await refreshRoom(); // Reads data; does not replay defense, attack or spend.
+      } catch(error) {
+        // Room restoration succeeded, but the server may still be offline.
+        // Keep this lobby and its retry controls instead of hiding the error.
+        if(generation===viewGeneration && room?.id===id)
+          note("Sala recuperada, mas o turno ainda não sincronizou: "+error.message+
+            ". Use Atualizar conexão e turno.",true);
+        return;
+      }
       if(generation===viewGeneration && room?.id===id)
         note("Sala recuperada. Turno e ações sincronizados com o servidor.");
     } finally {
