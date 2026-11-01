@@ -81,6 +81,9 @@
     const actionRoomId=room?.id,actionView=viewGeneration;
     busy = true;
     const buttons = [...document.querySelectorAll("#tela-entrada-drome button")];
+    // The click lock must not permanently override game-rule restrictions.
+    // Save the pre-action disabled state for every existing control.
+    const previousDisabled=buttons.map(btn=>btn.disabled===true);
     buttons.forEach(btn => { btn.disabled = true; });
     try { await fn(); }
     catch (error) {
@@ -103,9 +106,17 @@
       }
     }
     finally {
-      // An older action cannot unlock a newly opened DROME session.
-      if(viewGeneration===actionView)busy=false;
-      buttons.forEach(btn => { if (btn.isConnected) btn.disabled = false; });
+      // An older action cannot unlock buttons in a newly opened DROME.
+      // Never enable an originally disabled button merely because another
+      // request finished; refresh the current 3x3 eligibility afterward.
+      if(viewGeneration===actionView){
+        busy=false;
+        buttons.forEach((btn,index)=>{
+          if(btn.isConnected)btn.disabled=previousDisabled[index];
+        });
+        if(room?.id===actionRoomId && room?.mode==="3x3"
+          && typeof update3x3UI==="function")update3x3UI();
+      }
     }
   }
   // Guard two fast taps/tabs with the authoritative state as close to the
