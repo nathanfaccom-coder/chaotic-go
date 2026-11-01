@@ -84,7 +84,6 @@ test("v0.1.117: finished match never calls presence or borrowed-card RPCs",async
  const f=harness();
  await f.refresh();
  assert.deepEqual(f.calls,[
-  "chaotic_get_preview_3x3_safe_state",
   "chaotic_preview_3x3_training_knockouts",
   "chaotic_preview_3x3_borrowed_105_knockouts",
   "chaotic_preview_3x3_training_outcomes",
@@ -132,10 +131,11 @@ test("v0.1.117: a match becoming active again must reject an older final receipt
 test("v0.1.117: final-report branch bypasses the active-only Supabase calls",()=>{
  const start=source.indexOf("async function refresh3x3Allies()");
  const safe=source.indexOf('const safeState=await rpc("chaotic_get_preview_3x3_safe_state"',start);
- const branch=source.indexOf('if(match?.status==="finished"){',safe);
+ const branch=source.indexOf('if(match?.status==="finished"){',start);
  const contact=source.indexOf('api.from("chaotic_preview_3x3_contact_intents")',safe);
- assert.ok(branch>safe && contact>branch);
- const part=source.slice(branch,contact);
+ assert.ok(branch>start && branch<safe && contact>safe);
+ const part=source.slice(branch,safe);
+ assert.doesNotMatch(part,/chaotic_get_preview_3x3_safe_state/);
  assert.match(part,/await refreshFinished3x3Receipt\(requestedRoomId,isCurrent3x3Request\)/);
  assert.match(part,/return;/);
  const final=source.slice(source.indexOf("async function refreshFinished3x3Receipt("),start);
