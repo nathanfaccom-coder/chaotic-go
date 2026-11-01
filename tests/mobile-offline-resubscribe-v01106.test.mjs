@@ -13,7 +13,7 @@ function harness({roomId="room-A",rememberedRoom="room-A",hidden=false,online=tr
  const ctx={
   room:roomId?{id:roomId}:null,
   offlineRealtimeRoomId:rememberedRoom,
-  viewGeneration:9,
+  viewGeneration:9,busy:false,refreshInFlight:null,refreshQueued:false,
   document:{hidden},navigator:{onLine:online},
   $:id=>id==="tela-entrada-drome"?{style:{display:"flex"}}:null,
   watch:()=>{counters.watch++;},

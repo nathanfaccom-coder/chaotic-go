@@ -2314,7 +2314,10 @@
         await refreshRoomOnce();
       } while (reads<2 && refreshQueued && room?.id===requestedRoomId
         && viewGeneration===requestedView && $("lobby-current"));
-      refreshQueued=false;
+      // A suspended read from an abandoned screen/network generation
+      // must never clear the refresh queue owned by a newer read.
+      if(room?.id===requestedRoomId && viewGeneration===requestedView)
+        refreshQueued=false;
     })();
     refreshInFlight = pending;
     try { return await pending; }
@@ -4097,13 +4100,23 @@
     }
     if ($("tela-entrada-drome")?.style.display !== "flex"
       || (typeof navigator !== "undefined" && navigator.onLine === false)) return;
-    const requestedView=viewGeneration, requestedRoomId=room?.id;
+    const requestedRoomId=room?.id;
     // Android may silently lose its websocket when moving between Wi-Fi and mobile data.
     // Re-subscribe after an offline transition or a backgrounded DROME; never replay actions.
     if(room && offlineRealtimeRoomId===room.id){
       offlineRealtimeRoomId=null;
+      if(refreshInFlight && !busy){
+        // Android can freeze an in-flight fetch indefinitely while backgrounded.
+        // Abandon ONLY the stale read, fence its late callbacks with the view
+        // generation, then start a fresh read. Never abort a pending action:
+        // it might already have been committed by the server.
+        viewGeneration++;
+        refreshInFlight=null;
+        refreshQueued=false;
+      }
       watch();
     }
+    const requestedView=viewGeneration;
     if (!room) {
       restoreLastRoom(requestedView).catch(error=>{
         if(viewGeneration===requestedView && !room)
