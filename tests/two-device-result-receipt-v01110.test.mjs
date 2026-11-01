@@ -5,7 +5,7 @@ import {readFile} from "node:fs/promises";
 
 const source=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
 const start=source.indexOf("function build3x3VerificationReport(");
-const end=source.indexOf("function update3x3UI()",start);
+const end=source.indexOf("  // Compare two server-result summaries locally",start);
 assert.ok(start>=0&&end>start,"3x3 two-device receipt helper boundaries");
 const report=vm.runInNewContext("("+source.slice(start,end).trim()+")");
 const room={id:"room-A",code:"ABCD1234",mode:"3x3",host_id:"host",guest_id:"guest"};
