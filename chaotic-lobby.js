@@ -3291,7 +3291,21 @@
         note("Cópia bloqueada pelo navegador. Selecione o resumo para copiar manualmente.",true);
       }
     };
-    $("lobby-3x3-refresh-connection").onclick=()=>action(async()=>{
+    $("lobby-3x3-refresh-connection").onclick=()=>{
+      // Manual recovery must also work when Android left a fetch pending
+      // without firing offline/online events. The user's click is explicit.
+      // If an attack/payment action is running, NEVER discard its lock.
+      if(!busy && room?.mode==="3x3" && refreshInFlight
+        && !document.hidden
+        && (typeof navigator==="undefined" || navigator.onLine!==false)){
+        // Fence all responses from the abandoned read before starting a
+        // new subscription. Only read operations are restarted.
+        viewGeneration++;
+        refreshInFlight=null;
+        refreshQueued=false;
+        watch();
+      }
+      return action(async()=>{
       if(!room||!match||room.mode!=="3x3")return;
       const expectedRoomId=room.id,expectedTurn=match.turn_no,expectedView=viewGeneration;
       await refreshRoom();
@@ -3301,7 +3315,8 @@
         :playerPresence3x3?.peer_synced_current_turn
         ?"Conexão e etapa do ataque atualizadas; o adversário já consultou o turno."
         :"Etapa do ataque recuperada; aguardando o adversário sincronizar o turno.");
-    });
+      });
+    };
     $("lobby-3x3-prepare").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3")return;
       const expectedRoomId=room.id,expectedTurn=match.turn_no,expectedView=viewGeneration;
