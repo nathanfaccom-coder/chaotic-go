@@ -2106,7 +2106,16 @@
     const isCurrent3x3Request=()=>room?.id===requestedRoomId
       && viewGeneration===requestedView && match?.turn_no===requestedTurn
       && readSerial===refresh3x3ReadSerial;
-    // v0.1.57: owner-only raw RLS; the server supplies a masked member view.
+    // Finished 3x3 matches need the member-scoped KO/outcome receipt only.
+    // Do not block the final screen on the formation/HP RPC: it is a live
+    // gameplay detail that may stall or fail on a suspended mobile browser.
+    // The existing board remains a local snapshot, not final-result evidence.
+    if(match?.status==="finished"){
+      await refreshFinished3x3Receipt(requestedRoomId,isCurrent3x3Request);
+      return;
+    }
+    // Active 3x3 keeps the masked server view and every original mechanic.
+    // This data must still be fetched before interactive combat controls.
     const safeState=await rpc("chaotic_get_preview_3x3_safe_state",{
       p_lobby_id:requestedRoomId
     });
@@ -2116,12 +2125,6 @@
     board3x3=Array.isArray(safeState?.board_positions)?safeState.board_positions:[];
     moves3x3=Array.isArray(safeState?.move_events)?safeState.move_events:[];
     transfers3x3=Array.isArray(safeState?.token_transfers)?safeState.token_transfers:[];
-    // After a finished match, active-only privacy RPCs correctly refuse access.
-    // Read only the final member-scoped records and display the result.
-    if(match?.status==="finished"){
-      await refreshFinished3x3Receipt(requestedRoomId,isCurrent3x3Request);
-      return;
-    }
     const contact=await api.from("chaotic_preview_3x3_contact_intents")
       .select("turn_no,attacker_id,defender_id,attacker_slot,defender_slot,attacker_creature_instance_id,defender_creature_instance_id,attacker_hex,defender_hex,attacker_hp_at_contact,defender_hp_at_contact,contact_status,damage_applied,attack_card_validated")
       .eq("lobby_id",requestedRoomId).order("turn_no",{ascending:false}).limit(40);
