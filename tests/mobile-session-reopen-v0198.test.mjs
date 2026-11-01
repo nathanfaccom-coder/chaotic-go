@@ -88,5 +88,5 @@ test("v0.1.98: opening DROME releases orphaned work and clears the refresh queue
   for(const key of ["busy=false;","refreshInFlight=null;","refreshQueued=false;"])
     assert.ok(block.includes(key),key);
   assert.ok(source.includes("viewGeneration===requestedView && $(\"lobby-current\")"));
-  assert.ok(source.includes("if(viewGeneration===actionView)busy=false"));
+  assert.match(source,/if\(viewGeneration===actionView\)\{\s*busy=false;/);
 });

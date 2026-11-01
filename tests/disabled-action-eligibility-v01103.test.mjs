@@ -55,13 +55,20 @@ test("v0.1.103: a superseded request cannot touch a new screen's controls",async
  f.ctx.update3x3UI=()=>{paints++;};
  const old=f.action(()=>older.promise);
  f.ctx.viewGeneration=9;f.ctx.busy=false;
+ // A real show() rebuilds the DOM. The previous buttons become detached.
+ f.elements.forEach(button=>{button.isConnected=false;});
+ const newButtons=[
+   {disabled:false,isConnected:true},
+   {disabled:true,isConnected:true}
+ ];
+ f.ctx.document.querySelectorAll=()=>newButtons;
  const fresh=f.action(()=>newer.promise);
  older.resolve();await old;
  assert.equal(f.ctx.busy,true);
- assert.deepEqual(f.elements.map(x=>x.disabled),[true,true]);
+ assert.deepEqual(newButtons.map(x=>x.disabled),[true,true]);
  assert.equal(paints,0);
  newer.resolve();await fresh;
- assert.deepEqual(f.elements.map(x=>x.disabled),[false,true]);
+ assert.deepEqual(newButtons.map(x=>x.disabled),[false,true]);
  assert.equal(paints,1);
 });
 test("v0.1.103: stale error recovery cannot paint current UI",async()=>{
