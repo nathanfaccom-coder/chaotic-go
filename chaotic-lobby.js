@@ -2029,6 +2029,49 @@
   // request. This also covers direct refreshes after a paid/defended action
   // while a long polling refresh remains in progress.
   let refresh3x3ReadSerial=0;
+  // Finished matches cannot use active-only presence/borrowed-card RPCs.
+  // Keep the final receipt available to both room members after a reconnect,
+  // without restarting combat, touching cards or re-awarding XP.
+  async function refreshFinished3x3Receipt(roomId,isCurrent3x3Request){
+    const isFinalRequest=()=>isCurrent3x3Request() && match?.status==="finished";
+    if(!isFinalRequest())return;
+    const [knockouts,borrowedKnockouts,outcome]=await Promise.all([
+      api.from("chaotic_preview_3x3_training_knockouts")
+        .select("turn_no,attacker_id,defender_id,defender_slot,defender_creature_name,catalog_attack_id,hp_before,hp_after,training_only,official_hp_changed,official_match_modified")
+        .eq("lobby_id",roomId).order("turn_no",{ascending:false}).limit(10),
+      api.from("chaotic_preview_3x3_borrowed_105_knockouts")
+        .select("turn_no,borrower_id,defender_id,defender_slot,defender_creature_name,catalog_attack_id,hp_before,hp_after,training_only,original_owner_changed,official_hp_changed,official_match_modified")
+        .eq("lobby_id",roomId).order("turn_no",{ascending:false}).limit(10),
+      api.from("chaotic_preview_3x3_training_outcomes")
+        .select("decided_turn,winner_id,defeated_id,defeated_team_size,outcome_scope,official_match_ended,official_match_modified,experience_awarded,currency_awarded")
+        .eq("lobby_id",roomId).limit(1)
+    ]);
+    if(!isFinalRequest())return;
+    if(knockouts.error)throw new Error(knockouts.error.message);
+    if(borrowedKnockouts.error)throw new Error(borrowedKnockouts.error.message);
+    if(outcome.error)throw new Error(outcome.error.message);
+    trainingKnockouts3x3=(knockouts.data||[]).concat(
+      (borrowedKnockouts.data||[]).map(x=>({...x,
+        attacker_id:x.borrower_id,borrowed_attack:true})));
+    trainingOutcomes3x3=outcome.data||[];
+    // The server rejects presence pings for finished turns. Do not use a
+    // stale "both online" status as final-result evidence.
+    playerPresence3x3=null;
+    try{
+      const finalCheckpoint=await rpc("chaotic_get_preview_3x3_resume_status",{
+        p_lobby_id:roomId
+      });
+      if(!isFinalRequest())return;
+      resumePhase3x3=finalCheckpoint;
+    }catch(error){
+      if(!isFinalRequest())return;
+      resumePhase3x3=null;
+      note("Comprovante disponível, mas a etapa final não pôde ser consultada: "+
+        error.message,true);
+    }
+    if(!isFinalRequest())return;
+    updateMatchUI();
+  }
   async function refresh3x3Allies(){
     if(!$("lobby-3x3-allies-panel"))return;
     if(!room||!match||room.mode!=="3x3"){
@@ -2051,6 +2094,12 @@
     board3x3=Array.isArray(safeState?.board_positions)?safeState.board_positions:[];
     moves3x3=Array.isArray(safeState?.move_events)?safeState.move_events:[];
     transfers3x3=Array.isArray(safeState?.token_transfers)?safeState.token_transfers:[];
+    // After a finished match, active-only privacy RPCs correctly refuse access.
+    // Read only the final member-scoped records and display the result.
+    if(match?.status==="finished"){
+      await refreshFinished3x3Receipt(requestedRoomId,isCurrent3x3Request);
+      return;
+    }
     const contact=await api.from("chaotic_preview_3x3_contact_intents")
       .select("turn_no,attacker_id,defender_id,attacker_slot,defender_slot,attacker_creature_instance_id,defender_creature_instance_id,attacker_hex,defender_hex,attacker_hp_at_contact,defender_hp_at_contact,contact_status,damage_applied,attack_card_validated")
       .eq("lobby_id",requestedRoomId).order("turn_no",{ascending:false}).limit(40);
