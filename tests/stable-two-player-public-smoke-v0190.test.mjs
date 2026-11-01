@@ -42,7 +42,7 @@ test("v0.1.90: Android going offline warns and returning online only reads serve
  assert.ok(drome.includes("sem reenviar ataques automaticamente"));
  const last=drome.slice(drome.indexOf("function refreshWhenVisible()"),drome.indexOf("window.abrirSalaPrivadaDrome = show"));
  assert.ok(last.includes("refreshRoom()"),"on reconnect the room must be refreshed");
- assert.ok(last.includes("restoreLastRoom(viewGeneration)"),"saved room recovered safely");
+ assert.ok(last.includes("restoreLastRoom(requestedView)"),"saved room recovered safely");
  assert.ok(!last.includes("chaotic_settle_preview_3x3_borrowed_105_base("));
  assert.ok(!last.includes("chaotic_pass_turn("));
 });

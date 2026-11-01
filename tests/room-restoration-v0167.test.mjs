@@ -22,7 +22,7 @@ test("v0.1.67: reloading requires server membership, non-expired status, same vi
   "new Date(data.expires_at).getTime()<=Date.now()",
   "generation!==viewGeneration",
   "requestedView!==viewGeneration",
-  "restoreLastRoom(viewGeneration)"
+  "restoreLastRoom(requestedView)"
  ])assert.ok(ui.includes(key),key);
  assert.match(ui,/await refreshRoom\(\); \/\/ Reads data; does not replay defense, attack or spend/);
 });
