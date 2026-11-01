@@ -90,7 +90,8 @@ function backContext(room){
  const b=script.indexOf("\n    };",a);
  assert.ok(a>=0&&b>a);
  vm.runInNewContext(script.slice(a,b+7),ctx);
- return {...ctx,getNotices:()=>notices};
+ ctx.getNotices=()=>notices;
+ return ctx;
 }
 test("v0.1.102: pressing Back in a live room must preserve its active sync watcher",()=>{
  const f=backContext({id:"room",status:"ready"});
