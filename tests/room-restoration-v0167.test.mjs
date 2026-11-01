@@ -27,7 +27,7 @@ test("v0.1.67: reloading requires server membership, non-expired status, same vi
  assert.match(ui,/await refreshRoom\(\); \/\/ Reads data; does not replay defense, attack or spend/);
 });
 test("v0.1.67: local state is forgotten upon closing, expiry and revoked membership",()=>{
- for(const token of ["forgetLastRoom(); ++viewGeneration",
+ for(const token of ["forgetLastRoom();\n      show();",
    "if (!data) { forgetLastRoom(); room = null;",
    'room.status==="cancelled"',
    'window.localStorage?.removeItem(lastRoomStorageKey)',
