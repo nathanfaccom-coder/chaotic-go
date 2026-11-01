@@ -58,6 +58,7 @@ test("v0.1.92: offline startup skips restoring a saved lobby until connection re
   assert.match(notices[0],/Sem internet/);
 });
 test("v0.1.92: polling skips overlapping mobile refreshes",()=>{
-  assert.match(code,/document\.hidden \|\| \(typeof navigator !== "undefined" && navigator\.onLine === false\)\s*\|\| refreshInFlight\) return/);
+  assert.match(code,/document\.hidden \|\| \(typeof navigator !== "undefined" && navigator\.onLine === false\)\)\s*return/);
+  assert.match(code,/if\(refreshInFlight\)\{[\s\S]*keep3x3PresenceAliveDuringRefresh\(\);[\s\S]*return;/);
   assert.match(code,/if \(refreshInFlight\) \{ refreshQueued = true; return refreshInFlight; \}/);
 });

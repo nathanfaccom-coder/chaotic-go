@@ -2258,6 +2258,40 @@
     try { return await pending; }
     finally { if (refreshInFlight === pending) refreshInFlight = null; }
   }
+  // A complete 3x3 refresh reads many tables sequentially. If a phone is
+  // still reading after 25s, the peer may mistake it for a disconnect.
+  // Keep its presence fresh independently, without replaying any combat action.
+  let slowRefreshPing=null, slowRefreshPingRoom=null, slowRefreshPingTime=0;
+  function keep3x3PresenceAliveDuringRefresh() {
+    if (!refreshInFlight || !room || room.mode!=="3x3"
+      || room.status!=="ready" || match?.status!=="active"
+      || document.hidden || (typeof navigator!=="undefined" && navigator.onLine===false))
+      return;
+    const roomId=room.id, view=viewGeneration, turn=match.turn_no, matchRef=match;
+    const owner=roomId+":"+view;
+    if(slowRefreshPing?.owner===owner)return;
+    const now=Date.now();
+    if(slowRefreshPingRoom===owner && now-slowRefreshPingTime<10000)return;
+    slowRefreshPingRoom=owner;
+    slowRefreshPingTime=now;
+    const ticket={owner};
+    slowRefreshPing=ticket;
+    rpc("chaotic_ping_preview_3x3_player",{
+      p_lobby_id:roomId,p_ready:null
+    }).then(presence=>{
+      // A delayed result from another room/turn cannot repaint private state.
+      if(room?.id!==roomId || viewGeneration!==view
+        || match!==matchRef || match?.turn_no!==turn)return;
+      playerPresence3x3=presence;
+      update3x3UI();
+    }).catch(error=>{
+      // Existing full refresh and its retry button own the visible error UI.
+      if(room?.id===roomId && viewGeneration===view)
+        console.warn("DROME: pulso de presença 3x3 indisponível; turno não reenviado.",error);
+    }).finally(()=>{
+      if(slowRefreshPing===ticket)slowRefreshPing=null;
+    });
+  }
   function watch() {
     halt();
     if (room && typeof api.channel === "function") {
@@ -2422,8 +2456,15 @@
       if (!$("lobby-current") || $("tela-entrada-drome")?.style.display !== "flex") { halt(); return; }
       // Não iniciar novas consultas enquanto uma leitura extensa já está em andamento.
       // O Realtime ainda pode solicitar uma atualização ao final da leitura.
-      if (document.hidden || (typeof navigator !== "undefined" && navigator.onLine === false)
-        || refreshInFlight) return;
+      if (document.hidden || (typeof navigator !== "undefined" && navigator.onLine === false))
+        return;
+      // A long read must not mark a healthy phone as disconnected. Only
+      // heartbeat is allowed here; combat mutations remain server-owned.
+      if(refreshInFlight){
+        if(typeof keep3x3PresenceAliveDuringRefresh==="function")
+          keep3x3PresenceAliveDuringRefresh();
+        return;
+      }
       // Never replay combat mutations: reconnect only the listener, at most every 30s.
       if(realtimeRetryPending && Date.now()>=realtimeRetryAfter)watch();
       const pollRoomId=room?.id, pollView=viewGeneration;

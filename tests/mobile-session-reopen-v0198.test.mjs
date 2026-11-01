@@ -62,7 +62,7 @@ test("v0.1.98: new room refresh starts independently of an abandoned old refresh
     calls.push(ctx.room?.id);
     return ctx.room?.id==="room-old"?old.promise:fresh.promise;
   };
-  const refresh=isolate("async function refreshRoom()","function watch()",ctx);
+  const refresh=isolate("async function refreshRoom()","  // A complete 3x3 refresh reads many tables sequentially.",ctx);
   const oldRequest=refresh();
   assert.equal(calls.length,1);
   ctx.viewGeneration=4;ctx.room={id:"room-new"};
