@@ -1187,14 +1187,21 @@
     if (!room) { match = null; updateMatchUI(); return; }
     // Uma resposta antiga não pode restaurar o turno da sala anterior.
     const requestedRoomId=room.id, requestedView=viewGeneration;
+    // The match can advance locally while an older network read is pending.
+    // Match objects are replaced (not mutated) on every confirmed turn.
+    let expectedMatchRef=match;
     const isCurrentMatchRequest=()=>room?.id===requestedRoomId
-      && viewGeneration===requestedView;
+      && viewGeneration===requestedView && match===expectedMatchRef;
     const {data,error} = await api.from("chaotic_match_turns")
       .select("lobby_id,host_id,guest_id,status,current_player,turn_no,last_player,updated_at")
       .eq("lobby_id",requestedRoomId).maybeSingle();
     if(!isCurrentMatchRequest()) return;
     if (error) throw new Error(error.message);
-    match = data; updateMatchUI();
+    match = data;
+    // Continue refreshing only while this server response is still the
+    // selected match. Never paint an older checkpoint after a local pass.
+    expectedMatchRef=match;
+    updateMatchUI();
     // Fast heartbeat before dozens of sequential card/board reads.
     // A long refresh must not make a healthy phone seem disconnected.
     if (room.mode === "3x3" && match?.status === "active") {
@@ -3871,11 +3878,12 @@
       note(wasHost?"Você saiu da sala. Sala encerrada; já pode criar outra.":"Você saiu da sala. Já pode entrar em outra.");
     });
     $("lobby-back").onclick = () => {
-      halt();
+      // A blocked navigation must not silently disable Realtime and polling.
       if (room && room.status !== "cancelled") {
         note("Use Encerrar/Sair da sala antes de voltar.", true);
         return;
       }
+      halt();
       if (typeof window.abrirEntradaDrome === "function") window.abrirEntradaDrome();
     };
     updateMatchUI();
