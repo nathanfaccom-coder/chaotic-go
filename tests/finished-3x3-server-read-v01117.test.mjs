@@ -76,7 +76,8 @@ test("v0.1.117: finished 3x3 match restores server outcome and exactly three KO 
  assert.equal(f.ctx.trainingKnockouts3x3.length,3);
  assert.equal(f.ctx.playerPresence3x3,null);
  assert.equal(f.ctx.resumePhase3x3.phase,"training_finished");
- assert.equal(f.paint.length,1);
+ assert.equal(f.paint.length,2);
+ assert.equal(f.paint[0].presence,null);
  assert.equal(f.paint[0].knockouts,3);
 });
 test("v0.1.117: finished match never calls presence or borrowed-card RPCs",async()=>{
@@ -94,7 +95,7 @@ test("v0.1.117: closing a 3x3 session without winner shows empty outcome rather 
  const f=harness({finalRows:[]});
  await f.refresh();
  assert.equal(f.ctx.trainingOutcomes3x3.length,0);
- assert.equal(f.paint.length,1);
+ assert.equal(f.paint.length,2);
  assert.equal(f.ctx.resumePhase3x3.training_finished,true);
 });
 test("v0.1.117: checkpoint failure must not hide an already fetched three-KO receipt",async()=>{
