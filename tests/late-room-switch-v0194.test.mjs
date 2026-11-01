@@ -20,6 +20,7 @@ test("v0.1.94: old 3x3 safe-state response cannot repopulate another lobby",asyn
  let further=0;
  const ctx={
   room:oldRoom,match:{turn_no:2,status:"active"},viewGeneration:2,
+  refresh3x3ReadSerial:0,
   allies3x3:old,hp3x3:old,trainingOutcomes3x3:old,playerPresence3x3:{self_active:true},
   $:id=>id==="lobby-3x3-allies-panel"?{}:null,
   rpc:()=>pending.promise,
