@@ -89,7 +89,7 @@ test("v0.1.122: fabricated contradictory side labels fail a receipt comparison",
 test("v0.1.122: a receipt from a third source is never physical-device certification",()=>{
  const result=compare(report(),report());
  assert.doesNotMatch(result,/dois aparelhos confirmados|homologação concluída/);
- assert.match(result,/não substitui o teste de desconexão e defesa/);
+ assert.match(result,/nem substitui o teste de desconexão e defesa/);
 });
 test("v0.1.122: paste and compare uses textContent/value; never writes DB or HTML from pasted input",()=>{
  const start=source.indexOf('$("lobby-3x3-compare-receipts").onclick=');
