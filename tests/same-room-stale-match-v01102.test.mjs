@@ -80,8 +80,9 @@ test("v0.1.102: normal server turn refresh still updates the active room",async(
  assert.ok(f.metrics().downstream>=1);
 });
 function backContext(room){
+ const button={};
  const notices=[],ctx={
-   room,$:()=>({}),halt:()=>{ctx.stops++;},
+   room,$:()=>button,halt:()=>{ctx.stops++;},
    stops:0,window:{abrirEntradaDrome:()=>{ctx.nav++;}},nav:0,
    note:(msg,err)=>notices.push({msg,err})
  };
