@@ -1970,8 +1970,10 @@
     });
     const compareStatus=$("lobby-3x3-compare-status");
     if(compareStatus && verificationReport
-      && compareStatus.dataset.local!==verificationReport.textContent){
-      compareStatus.dataset.local=verificationReport.textContent;
+      && compareStatus.dataset?.local!==verificationReport.textContent){
+      // Ordinary DOM elements have dataset; older test doubles might not.
+      if(compareStatus.dataset)
+        compareStatus.dataset.local=verificationReport.textContent;
       compareStatus.textContent=parse3x3Receipt(verificationReport.textContent)
         ?"Resultado local atualizado. Cole o resumo do outro aparelho e compare."
         :"Aguardando resultado de treino confirmado para comparar.";

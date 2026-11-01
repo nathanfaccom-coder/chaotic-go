@@ -10,7 +10,7 @@ const builderStart=source.indexOf("function build3x3VerificationReport(");
 assert.ok(a>0&&b>a&&builderStart>0,"comparison and report functions must exist");
 const ctx={};
 vm.runInNewContext(source.slice(a,b).trim(),ctx);
-const buildEnd=source.indexOf("function parse3x3Receipt(",builderStart);
+const buildEnd=source.indexOf("  // Compare two server-result summaries locally",builderStart);
 const build=vm.runInNewContext("("+source.slice(builderStart,buildEnd).trim()+")",{});
 const room={mode:"3x3",code:"DM1234",host_id:"host",guest_id:"guest"};
 const outcome={
