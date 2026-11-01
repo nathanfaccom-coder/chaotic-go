@@ -2508,7 +2508,16 @@
         if(room?.id!==lobbyId || viewGeneration!==watchView ||
           liveChannel!==subscribedChannel)return;
         if(status==="SUBSCRIBED"){
+          const recovering=realtimeRetryPending;
           realtimeRetryPending=false;
+          // Supabase can restore this same channel without recreating it.
+          // Catch up immediately instead of waiting for the next 6s poll.
+          // Do not start a read for a hidden/offline DROME.
+          if(recovering && !document.hidden
+            && (typeof navigator==="undefined" || navigator.onLine!==false)
+            && $("lobby-current")
+            && $("tela-entrada-drome")?.style.display==="flex")
+            sync();
           return;
         }
         if(status==="CHANNEL_ERROR"||status==="TIMED_OUT"||status==="CLOSED"){
