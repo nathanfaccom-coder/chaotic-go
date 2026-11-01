@@ -2305,11 +2305,16 @@
     if (refreshInFlight) { refreshQueued = true; return refreshInFlight; }
     const requestedRoomId=room?.id, requestedView=viewGeneration;
     const pending = (async () => {
+      // A burst of events must not keep the screen locked in an endless
+      // refresh loop. Coalesce one extra read, then let the 6s poll catch up.
+      let reads=0;
       do {
         refreshQueued = false;
+        reads++;
         await refreshRoomOnce();
-      } while (refreshQueued && room?.id===requestedRoomId
+      } while (reads<2 && refreshQueued && room?.id===requestedRoomId
         && viewGeneration===requestedView && $("lobby-current"));
+      refreshQueued=false;
     })();
     refreshInFlight = pending;
     try { return await pending; }
@@ -2353,10 +2358,15 @@
     halt();
     if (room && typeof api.channel === "function") {
       const lobbyId = room.id, watchView=viewGeneration;
+      let subscribedChannel=null;
       const sync = () => {
-        if (room?.id !== lobbyId || viewGeneration!==watchView) return;
+        // An abandoned channel may still deliver a callback during
+        // unsubscribe. It must not queue a refresh of the new subscription.
+        if(room?.id!==lobbyId || viewGeneration!==watchView
+          || liveChannel!==subscribedChannel)return;
         refreshRoom().catch(error=>{
-          if(room?.id===lobbyId && viewGeneration===watchView)
+          if(room?.id===lobbyId && viewGeneration===watchView
+            && liveChannel===subscribedChannel)
             note("Erro ao sincronizar sala: "+error.message,true);
         });
       };
@@ -2492,7 +2502,7 @@
           event:"*",schema:"public",table:"chaotic_preview_burst_equipment_effects",filter:"lobby_id=eq."+lobbyId
         },sync)
         ;
-      const subscribedChannel=liveChannel;
+      subscribedChannel=liveChannel;
       subscribedChannel.subscribe(status=>{
         // Ignore a late callback belonging to an abandoned room/channel.
         if(room?.id!==lobbyId || viewGeneration!==watchView ||
