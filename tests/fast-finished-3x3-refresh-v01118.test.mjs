@@ -43,7 +43,7 @@ function environment({mode="3x3",status="finished",historyPending=false}={}){
 }
 test("v0.1.118: finished 3x3 uses only history and final server receipt",async()=>{
  const f=environment();const pending=f.refresh();f.finish();await pending;
- assert.deepEqual(f.events,["read:chaotic_match_turns","ui","history","final-receipt"]);
+ assert.deepEqual(f.events,["read:chaotic_match_turns","ui","final-receipt","history"]);
  assert.equal(f.ctx.match.status,"finished");
 });
 test("v0.1.118: no active-only ping is attempted after the final server status",async()=>{
@@ -51,13 +51,14 @@ test("v0.1.118: no active-only ping is attempted after the final server status",
  assert.equal(f.events.some(x=>x.startsWith("rpc:")),false);
  assert.equal(f.events.some(x=>x.startsWith("legacy:")),false);
 });
-test("v0.1.118: final receipt is not requested if a newer room opens during the history read",async()=>{
+test("v0.1.118: final receipt is consulted before history even when the room later switches",async()=>{
  const f=environment({historyPending:true}),pending=f.refresh();f.finish();
  await nextTick();
  assert.ok(f.events.includes("history"));
  f.ctx.room={id:"B",mode:"3x3",status:"ready"};f.ctx.viewGeneration++;
  f.releaseHistory();await pending;
- assert.equal(f.events.includes("final-receipt"),false);
+ assert.equal(f.events.includes("final-receipt"),true);
+ assert.equal(f.events.filter(x=>x==="final-receipt").length,1);
 });
 test("v0.1.118: an older final match cannot overwrite a newer active turn in the same room",async()=>{
  const f=environment(),pending=f.refresh();
@@ -66,11 +67,12 @@ test("v0.1.118: an older final match cannot overwrite a newer active turn in the
  assert.equal(f.ctx.match,current);
  assert.deepEqual(f.events,["read:chaotic_match_turns"]);
 });
-test("v0.1.118: final receipt is not requested after another response replaces the match during history",async()=>{
+test("v0.1.118: final receipt is read first and history cannot extend old-match refresh",async()=>{
  const f=environment({historyPending:true}),pending=f.refresh();f.finish();
  await nextTick();f.ctx.match={turn_no:6,status:"active"};
  f.releaseHistory();await pending;
- assert.equal(f.events.includes("final-receipt"),false);
+ assert.equal(f.events.includes("final-receipt"),true);
+ assert.equal(f.events.filter(x=>x==="final-receipt").length,1);
 });
 test("v0.1.118: active 3x3 still uses server presence, regular refreshes and card state",async()=>{
  const f=environment({status:"active"}),pending=f.refresh();f.finish();await pending;
