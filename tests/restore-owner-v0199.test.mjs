@@ -78,7 +78,7 @@ function wakeContext(){
  const old=deferred(),notes=[];
  const ctx={
   document:{hidden:false},navigator:{onLine:true},
-  room:{id:"room-old"},viewGeneration:1,
+  room:{id:"room-old"},viewGeneration:1,offlineRealtimeRoomId:null,
   $:()=>({style:{display:"flex"}}),
   refreshRoom:()=>old.promise,restoreLastRoom:async()=>{},note:s=>notes.push(s)
  };
