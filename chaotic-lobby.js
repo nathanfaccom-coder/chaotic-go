@@ -1220,9 +1220,17 @@
     // member-scoped final receipt, not 30+ live-combat reads. In particular,
     // never enter active-only presence/card flows after a server-confirmed end.
     if(room.mode==="3x3" && match?.status==="finished"){
-      await refreshHistory();
-      if(!isCurrentMatchRequest())return;
+      // The server receipt is the authoritative final result. A slow/failing
+      // optional event log must never keep it from appearing on either phone.
       await refresh3x3Allies();
+      if(!isCurrentMatchRequest())return;
+      try{
+        await refreshHistory();
+      }catch(error){
+        if(!isCurrentMatchRequest())return;
+        note("Comprovante final disponível; histórico de eventos indisponível: "+
+          error.message,true);
+      }
       return;
     }
     // Fast heartbeat before dozens of sequential card/board reads.
@@ -1454,7 +1462,9 @@
                 :" | ambos prontos, mas aguardando atualização deste turno")
               :"")+
             "."))
-        :"Aguardando diagnóstico de conexão de ambos os jogadores...";
+        :(match?.status==="finished"
+          ?"Sessão encerrada. O diagnóstico de presença em tempo real não se aplica; confira o comprovante final do servidor."
+          :"Aguardando diagnóstico de conexão de ambos os jogadores...");
     }
     // Server phase is authoritative. On mismatched turns, never present
     // an outdated attack as an actionable instruction.
