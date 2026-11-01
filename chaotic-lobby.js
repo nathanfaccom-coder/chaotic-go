@@ -3862,9 +3862,13 @@
       const success = await rpc(method, { p_id: expectedRoomId });
       if(!isActionContextCurrent(expectedRoomId,null,expectedView))return;
       if (!success) throw new Error("A sala já pode ter sido encerrada. Atualize.");
-      forgetLastRoom(); ++viewGeneration;
-      halt(); room = null; match = null; resumePhase3x3=null;
-      updateRoomUI(); note("Você saiu da sala.");
+      // Rebuild the DROME instead of incrementing the view without
+      // releasing its action lock. A fresh screen also clears every
+      // private 3x3 result, queued refresh and disabled old-room button.
+      const wasHost=method==="chaotic_close_lobby";
+      forgetLastRoom();
+      show();
+      note(wasHost?"Sala encerrada. Você já pode criar outra.":"Você saiu da sala. Já pode entrar em outra.");
     });
     $("lobby-back").onclick = () => {
       halt();
