@@ -3868,7 +3868,7 @@
       const wasHost=method==="chaotic_close_lobby";
       forgetLastRoom();
       show();
-      note(wasHost?"Sala encerrada. Você já pode criar outra.":"Você saiu da sala. Já pode entrar em outra.");
+      note(wasHost?"Você saiu da sala. Sala encerrada; já pode criar outra.":"Você saiu da sala. Já pode entrar em outra.");
     });
     $("lobby-back").onclick = () => {
       halt();
