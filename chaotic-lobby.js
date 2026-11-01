@@ -1407,6 +1407,31 @@
       "Compare este mesmo resumo no outro celular após Atualizar conexão e turno. "+
       "Não é certificado de partida em dois aparelhos; XP, moedas e combate oficial não são alterados.";
   }
+  // Compare two server-result summaries locally. Never treat a pasted text
+  // as independent proof of two physical devices or authenticated sessions.
+  function parse3x3Receipt(text){
+    const normalized=String(text||"").replace(/\s+/g," ").trim();
+    const result=normalized.match(
+      /^Sala ([^·]{1,64}) · treino 3×3 · RESULTADO DE TREINO CONSISTENTE NO SERVIDOR · vencedor (ANFITRIÃO|CONVIDADO) · derrotado (ANFITRIÃO|CONVIDADO) · turno decisivo T([1-9][0-9]*) · nocautes 3\/3 \(c4:KO · c5:KO · c6:KO\)\. Compare este mesmo resumo no outro celular após Atualizar conexão e turno\. Não é certificado de partida em dois aparelhos; XP, moedas e combate oficial não são alterados\.$/
+    );
+    if(!result || result[2]===result[3])return null;
+    return {sala:result[1].trim(),vencedor:result[2],
+      derrotado:result[3],turno:result[4],nocautes:"c4/c5/c6"};
+  }
+  function compare3x3Receipts(localText,otherText){
+    const local=parse3x3Receipt(localText);
+    if(!local)return "O resultado deste aparelho ainda não foi confirmado no servidor. Atualize o comprovante final.";
+    const other=parse3x3Receipt(otherText);
+    if(!other)return "Resumo colado incompleto ou sem vitória de treino confirmada. Copie o resumo integral do outro celular.";
+    const names={sala:"sala",vencedor:"vencedor",
+      derrotado:"derrotado",turno:"turno decisivo",nocautes:"três nocautes"};
+    const mismatch=Object.keys(names).filter(key=>local[key]!==other[key]);
+    if(mismatch.length)
+      return "DIVERGÊNCIA entre resumos: "+mismatch.map(key=>names[key]).join(", ")+
+        ". Atualize ambos os celulares e copie novamente; não considere o resultado homologado.";
+    return "RESUMOS COINCIDEM: sala, vencedor, derrotado, turno decisivo e c4/c5/c6. "+
+      "Isso NÃO comprova dois celulares físicos nem substitui o teste de desconexão e defesa.";
+  }
   function update3x3UI(){
     const panel=$("lobby-3x3-allies-panel");
     if(!panel)return;
@@ -1943,6 +1968,14 @@
     if(verificationReport)verificationReport.textContent=build3x3VerificationReport({
       room,match,outcomes:trainingOutcomes3x3,knockouts:trainingKnockouts3x3
     });
+    const compareStatus=$("lobby-3x3-compare-status");
+    if(compareStatus && verificationReport
+      && compareStatus.dataset.local!==verificationReport.textContent){
+      compareStatus.dataset.local=verificationReport.textContent;
+      compareStatus.textContent=parse3x3Receipt(verificationReport.textContent)
+        ?"Resultado local atualizado. Cole o resumo do outro aparelho e compare."
+        :"Aguardando resultado de treino confirmado para comparar.";
+    }
     $("lobby-3x3-training-attack-locks").textContent=trainingAttackLocks3x3.length
       ?trainingAttackLocks3x3.slice().sort((a,b)=>a.inflicted_turn-b.inflicted_turn).map(x=>
         "T"+x.inflicted_turn+" · "+(x.defender_id===userId?"Sua equipe":"Equipe adversária")+
@@ -3017,6 +3050,10 @@
       '<p><strong>Conferência do resultado nos dois celulares</strong></p>',
       '<p id="lobby-3x3-verification-report" class="lobby-events">Aguardando resultado do servidor...</p>',
       '<button id="lobby-3x3-copy-verification" type="button">Copiar resumo para comparar celulares</button>',
+      '<label for="lobby-3x3-other-receipt">Cole o resumo copiado do outro celular</label>',
+      '<textarea id="lobby-3x3-other-receipt" rows="4" maxlength="2400" placeholder="Cole aqui o resumo completo do segundo celular" style="box-sizing:border-box;max-width:100%;width:100%;min-width:0"></textarea>',
+      '<button id="lobby-3x3-compare-receipts" type="button">Comparar os dois comprovantes</button>',
+      '<p id="lobby-3x3-compare-status" class="lobby-events" role="status" aria-live="polite">Aguardando os dois resumos; isso não comprova aparelhos físicos.</p>',
       '<p>Antes de passar a reação, o DEFENSOR pode revisar os componentes elementais da carta de ataque paga, confirmados pelo catálogo original no banco. A revisão não joga dados, não verifica elementos das criaturas ou equipamento e NÃO calcula nem causa dano final.</p>',
       '<button id="lobby-3x3-element-review" type="button" hidden>Defensor: inspecionar elementos da carta (sem aplicar)</button>',
       '<p id="lobby-3x3-element-history" class="lobby-events" aria-live="polite">Nenhuma inspeção elemental.</p>',
@@ -3370,6 +3407,16 @@
         note("Resumo copiado. Compare código, turno, vencedor e c4–c6 no outro celular.");
       }catch(_error){
         note("Cópia bloqueada pelo navegador. Selecione o resumo para copiar manualmente.",true);
+      }
+    };
+    $("lobby-3x3-compare-receipts").onclick=()=>{
+      const local=$("lobby-3x3-verification-report")?.textContent||"";
+      const other=$("lobby-3x3-other-receipt")?.value||"";
+      const result=compare3x3Receipts(local,other);
+      const status=$("lobby-3x3-compare-status");
+      if(status){
+        status.dataset.local=local;
+        status.textContent=result;
       }
     };
     $("lobby-3x3-refresh-connection").onclick=()=>{
