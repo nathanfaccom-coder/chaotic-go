@@ -3068,9 +3068,12 @@
     }
     $("lobby-3x3-test-ready").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3")return;
-      playerPresence3x3=await rpc("chaotic_ping_preview_3x3_player",{
-        p_lobby_id:room.id,p_ready:true
+      const expectedRoomId=room.id,expectedTurn=match.turn_no,expectedView=viewGeneration;
+      const confirmedPresence=await rpc("chaotic_ping_preview_3x3_player",{
+        p_lobby_id:expectedRoomId,p_ready:true
       });
+      if(!isActionContextCurrent(expectedRoomId,expectedTurn,expectedView))return;
+      playerPresence3x3=confirmedPresence;
       update3x3UI();
       note(playerPresence3x3.both_ready_now
         ?"Ambos prontos no servidor: vocês podem iniciar o TESTE 3x3."
@@ -3078,15 +3081,20 @@
     });
     $("lobby-3x3-test-unready").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3")return;
-      playerPresence3x3=await rpc("chaotic_ping_preview_3x3_player",{
-        p_lobby_id:room.id,p_ready:false
+      const expectedRoomId=room.id,expectedTurn=match.turn_no,expectedView=viewGeneration;
+      const confirmedPresence=await rpc("chaotic_ping_preview_3x3_player",{
+        p_lobby_id:expectedRoomId,p_ready:false
       });
+      if(!isActionContextCurrent(expectedRoomId,expectedTurn,expectedView))return;
+      playerPresence3x3=confirmedPresence;
       update3x3UI();
       note("Sua confirmação de pronto foi retirada. A sala e as cartas permanecem intactas.");
     });
     $("lobby-3x3-refresh-connection").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3")return;
+      const expectedRoomId=room.id,expectedTurn=match.turn_no,expectedView=viewGeneration;
       await refreshRoom();
+      if(!isActionContextCurrent(expectedRoomId,expectedTurn,expectedView))return;
       note(resumePhase3x3?.training_finished
         ?"Resultado experimental recuperado do servidor; nenhuma ação será repetida."
         :playerPresence3x3?.peer_synced_current_turn
@@ -3095,57 +3103,72 @@
     });
     $("lobby-3x3-prepare").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3")return;
+      const expectedRoomId=room.id,expectedTurn=match.turn_no,expectedView=viewGeneration;
       const result=await rpc("chaotic_prepare_preview_3x3_allies",{
-        p_lobby_id:room.id,p_expected_turn:match.turn_no,
+        p_lobby_id:expectedRoomId,p_expected_turn:expectedTurn,
         p_deck_slot:Number($("lobby-3x3-deck").value)
       });
+      if(!isActionContextCurrent(expectedRoomId,expectedTurn,expectedView))return;
       await refresh3x3Allies();
+      if(!isActionContextCurrent(expectedRoomId,expectedTurn,expectedView))return;
       note("Formação congelada: "+result.count+" criaturas no Deck 3x3, somente no treinamento.");
     });
     $("lobby-3x3-hp-prepare").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3")return;
+      const expectedRoomId=room.id,expectedTurn=match.turn_no,expectedView=viewGeneration;
       const result=await rpc("chaotic_prepare_preview_3x3_hp",{
-        p_lobby_id:room.id,p_expected_turn:match.turn_no
+        p_lobby_id:expectedRoomId,p_expected_turn:expectedTurn
       });
+      if(!isActionContextCurrent(expectedRoomId,expectedTurn,expectedView))return;
       await refresh3x3Allies();
+      if(!isActionContextCurrent(expectedRoomId,expectedTurn,expectedView))return;
       note("HP inicializado individualmente em "+result.count+
         " criaturas c4–c6. Nenhum dano, HP oficial ou bônus de Local aplicado.");
     });
     $("lobby-3x3-board-prepare").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3")return;
+      const expectedRoomId=room.id,expectedTurn=match.turn_no,expectedView=viewGeneration;
       const result=await rpc("chaotic_prepare_preview_3x3_board",{
-        p_lobby_id:room.id,p_expected_turn:match.turn_no
+        p_lobby_id:expectedRoomId,p_expected_turn:expectedTurn
       });
+      if(!isActionContextCurrent(expectedRoomId,expectedTurn,expectedView))return;
       await refresh3x3Allies();
+      if(!isActionContextCurrent(expectedRoomId,expectedTurn,expectedView))return;
       note("Tabuleiro experimental iniciado: "+result.creatures+
         " criaturas no seu lado. Hex 1-6 não altera a posição oficial.");
     });
     $("lobby-3x3-move").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3")return;
+      const expectedRoomId=room.id,expectedTurn=match.turn_no,expectedView=viewGeneration;
       const unit=Number($("lobby-3x3-move-unit").value);
       const destination=Number($("lobby-3x3-move-destination").value);
       if(![4,5,6].includes(unit)||![1,2,3,4,5,6].includes(destination))
         throw new Error("Escolha uma criatura e hexágono válidos.");
       const moved=await rpc("chaotic_move_preview_3x3_unit",{
-        p_lobby_id:room.id,p_expected_turn:match.turn_no,
+        p_lobby_id:expectedRoomId,p_expected_turn:expectedTurn,
         p_formation_slot:unit,p_target_hex:destination
       });
+      if(!isActionContextCurrent(expectedRoomId,expectedTurn,expectedView))return;
       await refresh3x3Allies();
+      if(!isActionContextCurrent(expectedRoomId,expectedTurn,expectedView))return;
       note("Movimento experimental c"+moved.formation_slot+": hex "+
         moved.from_hex+" → "+moved.to_hex+
         ". Sem dano ou movimento no combate oficial.");
     });
     $("lobby-3x3-contact").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3"||match.current_player!==userId)return;
+      const expectedRoomId=room.id,expectedTurn=match.turn_no,expectedView=viewGeneration;
       const attacker=Number($("lobby-3x3-contact-attacker").value);
       const defender=Number($("lobby-3x3-contact-defender").value);
       if(![4,5,6].includes(attacker)||![4,5,6].includes(defender))
         throw new Error("Escolha duas criaturas válidas da formação.");
       const contact=await rpc("chaotic_open_preview_3x3_contact",{
-        p_lobby_id:room.id,p_expected_turn:match.turn_no,
+        p_lobby_id:expectedRoomId,p_expected_turn:expectedTurn,
         p_attacker_slot:attacker,p_defender_slot:defender
       });
+      if(!isActionContextCurrent(expectedRoomId,expectedTurn,expectedView))return;
       await refresh3x3Allies();
+      if(!isActionContextCurrent(expectedRoomId,expectedTurn,expectedView))return;
       note("Contato 3x3 registrado: seu c"+contact.attacker_slot+
         " contra c"+contact.defender_slot+" adversário. Nenhuma carta de ataque validada, sem dano.");
     });
