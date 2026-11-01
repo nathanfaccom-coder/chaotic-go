@@ -56,6 +56,8 @@ test("v0.1.78: reconnection recovers expired and cancelled 3x3 room before forge
   'Cartas emprestadas recuperadas:',
   'Sala anterior encerrada.'
  ]) assert.ok(ui.includes(m),m);
- assert.ok(ui.indexOf('const recovery=await rpc("chaotic_restore_expired_preview_3x3_loans"')<
-   ui.indexOf('forgetLastRoom();\n      room=null;match=null;halt();'));
+ const refresh=ui.slice(ui.indexOf("async function refreshRoomOnce()"),ui.indexOf("async function refreshRoom()"));
+ const recovery=refresh.indexOf('const recovery=await rpc("chaotic_restore_expired_preview_3x3_loans"');
+ const clear=refresh.indexOf('forgetLastRoom();\n      show();',recovery);
+ assert.ok(recovery>=0&&clear>recovery,"return temporary loans before resetting UI");
 });
