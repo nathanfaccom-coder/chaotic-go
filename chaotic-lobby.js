@@ -13,7 +13,7 @@
   // Persist only the latest room UUID, scoped to the signed-in player.
   // Never store combat actions, hidden cards, login tokens, or Deck contents.
   const lastRoomStorageKey="chaotic-go:last-room:"+userId;
-  let viewGeneration=0, restoreInProgress=false;
+  let viewGeneration=0, restoreInProgress=false, restoreOwner=null;
   const $ = id => document.getElementById(id);
   function forgetLastRoom() {
     try { window.localStorage?.removeItem(lastRoomStorageKey); } catch (_error) {}
@@ -2223,10 +2223,13 @@
   function watch() {
     halt();
     if (room && typeof api.channel === "function") {
-      const lobbyId = room.id;
+      const lobbyId = room.id, watchView=viewGeneration;
       const sync = () => {
-        if (room?.id !== lobbyId) return;
-        refreshRoom().catch(error=>note("Erro ao sincronizar sala: "+error.message,true));
+        if (room?.id !== lobbyId || viewGeneration!==watchView) return;
+        refreshRoom().catch(error=>{
+          if(room?.id===lobbyId && viewGeneration===watchView)
+            note("Erro ao sincronizar sala: "+error.message,true);
+        });
       };
       // A mesma sala acompanha presença, turno, histórico e cartas declaradas.
       liveChannel=api.channel("chaotic-drome-"+lobbyId+"-"+userId)
@@ -2371,7 +2374,11 @@
       // O Realtime ainda pode solicitar uma atualização ao final da leitura.
       if (document.hidden || (typeof navigator !== "undefined" && navigator.onLine === false)
         || refreshInFlight) return;
-      refreshRoom().catch(error => note(error.message, true));
+      const pollRoomId=room?.id, pollView=viewGeneration;
+      refreshRoom().catch(error=>{
+        if(room?.id===pollRoomId && viewGeneration===pollView)
+          note(error.message,true);
+      });
     }, 6000);
   }
   async function restoreLastRoom(generation) {
@@ -2382,6 +2389,10 @@
     }
     const id=savedRoomId();
     if(!id)return;
+    // Each restore has its own owner, so an abandoned Android request
+    // cannot hold or unlock a later screen's restoration.
+    const restoreTicket={generation,id};
+    restoreOwner=restoreTicket;
     restoreInProgress=true;
     try {
       // Supabase RLS is authoritative; a local room ID grants no membership.
@@ -2424,13 +2435,19 @@
       if(generation===viewGeneration && room?.id===id)
         note("Sala recuperada. Turno e ações sincronizados com o servidor.");
     } finally {
-      restoreInProgress=false;
-      // A second opening invalidates this async read. Retry against the
-      // new screen instead of leaving the player stuck with no room.
-      if(generation!==viewGeneration && !room && savedRoomId()
-        && $("tela-entrada-drome")?.style.display==="flex"){
-        restoreLastRoom(viewGeneration).catch(error=>
-          note("Reconexão da sala interrompida: "+error.message,true));
+      if(restoreOwner===restoreTicket){
+        restoreInProgress=false;
+        restoreOwner=null;
+        // Restart only when this call still owns restoration. A reopened
+        // DROME already starts its own request without waiting on this one.
+        if(generation!==viewGeneration && !room && savedRoomId()
+          && $("tela-entrada-drome")?.style.display==="flex"){
+          const nextGeneration=viewGeneration;
+          restoreLastRoom(nextGeneration).catch(error=>{
+            if(viewGeneration===nextGeneration)
+              note("Reconexão da sala interrompida: "+error.message,true);
+          });
+        }
       }
     }
   }
@@ -2445,6 +2462,8 @@
     busy=false;
     refreshInFlight=null;
     refreshQueued=false;
+    restoreInProgress=false;
+    restoreOwner=null;
     $("tela-menu").style.display = "none";
     screen.style.display = "flex";
     window.modoMenu = false;
@@ -3835,20 +3854,28 @@
     updateMatchUI();
     note("Salas privadas expiram após duas horas.");
     // Restore only after the screen is mounted and actions are wired.
-    restoreLastRoom(generation).catch(error=>
-      note("Sala anterior indisponível; tente atualizar quando a conexão voltar: "+error.message,true));
+    restoreLastRoom(generation).catch(error=>{
+      if(viewGeneration===generation && !room)
+        note("Sala anterior indisponível; tente atualizar quando a conexão voltar: "+error.message,true);
+    });
   }
   // Mobile browsers may suspend timers and Realtime when the app is
   // backgrounded. Recover immediately when the player returns/gets online.
   function refreshWhenVisible() {
     if (document.hidden || $("tela-entrada-drome")?.style.display !== "flex"
       || (typeof navigator !== "undefined" && navigator.onLine === false)) return;
+    const requestedView=viewGeneration, requestedRoomId=room?.id;
     if (!room) {
-      restoreLastRoom(viewGeneration).catch(error=>
-        note("Falha ao recuperar a sala: "+error.message,true));
+      restoreLastRoom(requestedView).catch(error=>{
+        if(viewGeneration===requestedView && !room)
+          note("Falha ao recuperar a sala: "+error.message,true);
+      });
       return;
     }
-    refreshRoom().catch(error => note("Falha na reconexão: " + error.message, true));
+    refreshRoom().catch(error=>{
+      if(viewGeneration===requestedView && room?.id===requestedRoomId)
+        note("Falha na reconexão: " + error.message,true);
+    });
   }
   // Lightweight Node test harnesses do not implement DOM event listeners.
   if (typeof document.addEventListener === "function")
