@@ -14,6 +14,7 @@
   // Never store combat actions, hidden cards, login tokens, or Deck contents.
   const lastRoomStorageKey="chaotic-go:last-room:"+userId;
   let viewGeneration=0, restoreInProgress=false, restoreOwner=null;
+  let realtimeRetryPending=false, realtimeRetryAfter=0;
   const $ = id => document.getElementById(id);
   function forgetLastRoom() {
     try { window.localStorage?.removeItem(lastRoomStorageKey); } catch (_error) {}
@@ -40,6 +41,7 @@
     } catch (_error) { forgetLastRoom();return null; }
   }
   function halt() {
+    realtimeRetryPending=false;
     if (poll !== null) { clearInterval(poll); poll = null; }
     if (liveChannel) {
       const channel=liveChannel;
@@ -2397,10 +2399,22 @@
         .on("postgres_changes",{
           event:"*",schema:"public",table:"chaotic_preview_burst_equipment_effects",filter:"lobby_id=eq."+lobbyId
         },sync)
-        .subscribe(status=>{
-          if(status==="CHANNEL_ERROR"||status==="TIMED_OUT")
-            console.warn("DROME: canal em tempo real temporariamente indisponível; consultas periódicas seguem ativas.");
-        });
+        ;
+      const subscribedChannel=liveChannel;
+      subscribedChannel.subscribe(status=>{
+        // Ignore a late callback belonging to an abandoned room/channel.
+        if(room?.id!==lobbyId || viewGeneration!==watchView ||
+          liveChannel!==subscribedChannel)return;
+        if(status==="SUBSCRIBED"){
+          realtimeRetryPending=false;
+          return;
+        }
+        if(status==="CHANNEL_ERROR"||status==="TIMED_OUT"||status==="CLOSED"){
+          if(!realtimeRetryPending)realtimeRetryAfter=Date.now()+30000;
+          realtimeRetryPending=true;
+          console.warn("DROME: Realtime caiu; consulta periódica ativa e reconexão programada.");
+        }
+      });
     }
     // Plano B para celular sem conexão Realtime ou serviço suspenso em segundo plano.
     poll = setInterval(() => {
@@ -2409,6 +2423,8 @@
       // O Realtime ainda pode solicitar uma atualização ao final da leitura.
       if (document.hidden || (typeof navigator !== "undefined" && navigator.onLine === false)
         || refreshInFlight) return;
+      // Never replay combat mutations: reconnect only the listener, at most every 30s.
+      if(realtimeRetryPending && Date.now()>=realtimeRetryAfter)watch();
       const pollRoomId=room?.id, pollView=viewGeneration;
       refreshRoom().catch(error=>{
         if(room?.id===pollRoomId && viewGeneration===pollView)
