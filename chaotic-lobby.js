@@ -3952,11 +3952,18 @@
   // Mobile browsers may suspend timers and Realtime when the app is
   // backgrounded. Recover immediately when the player returns/gets online.
   function refreshWhenVisible() {
-    if (document.hidden || $("tela-entrada-drome")?.style.display !== "flex"
+    // Android can suspend its websocket while the app is backgrounded
+    // without firing an offline event. Mark only the currently visible DROME.
+    if (document.hidden) {
+      if(room && $("tela-entrada-drome")?.style.display === "flex")
+        offlineRealtimeRoomId=room.id;
+      return;
+    }
+    if ($("tela-entrada-drome")?.style.display !== "flex"
       || (typeof navigator !== "undefined" && navigator.onLine === false)) return;
     const requestedView=viewGeneration, requestedRoomId=room?.id;
     // Android may silently lose its websocket when moving between Wi-Fi and mobile data.
-    // Re-subscribe on a confirmed offline/online transition; this never replays actions.
+    // Re-subscribe after an offline transition or a backgrounded DROME; never replay actions.
     if(room && offlineRealtimeRoomId===room.id){
       offlineRealtimeRoomId=null;
       watch();
