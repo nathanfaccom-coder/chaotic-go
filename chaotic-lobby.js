@@ -2076,20 +2076,23 @@
     // The server rejects presence pings for finished turns. Do not use a
     // stale "both online" status as final-result evidence.
     playerPresence3x3=null;
+    // The outcome/KO rows are the receipt. Paint them NOW, not after a
+    // secondary checkpoint request that Android may leave suspended forever.
+    // Clear any active-turn checkpoint before rendering the finished state.
+    resumePhase3x3=null;
+    updateMatchUI();
     try{
       const finalCheckpoint=await rpc("chaotic_get_preview_3x3_resume_status",{
         p_lobby_id:roomId
       });
       if(!isFinalRequest())return;
       resumePhase3x3=finalCheckpoint;
+      updateMatchUI();
     }catch(error){
       if(!isFinalRequest())return;
-      resumePhase3x3=null;
       note("Comprovante disponível, mas a etapa final não pôde ser consultada: "+
         error.message,true);
     }
-    if(!isFinalRequest())return;
-    updateMatchUI();
   }
   async function refresh3x3Allies(){
     if(!$("lobby-3x3-allies-panel"))return;
