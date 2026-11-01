@@ -1414,7 +1414,14 @@
     const resyncButton=$("lobby-3x3-refresh-connection");
     if(readyButton)readyButton.hidden=!current||!!presence?.self_ready;
     if(unreadyButton)unreadyButton.hidden=!current||!presence?.self_ready;
-    if(resyncButton)resyncButton.hidden=!(match?.status==="active"&&room.status==="ready");
+    // Keep the server-result receipt refresh available after a 3x3 match ends.
+    // This action is read-only; it never reopens combat or enables payments.
+    if(resyncButton){
+      resyncButton.hidden=!(room.status==="ready"
+        &&(match?.status==="active"||match?.status==="finished"));
+      resyncButton.textContent=match?.status==="finished"||trainingOutcomes3x3.length>0
+        ?"Atualizar comprovante final":"Atualizar conexão e turno";
+    }
     const presenceText=$("lobby-3x3-player-presence");
     if(presenceText){
       presenceText.textContent=presence
@@ -3310,8 +3317,10 @@
       const expectedRoomId=room.id,expectedTurn=match.turn_no,expectedView=viewGeneration;
       await refreshRoom();
       if(!isActionContextCurrent(expectedRoomId,expectedTurn,expectedView))return;
-      note(resumePhase3x3?.training_finished
-        ?"Resultado experimental recuperado do servidor; nenhuma ação será repetida."
+      note(trainingOutcomes3x3.length>0||resumePhase3x3?.training_finished
+        ?"Resultado de treino consultado no servidor. Compare o código, o vencedor, o turno e c4–c6 nos dois celulares; nenhuma ação será repetida."
+        :match?.status==="finished"
+        ?"Sessão encerrada sem vitória de treino confirmada. Consulte o comprovante, sem repetir jogadas."
         :playerPresence3x3?.peer_synced_current_turn
         ?"Conexão e etapa do ataque atualizadas; o adversário já consultou o turno."
         :"Etapa do ataque recuperada; aguardando o adversário sincronizar o turno.");
