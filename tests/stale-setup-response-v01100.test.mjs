@@ -6,9 +6,11 @@ import {readFile} from "node:fs/promises";
 const src=await readFile(new URL("../chaotic-lobby.js",import.meta.url),"utf8");
 function extractHandler(id){
  const start=src.indexOf('$("'+id+'").onclick=');
- const end=src.indexOf("\n    });",start);
+ const end=id==="lobby-3x3-refresh-connection"
+   ?src.indexOf('\n    $("lobby-3x3-prepare").onclick',start)
+   :src.indexOf("\n    });",start);
  assert.ok(start>=0&&end>start,"handler found: "+id);
- return src.slice(start,end+7);
+ return src.slice(start,end+(id==="lobby-3x3-refresh-connection"?0:7));
 }
 function pending(){
  let resolve,reject;
@@ -26,6 +28,8 @@ function harness(id){
    room:{id:"old-room",mode:"3x3"},
    match:{turn_no:4,current_player:"host",status:"active"},
    viewGeneration:7,userId:"host",$,
+   busy:false,refreshInFlight:null,refreshQueued:false,
+   document:{hidden:false},navigator:{onLine:true},watch:()=>{},
    action:async fn=>fn(),note:msg=>messages.push(msg),
    rpc:(method,args)=>{calls.push({method,args});started.resolve();return p.promise;},
    refreshRoom:()=>{started.resolve();return p.promise;},
