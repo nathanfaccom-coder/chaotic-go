@@ -1967,6 +1967,10 @@
         " Apenas treinamento; nenhuma carta oficial alterada.").join("\n")
       :"Nenhuma ficha transferida.";
   }
+  // A newer state read for the same room and turn supersedes any older
+  // request. This also covers direct refreshes after a paid/defended action
+  // while a long polling refresh remains in progress.
+  let refresh3x3ReadSerial=0;
   async function refresh3x3Allies(){
     if(!$("lobby-3x3-allies-panel"))return;
     if(!room||!match||room.mode!=="3x3"){
@@ -1975,8 +1979,10 @@
     // Cada solicitação pertence a uma única sala e turno. Nunca misturar
     // respostas antigas de Realtime/Android com o painel de uma nova partida.
     const requestedRoomId=room.id, requestedView=viewGeneration, requestedTurn=match.turn_no;
+    const readSerial=++refresh3x3ReadSerial;
     const isCurrent3x3Request=()=>room?.id===requestedRoomId
-      && viewGeneration===requestedView && match?.turn_no===requestedTurn;
+      && viewGeneration===requestedView && match?.turn_no===requestedTurn
+      && readSerial===refresh3x3ReadSerial;
     // v0.1.57: owner-only raw RLS; the server supplies a masked member view.
     const safeState=await rpc("chaotic_get_preview_3x3_safe_state",{
       p_lobby_id:requestedRoomId

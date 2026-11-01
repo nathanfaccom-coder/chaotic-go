@@ -34,6 +34,7 @@ function context(target,resolveTarget,contactRows=[]){
  let laterCalls=0,painted=0;
  const ctx={
   room:oldRoom,match:{turn_no:7,status:"active"},viewGeneration:4,userId:"actor",
+  refresh3x3ReadSerial:0,
   $:id=>id==="lobby-3x3-allies-panel"?{}:null,
   api:fakeDatabase(contactRows),
   updateMatchUI:()=>{painted++;},
