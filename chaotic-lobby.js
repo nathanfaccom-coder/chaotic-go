@@ -15,6 +15,7 @@
   const lastRoomStorageKey="chaotic-go:last-room:"+userId;
   let viewGeneration=0, restoreInProgress=false, restoreOwner=null;
   let realtimeRetryPending=false, realtimeRetryAfter=0;
+  let offlineRealtimeRoomId=null;
   const $ = id => document.getElementById(id);
   function forgetLastRoom() {
     try { window.localStorage?.removeItem(lastRoomStorageKey); } catch (_error) {}
@@ -2524,6 +2525,7 @@
     refreshQueued=false;
     restoreInProgress=false;
     restoreOwner=null;
+    offlineRealtimeRoomId=null;
     $("tela-menu").style.display = "none";
     screen.style.display = "flex";
     window.modoMenu = false;
@@ -3953,6 +3955,12 @@
     if (document.hidden || $("tela-entrada-drome")?.style.display !== "flex"
       || (typeof navigator !== "undefined" && navigator.onLine === false)) return;
     const requestedView=viewGeneration, requestedRoomId=room?.id;
+    // Android may silently lose its websocket when moving between Wi-Fi and mobile data.
+    // Re-subscribe on a confirmed offline/online transition; this never replays actions.
+    if(room && offlineRealtimeRoomId===room.id){
+      offlineRealtimeRoomId=null;
+      watch();
+    }
     if (!room) {
       restoreLastRoom(requestedView).catch(error=>{
         if(viewGeneration===requestedView && !room)
@@ -3971,8 +3979,10 @@
   if (typeof window.addEventListener === "function") {
     window.addEventListener("online", refreshWhenVisible);
     window.addEventListener("offline", () => {
-      if (room && $("tela-entrada-drome")?.style.display === "flex")
+      if (room && $("tela-entrada-drome")?.style.display === "flex"){
+        offlineRealtimeRoomId=room.id;
         note("Conexão perdida. As ações ficam suspensas neste aparelho; reconecte-se para sincronizar o turno, sem reenviar ataques automaticamente.",true);
+      }
     });
   }
   window.abrirSalaPrivadaDrome = show;
