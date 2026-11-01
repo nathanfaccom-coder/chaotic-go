@@ -137,10 +137,10 @@ test("v0.1.104: restored room with failed turn refresh reports retry and retains
  assert.equal(f.messages.at(-1).error,true);
 });
 test("v0.1.104: stale restored-room refresh error cannot overwrite a new room notice",async()=>{
- const f=restoreHarness(),d=deferred();
- f.ctx.refreshRoom=()=>d.promise;
+ const f=restoreHarness(),d=deferred(),started=deferred();
+ f.ctx.refreshRoom=()=>{started.resolve();return d.promise;};
  const pending=f.restore(2);
- await Promise.resolve();await Promise.resolve();
+ await started.promise;
  f.ctx.viewGeneration=3;f.ctx.room={...room(),id:"new-room"};
  d.reject(Error("old connection"));
  await pending;
