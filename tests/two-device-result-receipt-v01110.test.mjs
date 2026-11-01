@@ -11,11 +11,14 @@ const report=vm.runInNewContext("("+source.slice(start,end).trim()+")");
 const room={id:"room-A",code:"ABCD1234",mode:"3x3",host_id:"host",guest_id:"guest"};
 const outcome={
  winner_id:"host",defeated_id:"guest",decided_turn:12,defeated_team_size:3,
- official_match_ended:false,experience_awarded:0,currency_awarded:0
+ outcome_scope:"training_only_no_official_victory",
+ official_match_ended:false,official_match_modified:false,
+ experience_awarded:false,currency_awarded:false
 };
 const ko=(slot,more={})=>({
- defender_id:"guest",defender_slot:slot,turn_no:slot+4,
- hp_after:0,training_only:true,official_match_modified:false,...more
+ attacker_id:"host",defender_id:"guest",defender_slot:slot,turn_no:slot+4,
+ hp_before:5,hp_after:0,training_only:true,official_hp_changed:false,
+ original_owner_changed:false,official_match_modified:false,...more
 });
 const state=(overrides={})=>({
  room,match:{turn_no:12},outcomes:[outcome],

@@ -1351,9 +1351,14 @@
     const code=String(room.code||"código indisponível");
     const outcome=Array.isArray(outcomes)?outcomes[0]:null;
     const events=Array.isArray(knockouts)?knockouts:[];
+    // Do not coerce null/undefined into zero or false: a missing server
+    // field must NEVER certify a knockout or an experimental result.
     const normal=events.filter(x=>x&&[4,5,6].includes(Number(x.defender_slot))
-      &&Number(x.hp_after)===0 && x.training_only===true
-      && x.official_match_modified===false);
+      &&Number.isInteger(x.turn_no)&&x.turn_no>=1
+      &&Number.isInteger(x.hp_before)&&x.hp_before>0
+      &&x.hp_after===0 && x.training_only===true
+      &&x.official_hp_changed===false &&x.official_match_modified===false
+      &&(!x.borrowed_attack||x.original_owner_changed===false));
     if(!outcome){
       const seen=new Set(normal.map(x=>String(x.defender_id)+":"+Number(x.defender_slot)));
       return "Sala "+code+" · treino 3×3 · SEM RESULTADO FINAL confirmado no servidor. "+
@@ -1364,14 +1369,17 @@
     const winner=side(outcome.winner_id),defeated=side(outcome.defeated_id);
     const decidedTurn=Number(outcome.decided_turn);
     const bySlot=new Set(normal.filter(x=>x.defender_id===outcome.defeated_id
-      &&Number(x.turn_no)<=decidedTurn).map(x=>Number(x.defender_slot)));
+      &&x.attacker_id===outcome.winner_id
+      &&x.turn_no<=decidedTurn).map(x=>Number(x.defender_slot)));
     const slots=[4,5,6].map(slot=>"c"+slot+":"+(bySlot.has(slot)?"KO":"PENDENTE")).join(" · ");
     const consistent=winner!=="DESCONHECIDO"&&defeated!=="DESCONHECIDO"
       &&winner!==defeated && Number.isInteger(decidedTurn) && decidedTurn>=1
-      &&Number(outcome.defeated_team_size)===3
+      &&outcome.defeated_team_size===3
+      &&outcome.outcome_scope==="training_only_no_official_victory"
       &&outcome.official_match_ended===false
-      &&Number(outcome.experience_awarded)===0
-      &&Number(outcome.currency_awarded)===0
+      &&outcome.official_match_modified===false
+      &&outcome.experience_awarded===false
+      &&outcome.currency_awarded===false
       &&bySlot.size===3;
     return "Sala "+code+" · treino 3×3 · "+
       (consistent?"RESULTADO DE TREINO CONSISTENTE NO SERVIDOR"
@@ -2162,14 +2170,14 @@
     if(locks.error)throw new Error(locks.error.message);
     trainingAttackLocks3x3=locks.data||[];
     const knockouts=await api.from("chaotic_preview_3x3_training_knockouts")
-      .select("turn_no,attacker_id,defender_id,defender_slot,defender_creature_name,catalog_attack_id,hp_before,hp_after,training_only,official_match_modified")
+      .select("turn_no,attacker_id,defender_id,defender_slot,defender_creature_name,catalog_attack_id,hp_before,hp_after,training_only,official_hp_changed,official_match_modified")
       .eq("lobby_id",requestedRoomId).order("turn_no",{ascending:false}).limit(10);
     if(!isCurrent3x3Request())return;
     if(knockouts.error)throw new Error(knockouts.error.message);
     // Keep the original-owned 105 knockout events unchanged and add only
     // server-validated borrowed-card KO events; both sides can inspect these.
     const borrowedKnockouts=await api.from("chaotic_preview_3x3_borrowed_105_knockouts")
-      .select("turn_no,borrower_id,defender_id,defender_slot,defender_creature_name,catalog_attack_id,hp_before,hp_after,training_only,official_match_modified")
+      .select("turn_no,borrower_id,defender_id,defender_slot,defender_creature_name,catalog_attack_id,hp_before,hp_after,training_only,original_owner_changed,official_hp_changed,official_match_modified")
       .eq("lobby_id",requestedRoomId).order("turn_no",{ascending:false}).limit(10);
     if(!isCurrent3x3Request())return;
     if(borrowedKnockouts.error)throw new Error(borrowedKnockouts.error.message);
@@ -2177,7 +2185,7 @@
       (borrowedKnockouts.data||[]).map(x=>({...x,
         attacker_id:x.borrower_id,borrowed_attack:true})));
     const outcome=await api.from("chaotic_preview_3x3_training_outcomes")
-      .select("decided_turn,winner_id,defeated_id,defeated_team_size,outcome_scope,official_match_ended,experience_awarded,currency_awarded")
+      .select("decided_turn,winner_id,defeated_id,defeated_team_size,outcome_scope,official_match_ended,official_match_modified,experience_awarded,currency_awarded")
       .eq("lobby_id",requestedRoomId).limit(1);
     if(!isCurrent3x3Request())return;
     if(outcome.error)throw new Error(outcome.error.message);
