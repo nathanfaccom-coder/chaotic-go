@@ -25,6 +25,7 @@ function harness(overrides={}){
   refreshQueued:true,busy:false,document:{hidden:false},navigator:{onLine:true},
   $:id=>nodes[id]||null, watch:()=>{watches++;},
   refreshRoom:()=>{reads++;return Promise.resolve();},
+  trainingOutcomes3x3:[],
   resumePhase3x3:{training_finished:false},playerPresence3x3:{peer_synced_current_turn:true},
   isActionContextCurrent:(roomId,turn,view)=>
    ctx.room?.id===roomId&&ctx.match?.turn_no===turn&&ctx.viewGeneration===view,
