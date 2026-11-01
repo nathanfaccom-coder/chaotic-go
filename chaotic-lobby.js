@@ -1343,6 +1343,45 @@
         return "Etapa especial em andamento: use Atualizar conexão e turno e siga somente os controles liberados pelo servidor.";
     }
   }
+  // Server-only training receipt. Both members see the same room code,
+  // host/guest labels, KO slots and decided turn; never rely on local identity.
+  // It is a comparison aid, NOT proof that two physical phones were tested.
+  function build3x3VerificationReport({room,match,outcomes,knockouts}){
+    if(!room || room.mode!=="3x3")return "";
+    const code=String(room.code||"código indisponível");
+    const outcome=Array.isArray(outcomes)?outcomes[0]:null;
+    const events=Array.isArray(knockouts)?knockouts:[];
+    const normal=events.filter(x=>x&&[4,5,6].includes(Number(x.defender_slot))
+      &&Number(x.hp_after)===0 && x.training_only===true
+      && x.official_match_modified===false);
+    if(!outcome){
+      const seen=new Set(normal.map(x=>String(x.defender_id)+":"+Number(x.defender_slot)));
+      return "Sala "+code+" · treino 3×3 · SEM RESULTADO FINAL confirmado no servidor. "+
+        "Nocautes distintos consultados: "+seen.size+". "+
+        "Aguarde os três nocautes e atualize nos dois celulares; atividade recente não comprova dois aparelhos.";
+    }
+    const side=id=>id===room.host_id?"ANFITRIÃO":id===room.guest_id?"CONVIDADO":"DESCONHECIDO";
+    const winner=side(outcome.winner_id),defeated=side(outcome.defeated_id);
+    const decidedTurn=Number(outcome.decided_turn);
+    const bySlot=new Set(normal.filter(x=>x.defender_id===outcome.defeated_id
+      &&Number(x.turn_no)<=decidedTurn).map(x=>Number(x.defender_slot)));
+    const slots=[4,5,6].map(slot=>"c"+slot+":"+(bySlot.has(slot)?"KO":"PENDENTE")).join(" · ");
+    const consistent=winner!=="DESCONHECIDO"&&defeated!=="DESCONHECIDO"
+      &&winner!==defeated && Number.isInteger(decidedTurn) && decidedTurn>=1
+      &&Number(outcome.defeated_team_size)===3
+      &&outcome.official_match_ended===false
+      &&Number(outcome.experience_awarded)===0
+      &&Number(outcome.currency_awarded)===0
+      &&bySlot.size===3;
+    return "Sala "+code+" · treino 3×3 · "+
+      (consistent?"RESULTADO DE TREINO CONSISTENTE NO SERVIDOR"
+        :"ATENÇÃO: RESULTADO NÃO CONFERIDO NO SERVIDOR")+
+      " · vencedor "+winner+" · derrotado "+defeated+
+      " · turno decisivo T"+(Number.isInteger(decidedTurn)?decidedTurn:"?")+
+      " · nocautes "+bySlot.size+"/3 ("+slots+"). "+
+      "Compare este mesmo resumo no outro celular após Atualizar conexão e turno. "+
+      "Não é certificado de partida em dois aparelhos; XP, moedas e combate oficial não são alterados.";
+  }
   function update3x3UI(){
     const panel=$("lobby-3x3-allies-panel");
     if(!panel)return;
@@ -1866,6 +1905,10 @@
         " deixou as 3 criaturas rivais com 0 HP DE TREINO no turno "+x.decided_turn+
         ". RESULTADO SOMENTE EXPERIMENTAL: não encerra o combate oficial, nem dá XP ou moedas.").join("\n")
       :"Nenhum resultado de equipe no treino ainda: são necessários 3 nocautes confirmados.";
+    const verificationReport=$("lobby-3x3-verification-report");
+    if(verificationReport)verificationReport.textContent=build3x3VerificationReport({
+      room,match,outcomes:trainingOutcomes3x3,knockouts:trainingKnockouts3x3
+    });
     $("lobby-3x3-training-attack-locks").textContent=trainingAttackLocks3x3.length
       ?trainingAttackLocks3x3.slice().sort((a,b)=>a.inflicted_turn-b.inflicted_turn).map(x=>
         "T"+x.inflicted_turn+" · "+(x.defender_id===userId?"Sua equipe":"Equipe adversária")+
@@ -2860,6 +2903,9 @@
       '<p id="lobby-3x3-training-attack-locks" class="lobby-events" aria-live="polite">Nenhum bloqueio de ataque registrado.</p>',
       '<p id="lobby-3x3-knockout-history" class="lobby-events" aria-live="polite">Nenhum nocaute de treino.</p>',
       '<p id="lobby-3x3-training-outcome" class="lobby-events" aria-live="polite">Sem resultado de equipe no treino.</p>',
+      '<p><strong>Conferência do resultado nos dois celulares</strong></p>',
+      '<p id="lobby-3x3-verification-report" class="lobby-events">Aguardando resultado do servidor...</p>',
+      '<button id="lobby-3x3-copy-verification" type="button">Copiar resumo para comparar celulares</button>',
       '<p>Antes de passar a reação, o DEFENSOR pode revisar os componentes elementais da carta de ataque paga, confirmados pelo catálogo original no banco. A revisão não joga dados, não verifica elementos das criaturas ou equipamento e NÃO calcula nem causa dano final.</p>',
       '<button id="lobby-3x3-element-review" type="button" hidden>Defensor: inspecionar elementos da carta (sem aplicar)</button>',
       '<p id="lobby-3x3-element-history" class="lobby-events" aria-live="polite">Nenhuma inspeção elemental.</p>',
@@ -3199,6 +3245,22 @@
       update3x3UI();
       note("Sua confirmação de pronto foi retirada. A sala e as cartas permanecem intactas.");
     });
+    $("lobby-3x3-copy-verification").onclick=async()=>{
+      const report=$("lobby-3x3-verification-report")?.textContent||"";
+      if(!report || !room || room.mode!=="3x3"){
+        note("Não existe resumo 3x3 para copiar.",true);return;
+      }
+      if(typeof navigator==="undefined" || !navigator.clipboard?.writeText){
+        note("Não foi possível copiar automaticamente. Selecione o texto do resumo e copie manualmente.",true);
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(report);
+        note("Resumo copiado. Compare código, turno, vencedor e c4–c6 no outro celular.");
+      }catch(_error){
+        note("Cópia bloqueada pelo navegador. Selecione o resumo para copiar manualmente.",true);
+      }
+    };
     $("lobby-3x3-refresh-connection").onclick=()=>action(async()=>{
       if(!room||!match||room.mode!=="3x3")return;
       const expectedRoomId=room.id,expectedTurn=match.turn_no,expectedView=viewGeneration;

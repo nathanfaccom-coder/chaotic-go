@@ -17,7 +17,7 @@ function status(overrides={}){
     userId:"host",ownCount:3,ownHpCount:3,ownBoardCount:3,finished:false};
   return {...state,...overrides};
 }
-const guide=extract("function next3x3Instruction(state)","function update3x3UI()",{});
+const guide=extract("function next3x3Instruction(state)","  // Server-only training receipt.",{});
 test("v0.1.97: stage guidance covers both players without guessing actions",()=>{
   assert.match(guide(status({checkpoint:{turn_no:3,phase:"ready"}})),/mova um campeão/);
   assert.match(guide(status({match:{turn_no:3,status:"active",current_player:"guest"}})),/Vez do adversário/);
