@@ -13,11 +13,11 @@ const [index,login,loginV2,loginFull,authLogin,authClient,scanner,scannerFull,
  boot,entrance,lobby,css,worker,manifest,originalScript]=
  await Promise.all(paths.map(p=>readFile(new URL("../"+p,import.meta.url),"utf8")));
 
-test("stability v0.1.108: sign-in, scanner and private 3x3 routes remain reachable",()=>{
+test("stability v0.1.109: sign-in, scanner and private 3x3 routes remain reachable",()=>{
  for(const page of [login,loginV2,loginFull]){
   for(const script of ["supabase-config.js","auth-client.js","login-auth.js"])
-   assert.ok(page.includes(script+"?v=release-108"));
-  assert.match(page,/style\.css\?v=release-108/);
+   assert.ok(page.includes(script+"?v=release-109"));
+  assert.match(page,/style\.css\?v=release-109/);
   assert.match(page,/id="btn-entrar"/);
   assert.match(page,/id="btn-cadastrar"/);
   assert.match(page,/id="btn-recuperar-senha"/);
@@ -34,7 +34,7 @@ test("stability v0.1.108: sign-in, scanner and private 3x3 routes remain reachab
  for(const action of ["lobby-create-btn","lobby-join-btn","lobby-input-code","lobby-room-code"])
   assert.ok(lobby.includes(action),action);
 });
-test("stability v0.1.108: experimental training is highlighted without disabling legacy modes",()=>{
+test("stability v0.1.109: experimental training is highlighted without disabling legacy modes",()=>{
  assert.match(entrance,/TREINO 3x3 POR CÓDIGO/);
  assert.match(entrance,/Modos oficiais ainda em desenvolvimento/);
  assert.match(entrance,/selecionarTipoJogo\('online'\)/);
@@ -46,7 +46,7 @@ test("stability v0.1.108: experimental training is highlighted without disabling
  assert.match(lobby,/navigator\.onLine === false/);
  assert.match(lobby,/Nenhuma ação foi enviada nem pontos gastos/);
 });
-test("stability v0.1.108: scanner retry reloads without logging out (runtime test)",async()=>{
+test("stability v0.1.109: scanner retry reloads without logging out (runtime test)",async()=>{
  let reloads=0,signOuts=0,redirects=[];
  const ids=["cloud-status","cloud-alert","cloud-alert-text","btn-alert-logout",
    "btn-sair-conta","btn-importar-legado"];
@@ -73,7 +73,7 @@ test("stability v0.1.108: scanner retry reloads without logging out (runtime tes
  assert.equal(signOuts,1);
  assert.deepEqual(redirects,["login-completo.html"]);
 });
-test("stability v0.1.108: login actually signs in and redirects using the mounted client",async()=>{
+test("stability v0.1.109: login actually signs in and redirects using the mounted client",async()=>{
  const ids=["auth-feedback","modal-login","modal-cadastro","btn-abrir-login",
  "btn-abrir-cadastro","btn-fechar-login","btn-fechar-cadastro","btn-entrar",
  "usuario","senha","novo-email","novo-usuario","nova-senha","btn-cadastrar",
@@ -101,7 +101,7 @@ test("stability v0.1.108: login actually signs in and redirects using the mounte
  assert.equal(args.password,"strong-password");
  assert.deepEqual(redirects,["scanner-completo.html"]);
 });
-test("stability v0.1.108: mobile room scrolls, input taps work and zoom isn't disabled",()=>{
+test("stability v0.1.109: mobile room scrolls, input taps work and zoom isn't disabled",()=>{
  assert.match(css,/#tela-entrada-drome\s*\{[^}]*overflow-y:\s*auto/s);
  assert.match(css,/#tela-entrada-drome\s*\{[^}]*touch-action:\s*pan-y/s);
  assert.match(css,/#tela-entrada-drome \.lobby-test button,[\s\S]*min-height:\s*44px/);
@@ -109,22 +109,22 @@ test("stability v0.1.108: mobile room scrolls, input taps work and zoom isn't di
  for(const page of [index,scanner,scannerFull,login,loginFull,loginV2])
   assert.doesNotMatch(page,/user-scalable=no|maximum-scale=1/);
 });
-test("stability v0.1.108: authenticated JS and all core loaders refresh together",()=>{
+test("stability v0.1.109: authenticated JS and all core loaders refresh together",()=>{
  for(const page of [scanner,scannerFull]){
   for(const script of [
    "cartas.js","efeitos.js","entrada-drome.js","supabase-config.js",
    "auth-client.js","full-game-bootstrap.js"
-  ])assert.ok(page.includes(script+"?v=release-108"),script);
+  ])assert.ok(page.includes(script+"?v=release-109"),script);
   assert.ok(page.includes('id="btn-alert-logout" type="button" hidden>Tentar conexão novamente'));
-  assert.ok(page.includes("style.css?v=release-108"));
+  assert.ok(page.includes("style.css?v=release-109"));
  }
  for(const module of [
   "legacy-import.js","player-backup.js","supabase-game-bridge.js",
   "script.js","batalha.js","chaotic-lobby.js"
- ])assert.ok(boot.includes("./"+module+"?v=release-108"),module);
- assert.ok(index.includes("VERSÃO 0.1.108"));
- assert.match(index,/sw\.js\?v=release-108/);
- assert.match(worker,/chaotic-go-release-20261101-108/);
+ ])assert.ok(boot.includes("./"+module+"?v=release-109"),module);
+ assert.ok(index.includes("VERSÃO 0.1.109"));
+ assert.match(index,/sw\.js\?v=release-109/);
+ assert.match(worker,/chaotic-go-release-20261101-109/);
  assert.match(worker,/request\.mode==='navigate'/);
  assert.match(worker,/\(\?:js\|html\)/);
  assert.match(index,/login e as partidas precisam de internet|acesso rápido no celular/i);
