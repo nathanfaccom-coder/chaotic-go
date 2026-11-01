@@ -54,7 +54,7 @@ test("v0.1.91: delayed restore cannot forget a newly chosen room",async()=>{
 test("v0.1.91: offline resume waits for connectivity without replay",async()=>{
  let reads=0,restores=0;
  const ctx={
-  room:current,viewGeneration:8,navigator:{onLine:false},document:{hidden:false},
+  room:current,viewGeneration:8,offlineRealtimeRoomId:null,navigator:{onLine:false},document:{hidden:false},
   $:()=>({style:{display:"flex"}}),
   refreshRoom:async()=>{reads++;},restoreLastRoom:async()=>{restores++;},
   note:()=>{}
