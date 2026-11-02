@@ -3411,13 +3411,33 @@
         note("Cópia bloqueada pelo navegador. Selecione o resumo para copiar manualmente.",true);
       }
     };
+    // A successful comparison is valid only for the exact two summaries
+    // displayed at the moment of the click. Editing/pasting a different peer
+    // receipt must immediately revoke the old "RESUMOS COINCIDEM" message.
+    const reset3x3ReceiptComparison=()=>{
+      const status=$("lobby-3x3-compare-status");
+      if(!status)return;
+      if(status.dataset){
+        delete status.dataset.peer;
+        delete status.dataset.local;
+      }
+      status.textContent="Resumo do outro aparelho alterado. Compare novamente os dois comprovantes.";
+    };
+    const otherReceiptInput=$("lobby-3x3-other-receipt");
+    if(otherReceiptInput){
+      otherReceiptInput.oninput=reset3x3ReceiptComparison;
+      otherReceiptInput.onchange=reset3x3ReceiptComparison;
+    }
     $("lobby-3x3-compare-receipts").onclick=()=>{
       const local=$("lobby-3x3-verification-report")?.textContent||"";
       const other=$("lobby-3x3-other-receipt")?.value||"";
       const result=compare3x3Receipts(local,other);
       const status=$("lobby-3x3-compare-status");
       if(status){
-        status.dataset.local=local;
+        if(status.dataset){
+          status.dataset.local=local;
+          status.dataset.peer=other;
+        }
         status.textContent=result;
       }
     };
