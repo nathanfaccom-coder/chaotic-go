@@ -3481,7 +3481,13 @@
     const ensureAcceptanceRoom3x3=()=>{
       const panel=$("lobby-3x3-acceptance-panel");
       if(!panel)return;
-      const roomCode=room?.mode==="3x3"?String(room.code||""):"";
+      const roomCode=room?.mode==="3x3"?String(room.id||room.code||""):"";
+      // A newly rendered panel starts unbound: its first checkbox click must
+      // count normally, not erase the user's initial selection.
+      if(panel.dataset?.room===undefined){
+        if(panel.dataset)panel.dataset.room=roomCode;
+        return;
+      }
       if(panel.dataset?.room===roomCode)return;
       if(panel.dataset)panel.dataset.room=roomCode;
       for(const [key] of acceptanceSteps3x3){
