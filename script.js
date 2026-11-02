@@ -2829,7 +2829,10 @@ if (btnSalvarDeck) {
         });
         
         // Verifica se tem 20 ataques, se a soma do custo é 20, e se tem 10 locais.
-        deckData.validoParaBatalha = (deckData.ataques.length === 20 && custoTotalAtaques === 20 && deckData.locais.length === 10);
+        const criaturasNecessarias = {"1x1":1,"3x3":3,"6x6":6}[modo];
+        const criaturasValidas = deckData.criaturas.filter(c => c !== null && c !== undefined && String(c).trim() !== "").length;
+        deckData.validoParaBatalha = (deckData.ataques.length === 20 && custoTotalAtaques === 20
+            && deckData.locais.length === 10 && criaturasValidas === criaturasNecessarias);
 
         if (deckData.criaturas.every(c => c === null)) {
             let avisoDeck = document.getElementById('aviso-deck');
