@@ -3070,6 +3070,20 @@
       '<textarea id="lobby-3x3-other-receipt" rows="4" maxlength="2400" placeholder="Cole aqui o resumo completo do segundo celular" style="box-sizing:border-box;max-width:100%;width:100%;min-width:0"></textarea>',
       '<button id="lobby-3x3-compare-receipts" type="button">Comparar os dois comprovantes</button>',
       '<p id="lobby-3x3-compare-status" class="lobby-events" role="status" aria-live="polite">Aguardando os dois resumos; isso não comprova aparelhos físicos.</p>',
+      '<details id="lobby-3x3-acceptance-panel" style="margin:12px 0;padding:10px;border:1px solid #777;border-radius:10px">',
+      '<summary style="cursor:pointer;min-height:44px">🧪 Conferência manual em dois celulares (6 etapas)</summary>',
+      '<p>Marque apenas o que VOCÊ observou em dois aparelhos físicos. As marcas ficam nesta tela e não certificam a partida.</p>',
+      '<label style="display:flex;align-items:flex-start;gap:8px;padding:7px 0" for="lobby-3x3-accept-same-room"><input type="checkbox" id="lobby-3x3-accept-same-room" style="min-width:22px;min-height:22px"> Os dois celulares exibiram a mesma sala e turno</label>',
+      '<label style="display:flex;align-items:flex-start;gap:8px;padding:7px 0" for="lobby-3x3-accept-offline"><input type="checkbox" id="lobby-3x3-accept-offline" style="min-width:22px;min-height:22px"> O defensor ficou sem rede durante um ataque já pago</label>',
+      '<label style="display:flex;align-items:flex-start;gap:8px;padding:7px 0" for="lobby-3x3-accept-resume"><input type="checkbox" id="lobby-3x3-accept-resume" style="min-width:22px;min-height:22px"> Após reconectar, o ataque pago foi restaurado sem nova cobrança</label>',
+      '<label style="display:flex;align-items:flex-start;gap:8px;padding:7px 0" for="lobby-3x3-accept-defense"><input type="checkbox" id="lobby-3x3-accept-defense" style="min-width:22px;min-height:22px"> Defesa e dano foram aplicados uma única vez</label>',
+      '<label style="display:flex;align-items:flex-start;gap:8px;padding:7px 0" for="lobby-3x3-accept-knockouts"><input type="checkbox" id="lobby-3x3-accept-knockouts" style="min-width:22px;min-height:22px"> Três nocautes distintos foram conferidos nos dois celulares</label>',
+      '<label style="display:flex;align-items:flex-start;gap:8px;padding:7px 0" for="lobby-3x3-accept-integrity"><input type="checkbox" id="lobby-3x3-accept-integrity" style="min-width:22px;min-height:22px"> Nenhuma carta, XP, moeda ou vitória oficial foi alterada</label>',
+      '<p id="lobby-3x3-acceptance-progress" role="status" aria-live="polite">0/6 etapas relatadas manualmente.</p>',
+      '<button id="lobby-3x3-acceptance-export" type="button">Gerar registro para copiar</button>',
+      '<textarea id="lobby-3x3-acceptance-output" readonly rows="8" aria-label="Registro manual do teste" placeholder="O registro aparecerá aqui. Pressione e segure para copiar." style="box-sizing:border-box;max-width:100%;width:100%;min-width:0"></textarea>',
+      '<p>Mesmo com as seis marcas e os resumos coincidentes, isso não comprova automaticamente a existência de dois celulares físicos.</p>',
+      '</details>',
       '<p>Antes de passar a reação, o DEFENSOR pode revisar os componentes elementais da carta de ataque paga, confirmados pelo catálogo original no banco. A revisão não joga dados, não verifica elementos das criaturas ou equipamento e NÃO calcula nem causa dano final.</p>',
       '<button id="lobby-3x3-element-review" type="button" hidden>Defensor: inspecionar elementos da carta (sem aplicar)</button>',
       '<p id="lobby-3x3-element-history" class="lobby-events" aria-live="polite">Nenhuma inspeção elemental.</p>',
@@ -3460,6 +3474,75 @@
         }
         status.textContent=result;
       }
+    };
+    // Manual, local-only acceptance log. This panel cannot certify physical
+    // devices, submit official results or modify any player's data.
+    const acceptanceSteps3x3=[["same-room","Os dois celulares exibiram a mesma sala e turno"],["offline","O defensor ficou sem rede durante um ataque já pago"],["resume","Após reconectar, o ataque pago foi restaurado sem nova cobrança"],["defense","Defesa e dano foram aplicados uma única vez"],["knockouts","Três nocautes distintos foram conferidos nos dois celulares"],["integrity","Nenhuma carta, XP, moeda ou vitória oficial foi alterada"]];
+    const ensureAcceptanceRoom3x3=()=>{
+      const panel=$("lobby-3x3-acceptance-panel");
+      if(!panel)return;
+      const roomCode=room?.mode==="3x3"?String(room.id||room.code||""):"";
+      // A newly rendered panel starts unbound: its first checkbox click must
+      // count normally, not erase the user's initial selection.
+      if(panel.dataset?.room===undefined){
+        if(panel.dataset)panel.dataset.room=roomCode;
+        return;
+      }
+      if(panel.dataset?.room===roomCode)return;
+      if(panel.dataset)panel.dataset.room=roomCode;
+      for(const [key] of acceptanceSteps3x3){
+        const checkbox=$("lobby-3x3-accept-"+key);
+        if(checkbox)checkbox.checked=false;
+      }
+      const output=$("lobby-3x3-acceptance-output");
+      if(output)output.value="";
+    };
+    const updateAcceptanceProgress3x3=()=>{
+      ensureAcceptanceRoom3x3();
+      const checked=acceptanceSteps3x3.filter(([key])=>
+        $("lobby-3x3-accept-"+key)?.checked===true).length;
+      const progress=$("lobby-3x3-acceptance-progress");
+      if(progress)progress.textContent=checked+"/6 etapas relatadas manualmente. "+
+        "Isso não homologa a partida nem identifica dispositivos.";
+      const output=$("lobby-3x3-acceptance-output");
+      if(output)output.value=""; // Never leave an old report after a checkbox change.
+    };
+    for(const [key] of acceptanceSteps3x3){
+      const checkbox=$("lobby-3x3-accept-"+key);
+      if(checkbox)checkbox.onchange=updateAcceptanceProgress3x3;
+    }
+    const exportAcceptance3x3=$("lobby-3x3-acceptance-export");
+    if(exportAcceptance3x3)exportAcceptance3x3.onclick=()=>{
+      if(!room || room.mode!=="3x3"){
+        note("Abra uma sala de treino 3x3 para registrar o teste.",true);
+        return;
+      }
+      ensureAcceptanceRoom3x3();
+      const local=$("lobby-3x3-verification-report")?.textContent||"";
+      const other=$("lobby-3x3-other-receipt")?.value||"";
+      const comparison=$("lobby-3x3-compare-status");
+      const compared=!!comparison && comparison.textContent.startsWith("RESUMOS COINCIDEM:")
+        &&comparison.dataset?.local===local
+        &&comparison.dataset?.peer===other
+        &&!!parse3x3Receipt(local)&&!!parse3x3Receipt(other);
+      const checked=acceptanceSteps3x3.filter(([key])=>
+        $("lobby-3x3-accept-"+key)?.checked===true).length;
+      const report=[
+        "Chaotic GO v0.1.125 — REGISTRO MANUAL, NÃO HOMOLOGAÇÃO",
+        "Sala: "+String(room.code||"não informada"),
+        "Data do aparelho: "+new Date().toISOString(),
+        ...acceptanceSteps3x3.map(([key,label])=>
+          ($("lobby-3x3-accept-"+key)?.checked===true?"[X] ":"[ ] ")+label),
+        "Itens relatados manualmente: "+checked+"/6",
+        "Comprovantes: "+(compared
+          ?"resumos coincidentes nesta tela; NÃO comprovam dois aparelhos"
+          :"sem comparação válida e atual nesta tela"),
+        "Resultado local: "+(parse3x3Receipt(local)?"resultado de treino exibido":"sem resultado confirmado"),
+        "NÃO é verificação independente nem autoriza recompensa, XP ou vitória oficial."
+      ].join("\n");
+      const output=$("lobby-3x3-acceptance-output");
+      if(output)output.value=report;
+      note("Registro manual gerado nesta tela. Copie o texto e guarde com as capturas dos dois aparelhos.");
     };
     $("lobby-3x3-refresh-connection").onclick=()=>{
       // Manual recovery must also work when Android left a fetch pending
