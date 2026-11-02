@@ -1973,9 +1973,12 @@
       const latestLocalReceipt=verificationReport.textContent;
       const savedLocalReceipt=compareStatus.dataset?.local;
       const savedOtherReceipt=compareStatus.dataset?.peer;
-      const visibleOtherReceipt=$("lobby-3x3-other-receipt")?.value||"";
-      // Android may restore/autofill a textarea without input/change events.
-      const peerChangedSilently=savedOtherReceipt!==undefined
+      const otherReceiptField=$("lobby-3x3-other-receipt");
+      const visibleOtherReceipt=otherReceiptField?.value||"";
+      // Check silent changes only when this view actually contains the field.
+      // In a partial/older UI, a missing field must not look like a new paste.
+      const peerChangedSilently=!!otherReceiptField
+        &&savedOtherReceipt!==undefined
         &&savedOtherReceipt!==visibleOtherReceipt;
       if(savedLocalReceipt!==latestLocalReceipt||peerChangedSilently){
         if(compareStatus.dataset){
