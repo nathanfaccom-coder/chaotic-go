@@ -1969,14 +1969,25 @@
       room,match,outcomes:trainingOutcomes3x3,knockouts:trainingKnockouts3x3
     });
     const compareStatus=$("lobby-3x3-compare-status");
-    if(compareStatus && verificationReport
-      && compareStatus.dataset?.local!==verificationReport.textContent){
-      // Ordinary DOM elements have dataset; older test doubles might not.
-      if(compareStatus.dataset)
-        compareStatus.dataset.local=verificationReport.textContent;
-      compareStatus.textContent=parse3x3Receipt(verificationReport.textContent)
-        ?"Resultado local atualizado. Cole o resumo do outro aparelho e compare."
-        :"Aguardando resultado de treino confirmado para comparar.";
+    if(compareStatus && verificationReport){
+      const latestLocalReceipt=verificationReport.textContent;
+      const savedLocalReceipt=compareStatus.dataset?.local;
+      const savedOtherReceipt=compareStatus.dataset?.peer;
+      const visibleOtherReceipt=$("lobby-3x3-other-receipt")?.value||"";
+      // Android may restore/autofill a textarea without input/change events.
+      const peerChangedSilently=savedOtherReceipt!==undefined
+        &&savedOtherReceipt!==visibleOtherReceipt;
+      if(savedLocalReceipt!==latestLocalReceipt||peerChangedSilently){
+        if(compareStatus.dataset){
+          compareStatus.dataset.local=latestLocalReceipt;
+          delete compareStatus.dataset.peer;
+        }
+        compareStatus.textContent=peerChangedSilently
+          ?"Resumo do outro aparelho alterado ou restaurado. Compare novamente os dois comprovantes."
+          :parse3x3Receipt(latestLocalReceipt)
+            ?"Resultado local atualizado. Cole o resumo do outro aparelho e compare."
+            :"Aguardando resultado de treino confirmado para comparar.";
+      }
     }
     $("lobby-3x3-training-attack-locks").textContent=trainingAttackLocks3x3.length
       ?trainingAttackLocks3x3.slice().sort((a,b)=>a.inflicted_turn-b.inflicted_turn).map(x=>
@@ -3427,6 +3438,12 @@
     if(otherReceiptInput){
       otherReceiptInput.oninput=reset3x3ReceiptComparison;
       otherReceiptInput.onchange=reset3x3ReceiptComparison;
+      otherReceiptInput.onfocus=()=>{
+        const status=$("lobby-3x3-compare-status");
+        if(status?.dataset?.peer!==undefined
+          &&status.dataset.peer!==otherReceiptInput.value)
+          reset3x3ReceiptComparison();
+      };
     }
     $("lobby-3x3-compare-receipts").onclick=()=>{
       const local=$("lobby-3x3-verification-report")?.textContent||"";
