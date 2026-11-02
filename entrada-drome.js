@@ -107,31 +107,34 @@ window.renderizarPassoEscolhaDeck = function() {
 };
 
 function carregarDecksParaEscolha(modo) {
-    let lista = document.getElementById("lista-decks-drome");
+    const lista = document.getElementById("lista-decks-drome");
     if (!lista) return;
-    let uid = localStorage.getItem("chaoticUID");
+    const uid = localStorage.getItem("chaoticUID");
 
     _dbGet('jogadores/' + uid + '/decks').then(snapshot => {
+        // A delayed request from an older mode must NEVER overwrite the
+        // list opened afterward (common on slow Android connections).
+        if (document.getElementById("lista-decks-drome") !== lista) return;
         lista.innerHTML = "";
         let encontrouAlgum = false;
-        
+        const todosOsDecks = snapshot.exists() ? (snapshot.val() || {}) : {};
+
         [1, 2, 3].forEach(numSlot => {
-            let idFogo = modo + "_slot_" + numSlot; 
-            
-            let todosOsDecks = snapshot.exists() ? snapshot.val() : {};
-            let deckData = todosOsDecks[idFogo] || todosOsDecks[modo+"_"+numSlot] || null;
-            
-            if (deckData) {
+            const idFogo = modo + "_slot_" + numSlot;
+            const deckData = todosOsDecks[idFogo] || todosOsDecks[modo+"_"+numSlot] || null;
+            const div = document.createElement("div");
+            if (deckData && typeof deckData === "object") {
                 encontrouAlgum = true;
-                let irreg = verificarIrregularidadeDeck(deckData, modo);
-                let div = document.createElement("div");
+                const irreg = verificarIrregularidadeDeck(deckData, modo);
                 div.className = "card-deck-drome";
                 div.style.borderColor = irreg ? "#e53935" : "#4CAF50";
+                // Only static markup is inserted. Names and modes come from
+                // saved player data and must be rendered as TEXT, not HTML.
                 div.innerHTML = `
                     <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
-                        <div style="text-align:left;">
-                            <div style="font-size:13px;font-weight:bold;color:#fff;">${deckData.nome || 'Deck Sem Nome'}</div>
-                            <div style="font-size:9px;color:#aaa;margin-top:3px;">Slot ${numSlot} · Modo ${deckData.modo || modo}</div>
+                        <div style="text-align:left;min-width:0;">
+                            <div class="drome-saved-deck-name" style="font-size:13px;font-weight:bold;color:#fff;overflow-wrap:anywhere;"></div>
+                            <div class="drome-saved-deck-detail" style="font-size:9px;color:#aaa;margin-top:3px;"></div>
                         </div>
                         <div style="text-align:right;">
                             <div style="font-size:18px;">${irreg ? '⚠️' : '✅'}</div>
@@ -139,21 +142,24 @@ function carregarDecksParaEscolha(modo) {
                         </div>
                     </div>
                 `;
+                div.querySelector(".drome-saved-deck-name").textContent = String(deckData.nome || "Deck Sem Nome");
+                div.querySelector(".drome-saved-deck-detail").textContent =
+                    "Slot " + numSlot + " · Modo " + String(deckData.modo || modo);
                 div.onclick = () => selecionarDeckDrome(deckData, numSlot, irreg, div);
-                lista.appendChild(div);
             } else {
-                let div = document.createElement("div");
                 div.className = "card-deck-drome vazio";
                 div.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;width:100%;opacity:0.4;"><div><div style="font-size:12px;font-weight:bold;color:#777;">Slot ${numSlot} — Vazio</div><div style="font-size:9px;color:#555;margin-top:3px;">Nenhum deck ${modo} salvo aqui</div></div><div style="font-size:20px;">🔒</div></div>`;
-                lista.appendChild(div);
             }
+            lista.appendChild(div);
         });
         if (!encontrouAlgum) {
-            lista.innerHTML = `<p style="color:#aaa;font-size:10px;text-align:center;line-height:1.6;">Nenhum deck ${modo} encontrado.<br><span style="color:#4CAF50;">Crie um deck na Oficina primeiro!</span></p>`;
+            // This message contains only a mode from the fixed set 1x1/3x3/6x6.
+            lista.textContent = "Nenhum deck " + modo + " encontrado. Crie um deck na Oficina primeiro!";
         }
-   }).catch((err) => {
-        console.error("Erro na leitura da Nuvem:", err); 
-        lista.innerHTML = "<p style='color:#ff5555;font-size:10px;text-align:center;'>Falha ao carregar decks!</p>";
+    }).catch(err => {
+        if (document.getElementById("lista-decks-drome") !== lista) return;
+        console.error("Erro na leitura da Nuvem:", err);
+        lista.textContent = "Falha ao carregar decks! Verifique sua conexão.";
     });
 }
 
@@ -168,7 +174,9 @@ function verificarIrregularidadeDeck(deck, modo) {
         let listaCrias = Array.isArray(deck.criaturas) ? deck.criaturas : Object.values(deck.criaturas);
         criaturasVivas = listaCrias.filter(c => c !== null && c !== undefined && String(c).trim() !== "").length;
     }
-    if (criaturasVivas < 1) p.push(`Criaturas: O deck precisa de pelo menos 1 criatura!`);
+    const criaturasNecessarias = {"1x1":1,"3x3":3,"6x6":6}[modo];
+    if (criaturasNecessarias && criaturasVivas !== criaturasNecessarias)
+        p.push(`Criaturas: ${criaturasVivas}/${criaturasNecessarias} para o modo ${modo}`);
     return p.length > 0 ? p.join(' · ') : null;
 }
 
