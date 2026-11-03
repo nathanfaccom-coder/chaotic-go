@@ -1190,62 +1190,80 @@ function abrirAlbum() {
 
 document.getElementById("filtro-nome").addEventListener("input", renderizarListaAlbum);
 document.getElementById("filtro-tribo").addEventListener("change", renderizarListaAlbum);
-document.getElementById("filtro-tipo").addEventListener("change", renderizarListaAlbum); 
+document.getElementById("filtro-tipo").addEventListener("change", renderizarListaAlbum);
+document.getElementById("filtro-favoritos")?.addEventListener("change", renderizarListaAlbum);
+document.getElementById("ordenar-cartas")?.addEventListener("change", renderizarListaAlbum); 
 
 function renderizarListaAlbum() {
-    const lista = document.getElementById("lista-cartas");
-    lista.innerHTML = ""; 
-    let termo = document.getElementById("filtro-nome").value.toLowerCase();
-    let triboFiltro = document.getElementById("filtro-tribo").value;
-    let tipoFiltro = document.getElementById("filtro-tipo").value;
-
-    let filtrados = inventario.filter(item => {
-        let bateNome = item.nome.toLowerCase().includes(termo);
-        let bateTribo = triboFiltro === "Todas" || (item.tribo && item.tribo === triboFiltro);
-        let tipoDaCarta = item.tipoCarta || "Criatura";
-        let bateTipo = tipoFiltro === "Todas" || tipoDaCarta === tipoFiltro;
-        return bateNome && bateTribo && bateTipo;
-    });
-
-    if (filtrados.length === 0) {
-        lista.innerHTML = "<p style='font-size: 10px; color: #666; text-align:center; padding: 20px;'>Nenhuma carta encontrada...</p>";
-        return;
+    const lista=document.getElementById("lista-cartas");
+    if(!lista)return;
+    lista.replaceChildren();
+    const termo=String(document.getElementById("filtro-nome")?.value||"").trim().toLocaleLowerCase("pt-BR");
+    const tribo=document.getElementById("filtro-tribo")?.value||"Todas";
+    const tipo=document.getElementById("filtro-tipo")?.value||"Todas";
+    const favoritos=document.getElementById("filtro-favoritos")?.checked===true;
+    const ordem=document.getElementById("ordenar-cartas")?.value||"original";
+    const cards=Array.isArray(inventario)?inventario:[];
+    const filtrados=cards.filter(c=>c&&typeof c==="object"
+      &&String(c.nome||"").toLocaleLowerCase("pt-BR").includes(termo)
+      &&(tribo==="Todas"||c.tribo===tribo)
+      &&(tipo==="Todas"||(c.tipoCarta||"Criatura")===tipo)
+      &&(!favoritos||c.favorito===true));
+    if(ordem==="nome")filtrados.sort((x,y)=>String(x.nome||"").localeCompare(String(y.nome||""),"pt-BR"));
+    if(ordem==="favoritos")filtrados.sort((x,y)=>Number(y.favorito===true)-Number(x.favorito===true));
+    const contador=document.getElementById("contador-colecao");
+    if(contador)contador.textContent=filtrados.length+" de "+cards.filter(Boolean).length+" cartas individuais";
+    if(!filtrados.length){
+      const aviso=document.createElement("p");
+      aviso.textContent="Nenhuma carta encontrada com esses filtros.";
+      aviso.style.cssText="text-align:center;padding:20px;color:#aaa;font-size:11px";
+      lista.appendChild(aviso);return;
     }
-
-    filtrados.forEach((item) => {
-        let div = document.createElement("div");
-        div.style = "background: #112211; border: 1px solid #4CAF50; padding: 8px; border-radius: 8px; display: flex; align-items: center; gap: 10px; position: relative; margin-bottom: 8px;";
-        let estrela = item.favorito ? "⭐" : "☆";
-        let corEstrela = item.favorito ? "#ffd700" : "#4CAF50";
-        let qtd = item.quantidade || 1;
-        let detalhesCarta = "";
-        
-        // A NOVA REGRA VISUAL: Ele sabe quem tem Status e quem tem Quantidade!
-        let tipoParaEmpilhar = ["Local", "Magia", "Ataque", "Equipamento"];
-        
-        if (tipoParaEmpilhar.includes(item.tipoCarta)) {
-            // Cartas empilháveis mostram a Quantidade
-            detalhesCarta = `<div style="font-size: 10px; color: #4CAF50; margin-top: 4px;">TIPO: ${item.tipoCarta.toUpperCase()}<br><span style="font-weight: bold; color: white;">CÓPIAS NO DECK: ${qtd}</span></div>`;
-        } else {
-            // Criaturas mostram os Status únicos de DNA
-            detalhesCarta = `<div style="font-size: 8.5px; color: #4CAF50; line-height: 1.3;">Energia: ${item.stats.e} | Coragem: ${item.stats.c}<br>Poder: ${item.stats.p} | Sabedoria: ${item.stats.s}<br>Velocidade: ${item.stats.v}</div>`;
-        }
-
-        div.innerHTML = `
-            <div style="position: absolute; top: 8px; right: 10px; font-size: 16px; cursor: pointer; color: ${corEstrela};" onclick="toggleFavorito(${item.id}, event)">${estrela}</div>
-            <img src="${item.img}" style="width: 50px; border-radius: 4px; cursor: pointer;" onclick="verCartaAlbum(${item.id})">
-            <div style="text-align: left; cursor: pointer; flex: 1;" onclick="verCartaAlbum(${item.id})">
-                <b style="font-size: 13px; color: #fff; display: block; margin-bottom: 4px;">${item.nome}</b>
-                ${detalhesCarta}
-            </div>
-        `;
-        lista.appendChild(div);
+    filtrados.forEach(carta=>{
+      const indice=cards.indexOf(carta),nome=String(carta.nome||"Carta sem nome");
+      const container=document.createElement("div");
+      container.className="colecao-cartao";
+      container.style.cssText="background:#112211;border:1px solid #4CAF50;padding:8px;border-radius:8px;display:flex;gap:8px;align-items:center;min-width:0";
+      const estrela=document.createElement("button");
+      estrela.type="button";estrela.textContent=carta.favorito===true?"⭐":"☆";
+      estrela.setAttribute("aria-label",(carta.favorito===true?"Remover favorito ":"Adicionar favorito ")+nome);
+      estrela.setAttribute("aria-pressed",String(carta.favorito===true));
+      estrela.style.cssText="background:none;border:0;color:#ffd700;font-size:23px;min-width:44px;min-height:44px;cursor:pointer";
+      estrela.addEventListener("click",ev=>window.toggleFavorito(carta.id,ev,indice));
+      container.appendChild(estrela);
+      const imagem=document.createElement("img");
+      const caminho=String(carta.img||"");
+      if(/^(?:https?:\/\/|(?:\.\.?\/)?cartas\/|[\w-]+\.(?:png|jpe?g|webp|gif)(?:\?.*)?$)/i.test(caminho))imagem.src=caminho;
+      imagem.alt="Arte de "+nome;imagem.loading="lazy";
+      imagem.style.cssText="width:50px;max-width:50px;object-fit:contain;border-radius:4px;cursor:pointer";
+      imagem.addEventListener("click",()=>window.verCartaAlbum(carta.id,indice));
+      container.appendChild(imagem);
+      const detalhe=document.createElement("button");
+      detalhe.type="button";detalhe.style.cssText="background:none;border:0;color:white;text-align:left;flex:1;min-width:0;min-height:44px;overflow-wrap:anywhere;cursor:pointer;padding:3px";
+      const titulo=document.createElement("strong");
+      titulo.textContent=nome;titulo.style.cssText="font-size:13px;display:block;margin-bottom:5px";
+      detalhe.appendChild(titulo);
+      const atributos=document.createElement("span");
+      atributos.style.cssText="font-size:10px;color:#87dd9e;line-height:1.4;display:block";
+      if(["Local","Magia","Ataque","Equipamento"].includes(carta.tipoCarta)){
+        const qtd=Number(carta.quantidade);
+        atributos.textContent="TIPO: "+String(carta.tipoCarta).toUpperCase()+" · CÓPIAS: "+(Number.isFinite(qtd)&&qtd>0?Math.floor(qtd):1);
+      }else{
+        const st=carta.stats&&typeof carta.stats==="object"?carta.stats:{};
+        const v=k=>st[k]??"—";
+        atributos.textContent="Energia: "+v("e")+" | Coragem: "+v("c")+" | Poder: "+v("p")+" | Sabedoria: "+v("s")+" | Velocidade: "+v("v");
+      }
+      detalhe.appendChild(atributos);
+      detalhe.addEventListener("click",()=>window.verCartaAlbum(carta.id,indice));
+      container.appendChild(detalhe);
+      lista.appendChild(container);
     });
 }
 
-window.toggleFavorito = function(id, event) {
-    event.stopPropagation(); 
-    let carta = inventario.find(c => c.id === id);
+window.toggleFavorito = function(id, event, indice) {
+    event?.stopPropagation?.();
+    let carta = Number.isInteger(indice) && inventario[indice]?.id === id
+        ? inventario[indice] : inventario.find(c => c && c.id === id);
     if(carta) {
         carta.favorito = !carta.favorito;
         salvarAlbumNaNuvem(); 
@@ -1253,8 +1271,9 @@ window.toggleFavorito = function(id, event) {
     }
 }
 
-window.verCartaAlbum = function(id) {
-    let carta = inventario.find(c => c.id === id);
+window.verCartaAlbum = function(id, indice) {
+    let carta = Number.isInteger(indice) && inventario[indice]?.id === id
+        ? inventario[indice] : inventario.find(c => c && c.id === id);
     if(!carta) return;
     cartaVisualizadaId = id; 
     
