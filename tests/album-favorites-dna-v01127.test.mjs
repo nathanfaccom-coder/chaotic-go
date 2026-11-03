@@ -21,6 +21,9 @@ function fixture(){
   "filtro-nome":{value:""},"filtro-tipo":{value:"Todas"},
   "filtro-tribo":{value:"Todas"},"filtro-favoritos":{checked:false},
   "ordenar-cartas":{value:"original"}};
+ for(const id of ["camada-stats","stat-coragem","stat-poder","stat-sabedoria","stat-velocidade","stat-energia"]){
+  ids[id]={style:{},innerText:""};
+ }
  const document={getElementById:id=>ids[id]||null,createElement:node};
  let saved=0,details=[];
  const window={slotSelecionadoAtual:null,interceptarMontagemDeck(){}};
@@ -70,6 +73,7 @@ test("v0.1.127: list invokes detailed view with exact saved instance index",()=>
  const f=fixture();f.render();f.ids["lista-cartas"].children[1].children[2].trigger("click");
  assert.equal(f.details.length,1);
  assert.equal(f.ctx.cartaVisualizadaId,13);
+ assert.equal(f.ids["stat-energia"].innerText,90);
 });
 test("v0.1.127: missing stats display placeholders instead of failing",()=>{
  const f=fixture();delete f.cards[0].stats;f.render();
