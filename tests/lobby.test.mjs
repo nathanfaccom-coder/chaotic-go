@@ -221,3 +221,52 @@ test("v0.1.67: expired and corrupt saved IDs are forgotten without replaying a g
     assert.equal(tab.elem("lobby-room-code").textContent,"");
   }
 });
+
+test("v0.1.128: original 12-char code still joins normally",async()=>{
+ const host=makeBrowser("invite128-a"),guest=makeBrowser("invite128-b");
+ host.browser.window.abrirSalaPrivadaDrome();
+ host.elem("lobby-select-mode").value="3x3";
+ await host.elem("lobby-create-btn").onclick();
+ const code=host.elem("lobby-room-code").textContent;
+ guest.browser.window.abrirSalaPrivadaDrome();
+ guest.elem("lobby-input-code").value=code.toLowerCase();
+ await guest.elem("lobby-join-btn").onclick();
+ assert.match(guest.elem("lobby-status").textContent,/Sala pronta/);
+});
+test("v0.1.128: recipient can paste complete original invite into join input",async()=>{
+ const host=makeBrowser("invite128-c"),guest=makeBrowser("invite128-d");
+ host.browser.window.abrirSalaPrivadaDrome();
+ host.elem("lobby-select-mode").value="3x3";
+ await host.elem("lobby-create-btn").onclick();
+ await host.elem("lobby-copy").onclick();
+ const invitation=host.getClipboard();
+ assert.match(invitation,/https:\/\/nathanfaccom-coder\.github\.io\/chaotic-go\//);
+ guest.browser.window.abrirSalaPrivadaDrome();
+ guest.elem("lobby-input-code").value=invitation;
+ await guest.elem("lobby-join-btn").onclick();
+ assert.match(guest.elem("lobby-status").textContent,/Sala pronta/);
+});
+test("v0.1.128: copy-only-code gives the exact private room code",async()=>{
+ const host=makeBrowser("invite128-e");
+ host.browser.window.abrirSalaPrivadaDrome();
+ host.elem("lobby-select-mode").value="3x3";
+ await host.elem("lobby-create-btn").onclick();
+ await host.elem("lobby-copy-code").onclick();
+ assert.equal(host.getClipboard(),host.elem("lobby-room-code").textContent);
+});
+test("v0.1.128: sharing falls back to copied invitation on unsupported Android",async()=>{
+ const host=makeBrowser("invite128-f");
+ host.browser.window.abrirSalaPrivadaDrome();
+ host.elem("lobby-select-mode").value="3x3";
+ await host.elem("lobby-create-btn").onclick();
+ await host.elem("lobby-share-invite").onclick();
+ assert.match(host.getClipboard(),/Convite Chaotic GO/);
+ assert.match(host.elem("lobby-notice").textContent,/copiado/);
+});
+test("v0.1.128: invalid pasted message cannot enter another private room",async()=>{
+ const guest=makeBrowser("invite128-g");
+ guest.browser.window.abrirSalaPrivadaDrome();
+ guest.elem("lobby-input-code").value="Olá, meu ID 111111111111 é outro assunto.";
+ await guest.elem("lobby-join-btn").onclick();
+ assert.match(guest.elem("lobby-notice").textContent,/Convite inválido/);
+});
