@@ -60,7 +60,8 @@ for(const id of ["lobby-create-btn","lobby-join-btn"]){
   const pending=deferred(),started=deferred();
   const nodes=new Map(),$=key=>nodes.get(key)||nodes.set(key,{value:key==="lobby-input-code"?"ABCDEF123456":"3x3",onclick:null}).get(key);
   let recalls=0;
-  const ctx={room:null,viewGeneration:5,$,action:fn=>fn(),
+  const parseChaoticInviteCode=extract("function parseChaoticInviteCode(raw)","  function formatChaoticInvite(currentRoom)",{});
+  const ctx={room:null,viewGeneration:5,$,parseChaoticInviteCode,action:fn=>fn(),
     rpc:()=>{started.resolve();return pending.promise;},
     note:()=>{},rememberLastRoom:()=>recalls++,
     setDefaultCreatureSlot:()=>recalls++,updateRoomUI:()=>recalls++,watch:()=>recalls++};
