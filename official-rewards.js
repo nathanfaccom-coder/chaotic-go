@@ -24,6 +24,7 @@
       // RLS exposes only this player's receipts. Authenticated SELECT only.
       const {data,error}=await api.from("chaotic_official_reward_ledger")
         .select("player_id,award_kind,xp_awarded,coins_awarded,awarded_at,reward_scope")
+        .eq("player_id",playerId)
         .order("awarded_at",{ascending:false}).limit(20);
       if(request!==serial||$("lobby-rewards-list")!==list)return;
       if(error)throw error;
