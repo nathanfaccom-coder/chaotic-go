@@ -3182,6 +3182,14 @@
       '<button id="lobby-share-invite" class="lobby-outline" type="button">Compartilhar convite no celular</button>',
       '<button id="lobby-refresh" type="button">Atualizar status</button>',
       '<button id="lobby-close" class="lobby-danger" type="button">Encerrar sala</button></div>',
+      '<details id="lobby-history-panel" style="margin:12px 0;padding:10px;border:1px solid #56845c;border-radius:10px">',
+      '<summary style="cursor:pointer;min-height:44px;color:#c4ffd1">📜 Meu histórico de treino 3×3</summary>',
+      '<p style="font-size:11px">Somente resultados completos verificados pelo servidor. Não são vitórias oficiais e não concedem XP ou moedas.</p>',
+      '<button id="lobby-history-refresh" type="button" class="lobby-outline">Atualizar histórico</button>',
+      '<p id="lobby-history-status" role="status" aria-live="polite">Toque em Atualizar histórico para consultar seus resultados.</p>',
+      '<p id="lobby-history-stats" aria-live="polite"></p>',
+      '<div id="lobby-history-list" aria-label="Últimos resultados de treino"></div>',
+      '</details>',
       '<p id="lobby-notice" role="status" aria-live="polite"></p>',
       '<button id="lobby-back" class="lobby-outline" type="button">Voltar ao DROME</button>',
       '</div>'
@@ -3285,6 +3293,11 @@
         }catch(_error){}
       }
       note("Não foi possível compartilhar automaticamente. Use Copiar convite ou selecione o código da sala.",true);
+    };
+    $("lobby-history-refresh").onclick = () => {
+      const history=window.ChaoticTrainingHistory;
+      if(history?.refresh)history.refresh();
+      else note("Histórico indisponível. Atualize a página do jogo.",true);
     };
     $("lobby-refresh").onclick = () => action(refreshRoom);
     $("lobby-turn-refresh").onclick = () => action(refreshRoom);
