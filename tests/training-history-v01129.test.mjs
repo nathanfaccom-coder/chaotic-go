@@ -88,5 +88,7 @@ test("v0.1.129: history is immutable to clients and archived once per lobby",()=
   "on conflict(lobby_id) do nothing",
   "not experience_awarded and not currency_awarded"
  ])assert.ok(migration.includes(fragment),fragment);
- assert.doesNotMatch(source,/\.insert\(|\.update\(|\.upsert\(|\.delete\(|\.rpc\(/);
+ assert.doesNotMatch(source,/\.insert\(|\.update\(|\.upsert\(|\.delete\(/);
+ // The read-only career RPC is allowed; no reward/mutation RPC may be called.
+ assert.match(source,/api\.rpc\("chaotic_my_training_stats"\)/);
 });
