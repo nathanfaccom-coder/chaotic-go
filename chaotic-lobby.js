@@ -3190,6 +3190,14 @@
       '<p id="lobby-history-stats" aria-live="polite"></p>',
       '<div id="lobby-history-list" aria-label="Últimos resultados de treino"></div>',
       '</details>',
+      '<details id="lobby-official-rewards" style="margin:12px 0;padding:10px;border:1px solid #6885a1;border-radius:10px">',
+      '<summary style="cursor:pointer;min-height:44px;color:#cce7ff">💠 Extrato de recompensas oficiais</summary>',
+      '<p style="font-size:11px">Histórico separado da coleção e do XP legado. Recompensas oficiais ainda NÃO estão habilitadas; treinos não pagam.</p>',
+      '<button id="lobby-rewards-refresh" type="button" class="lobby-outline">Consultar extrato</button>',
+      '<p id="lobby-rewards-status" role="status" aria-live="polite">Consulte seus lançamentos oficiais confirmados no servidor.</p>',
+      '<p id="lobby-rewards-summary"></p>',
+      '<div id="lobby-rewards-list" aria-label="Últimos lançamentos oficiais"></div>',
+      '</details>',
       '<p id="lobby-notice" role="status" aria-live="polite"></p>',
       '<button id="lobby-back" class="lobby-outline" type="button">Voltar ao DROME</button>',
       '</div>'
@@ -3298,6 +3306,11 @@
       const history=window.ChaoticTrainingHistory;
       if(history?.refresh)history.refresh();
       else note("Histórico indisponível. Atualize a página do jogo.",true);
+    };
+    $("lobby-rewards-refresh").onclick=()=>{
+      const ledger=window.ChaoticOfficialRewards;
+      if(ledger?.refresh)ledger.refresh();
+      else note("Extrato indisponível. Recarregue a versão mais recente do jogo.",true);
     };
     $("lobby-refresh").onclick = () => action(refreshRoom);
     $("lobby-turn-refresh").onclick = () => action(refreshRoom);

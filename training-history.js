@@ -1,4 +1,4 @@
-// Chaotic GO v0.1.129 — authenticated, RLS-filtered training history.
+// Chaotic GO v0.1.130 — authenticated, RLS-filtered training history.
 // The UI reads only server-authenticated completed 3x3 TRAINING outcomes.
 // No XP, money, official wins, inventory or wallet mutation is possible here.
 (function(){
@@ -38,6 +38,22 @@
       const losses=records.length-wins;
       stats.textContent="Últimos "+records.length+" resultados: "+wins+
         " vitória(s) de treino e "+losses+" derrota(s) de treino. Limite: 30 registros.";
+      if(typeof api.rpc==="function"){
+        // A slow lifetime RPC must not repaint a new DROME screen or a newer read.
+        const currentList=list,currentRequest=request;
+        api.rpc("chaotic_my_training_stats").then(response=>{
+          if(currentRequest!==requestSerial||$("lobby-history-list")!==currentList)return;
+          if(response?.error)return;
+          const raw=Array.isArray(response?.data)?response.data[0]:response?.data;
+          if(!raw)return;
+          const total=Number(raw.total_matches), careerWins=Number(raw.victories);
+          const careerLosses=Number(raw.defeats);
+          if(![total,careerWins,careerLosses].every(n=>Number.isSafeInteger(n)&&n>=0)
+             ||careerWins+careerLosses!==total)return;
+          stats.textContent="Carreira inteira de TREINO: "+total+" partida(s), "+
+            careerWins+" vitória(s), "+careerLosses+" derrota(s). "+stats.textContent;
+        }).catch(()=>{ /* Offline: keep valid last-30 summary, not a fake career total. */ });
+      }
       if(records.length===0){
         status.textContent="Nenhum resultado de treino 3×3 com três nocautes confirmado neste histórico.";
         return;
