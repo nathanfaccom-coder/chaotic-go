@@ -1,10 +1,9 @@
 // Chaotic GO — cache exclusivamente de recursos públicos e imutáveis da interface.
 // Nunca persistir respostas de sessão, APIs, arquivos privados ou URLs com parâmetros.
-const CACHE = 'chaotic-go-release-20261111-133';
+const CACHE = 'chaotic-go-release-20261112-132';
 const PUBLIC_ASSETS = new Set([
   '/index.html', '/style.css', '/cartas.js', '/logo.png', '/manifest.json'
 ]);
-const scopePath = new URL(self.registration.scope).pathname;
 const scopedPath = path => new URL(path, self.registration.scope).pathname;
 const allowedAssets = new Set([...PUBLIC_ASSETS].map(path => scopedPath('.' + path)));
 
