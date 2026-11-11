@@ -18,7 +18,9 @@
     summary.textContent="";
     list.replaceChildren();
     // Remove any provenance section from a prior refresh.
-    for(const section of [...list.parentNode.querySelectorAll('section[aria-label="Resultados oficiais do servidor"]')])section.remove();
+    if(list.parentNode?.querySelectorAll){
+      for(const section of [...list.parentNode.querySelectorAll('section[aria-label="Resultados oficiais do servidor"]')])section.remove();
+    }
     if(!playerId||!api){
       status.textContent="Entre na sua conta para consultar o extrato.";
       return;
@@ -59,6 +61,7 @@
       }
       // Show the server's provenance separately from paid rewards. A pending
       // result is never a victory, and cannot increase XP or currency.
+      if(list.parentNode?.insertBefore && typeof document.createElement==="function"){
       const provenance=document.createElement("section");
       provenance.setAttribute("aria-label","Resultados oficiais do servidor");
       const provenanceTitle=document.createElement("p");
@@ -100,6 +103,7 @@
       }catch(_err){
         if(request===serial&&currentIdentity().playerId===playerId)
           provenanceStatus.textContent="Não foi possível consultar os resultados oficiais.";
+      }
       }
       if(!records.length){
         status.textContent="Nenhuma recompensa oficial lançada neste extrato. Treinos 3×3 não geram XP nem moedas oficiais.";
