@@ -49,3 +49,9 @@ test("combat mini-card: absent attributes still use original card stats",()=>{
   statsMax:{coragem:75,poder:80,sabedoria:85,velocidade:90}});
  for(const base of [75,80,85,90])assert.ok(html.includes("<b>"+base+"</b>"));
 });
+
+test("combat mini-card: visible HP label cannot exceed maximum after stale refresh",()=>{
+ const html=context.renderMini({nome:"Teste",hpMax:100,hpAtual:250,revelada:true});
+ assert.match(html,/mini-hp-text">100<\/span>/);
+ assert.doesNotMatch(html,/mini-hp-text">250<\/span>/);
+});
