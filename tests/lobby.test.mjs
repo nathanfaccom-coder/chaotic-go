@@ -29,7 +29,7 @@ function makeClient(userId) {
     removeChannel(c){c.unsubscribe();return Promise.resolve();},
     rpc: async (method, args) => {
       if (method === "chaotic_create_lobby") {
-        const room = {id: "room-" + (++counter), code: "ABCDEF12345" + counter,
+        const room = {id: "room-" + (++counter), code: "ABCDEF" + counter.toString(16).toUpperCase().padStart(6,"0"),
           host_id:userId, guest_id:null, mode:args.p_mode, status:"waiting",
           expires_at:new Date(Date.now()+3600000).toISOString()};
         rooms.set(room.id,room); return {data:{...room},error:null};
@@ -52,7 +52,7 @@ function makeClient(userId) {
           return {data:{state:"ready",new_lobby_id:req.new_lobby_id,training_only:true},error:null};
         if(!req.host_accepted||!req.guest_accepted)
           return {data:{state:"waiting_for_other_player",new_lobby_id:null,training_only:true},error:null};
-        const code="ABCDEF12345"+(++counter);
+        const code="ABCDEF"+(++counter).toString(16).toUpperCase().padStart(6,"0");
         const created={
           id:"room-"+counter,code,host_id:room.host_id,guest_id:room.guest_id,
           mode:room.mode,status:"ready",
@@ -315,7 +315,7 @@ test("v0.1.132: both previous players accept a new room after training",async()=
  await guest.elem("lobby-join-btn").onclick();
  oldRoom.finished=true; // Mock for a SERVER-confirmed terminal training.
  await host.elem("lobby-rematch-btn").onclick();
- assert.match(host.elem("lobby-rematch-status").textContent,/aguarde a confirmação/i);
+ assert.match(host.elem("lobby-notice").textContent,/outro jogador também precisa confirmar/i);
  assert.equal(oldRoom.status,"ready");
  await guest.elem("lobby-rematch-btn").onclick();
  assert.equal(oldRoom.status,"cancelled");
