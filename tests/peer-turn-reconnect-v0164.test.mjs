@@ -52,6 +52,10 @@ test("v0.1.64: PWA cache and visible version match without replacing assets",()=
   assert.ok(Number(visible[1])>=64,"não regredir para antes de v0.1.64");
   assert.equal(visible[1],loader[1]);
   assert.equal(visible[1],cache[1]);
-  assert.match(sw,/\.\/logo\.png/);
-  assert.match(sw,/if\(request\.mode==='navigate' \|\| \/\\\.\(\?:js\|html\)\$\/i/);
+  assert.match(sw,/\/logo\.png/);
+  assert.match(sw,/const offlineAssets =/);
+  assert.match(sw,/if \(!offlineAssets\.includes\(url\.pathname\)\) return/);
+  assert.match(sw,/request\.mode === 'navigate'/);
+  assert.match(sw,/request\.headers\.has\('Authorization'\)/);
+  assert.match(sw,/url\.origin !== self\.location\.origin \|\| url\.search \|\| url\.hash/);
 });
