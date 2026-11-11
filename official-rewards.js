@@ -1,4 +1,4 @@
-// Chaotic GO v0.1.130 — official reward receipts, authenticated read-only.
+// Chaotic GO v0.1.131 — official reward receipts, authenticated read-only.
 // This panel never calculates rewards from a DROME match or the editable profile.
 (function(){
   "use strict";
@@ -35,6 +35,24 @@
         &&[entry.xp_awarded,entry.coins_awarded].every(n=>
            Number.isSafeInteger(n)&&n>=0&&n<=10000)
         &&(entry.xp_awarded>0||entry.coins_awarded>0));
+      // Read the authoritative ALL-TIME balance independently of the last
+      // 20 receipts. A stale RPC can never repaint a newer DROME screen.
+      if(typeof api.rpc==="function"){
+        api.rpc("chaotic_my_official_reward_totals").then(response=>{
+          if(request!==serial||$("lobby-rewards-list")!==list)return;
+          if(response?.error)return; // Keep the verified recent view.
+          const raw=Array.isArray(response?.data)?response.data[0]:response?.data;
+          if(!raw)return;
+          const xp=Number(raw.total_xp), coins=Number(raw.total_coins);
+          const count=Number(raw.settled_matches);
+          if(![xp,coins,count].every(n=>Number.isSafeInteger(n)&&n>=0))return;
+          const recent=summary.textContent;
+          summary.textContent="Total oficial registrado no servidor: "+
+            format(xp)+" XP e "+format(coins)+" moedas em "+
+            format(count)+" lançamento(s)."+
+            (recent?" "+recent:"");
+        }).catch(()=>{ /* Offline: do not invent a total or clear recent receipts. */ });
+      }
       if(!records.length){
         status.textContent="Nenhuma recompensa oficial lançada neste extrato. Treinos 3×3 não geram XP nem moedas oficiais.";
         return;
