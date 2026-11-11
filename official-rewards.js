@@ -59,6 +59,39 @@
             (recent?" "+recent:"");
         }).catch(()=>{ /* Offline: do not invent a total or clear recent receipts. */ });
       }
+      // Career counters are computed by an authenticated, RLS-scoped server RPC.
+      // Never infer a win from a pending result or from a local training match.
+      if(typeof api.rpc==="function"){
+        api.rpc("chaotic_my_official_career_by_mode").then(response=>{
+          if(request!==serial||$("lobby-rewards-list")!==list
+            ||currentIdentity().playerId!==playerId)return;
+          if(response?.error||!Array.isArray(response?.data))return;
+          const expected=["1x1","3x3","6x6"];
+          const rows=response.data;
+          if(rows.length!==3||!expected.every(mode=>rows.some(row=>row.mode===mode)))return;
+          if(!rows.every(row=>[row.victories,row.defeats,row.pending].every(
+            n=>Number.isSafeInteger(Number(n))&&Number(n)>=0)))return;
+          const previous=list.parentNode?.querySelector(
+            'section[aria-label="Carreira oficial por modo"]');
+          previous?.remove();
+          if(!list.parentNode||typeof document.createElement!=="function")return;
+          const section=document.createElement("section");
+          section.setAttribute("aria-label","Carreira oficial por modo");
+          const heading=document.createElement("p");
+          heading.textContent="Carreira oficial por modo (servidor)";
+          heading.style.fontWeight="bold";
+          section.appendChild(heading);
+          for(const mode of expected){
+            const row=rows.find(item=>item.mode===mode);
+            const p=document.createElement("p");
+            p.textContent=mode+" · "+format(row.victories)+" vitória(s) · "+
+              format(row.defeats)+" derrota(s) · "+format(row.pending)+
+              " pendente(s), sem premiação";
+            section.appendChild(p);
+          }
+          list.parentNode.insertBefore(section,list);
+        }).catch(()=>{ /* Offline: never invent career statistics. */ });
+      }
       // Show the server's provenance separately from paid rewards. A pending
       // result is never a victory, and cannot increase XP or currency.
       if(list.parentNode?.insertBefore && typeof document.createElement==="function"){
