@@ -21,7 +21,7 @@ function desenharMiniCarta(criaturaObj) {
     // Se estiver oculta, mostra o verso. Se revelada, mostra a arte real!
     img = isOculta ? URL_FUNDO_CARTA : criaturaObj.cartaBlank; 
     
-    let hpMax = criaturaObj.hpMax || criaturaObj.statsMax?.energia || 0;
+    let hpMax = criaturaObj.hpMax ?? criaturaObj.statsMax?.energia ?? 0;
     hpAtual = criaturaObj.hpAtual !== undefined ? criaturaObj.hpAtual : hpMax;
     c = criaturaObj.coragem || criaturaObj.statsMax?.coragem || 0;
     p = criaturaObj.poder || criaturaObj.statsMax?.poder || 0;
@@ -62,7 +62,7 @@ function desenharMiniCarta(criaturaObj) {
     }
 
     // 🔥 BLINDAGEM DE DADOS: Troca todos os números por "?" se estiver oculta!
-    let displayHP = isOculta ? '???' : (hpAtual > 0 ? hpAtual : '');
+    let displayHP = isOculta ? '???' : (Number.isFinite(hpSeguro) && hpSeguro > 0 ? hpSeguro : '');
     let displayCorHp = isOculta ? '#222' : corHp;
     let displayPct = isOculta ? 100 : pct;
 
