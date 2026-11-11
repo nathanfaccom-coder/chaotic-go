@@ -36,3 +36,16 @@ test("combat mini-card: invalid current HP never appears as NaN or Infinity labe
   assert.ok(html.includes('style="width: 0%;'));
  }
 });
+
+test("combat mini-card: explicit zero attributes override printed base stats",()=>{
+ const html=context.renderMini({nome:"Teste",hpMax:100,hpAtual:80,revelada:true,
+  coragem:0,poder:0,sabedoria:0,velocidade:0,
+  statsMax:{coragem:75,poder:80,sabedoria:85,velocidade:90}});
+ assert.equal((html.match(/<b>0<\/b>/g)||[]).length,4);
+ for(const base of [75,80,85,90])assert.doesNotMatch(html,new RegExp("<b>"+base+"</b>"));
+});
+test("combat mini-card: absent attributes still use original card stats",()=>{
+ const html=context.renderMini({nome:"Teste",hpMax:100,hpAtual:80,revelada:true,
+  statsMax:{coragem:75,poder:80,sabedoria:85,velocidade:90}});
+ for(const base of [75,80,85,90])assert.ok(html.includes("<b>"+base+"</b>"));
+});
