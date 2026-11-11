@@ -29,7 +29,7 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   const request = event.request;
-  if (request.method !== 'GET' || request.mode === 'navigate' || request.credentials === 'include') return;
+  if (request.method !== 'GET' || request.mode === 'navigate' || request.headers.has('Authorization')) return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin || url.search || url.hash) return;
   if (!allowedAssets.has(url.pathname)) return;
