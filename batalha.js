@@ -23,10 +23,10 @@ function desenharMiniCarta(criaturaObj) {
     
     let hpMax = criaturaObj.hpMax ?? criaturaObj.statsMax?.energia ?? 0;
     hpAtual = criaturaObj.hpAtual !== undefined ? criaturaObj.hpAtual : hpMax;
-    c = criaturaObj.coragem || criaturaObj.statsMax?.coragem || 0;
-    p = criaturaObj.poder || criaturaObj.statsMax?.poder || 0;
-    s = criaturaObj.sabedoria || criaturaObj.statsMax?.sabedoria || 0;
-    v = criaturaObj.velocidade || criaturaObj.statsMax?.velocidade || 0;
+    c = criaturaObj.coragem ?? criaturaObj.statsMax?.coragem ?? 0;
+    p = criaturaObj.poder ?? criaturaObj.statsMax?.poder ?? 0;
+    s = criaturaObj.sabedoria ?? criaturaObj.statsMax?.sabedoria ?? 0;
+    v = criaturaObj.velocidade ?? criaturaObj.statsMax?.velocidade ?? 0;
     
     let elemsBrutos = criaturaObj.elementos;
     if ((!elemsBrutos || elemsBrutos.length === 0) && typeof MONSTROS !== 'undefined') {
