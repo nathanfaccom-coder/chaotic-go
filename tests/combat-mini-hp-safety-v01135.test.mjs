@@ -6,7 +6,7 @@ import {readFile} from "node:fs/promises";
 const source=await readFile(new URL("../batalha.js",import.meta.url),"utf8");
 const mini=source.slice(source.indexOf("function desenharMiniCarta("),source.indexOf("// SISTEMA DE CONTADOR INTELIGENTE"));
 const context={};
-vm.runInNewContext(mini+"\nthis.renderMini=desenharMiniCarta;",context);
+vm.runInNewContext("const URL_FUNDO_CARTA = 'cartas/verso.jpg';\n"+mini+"\nthis.renderMini=desenharMiniCarta;",context);
 
 test("combat mini-card: zero max HP never emits NaN or Infinity in HP width",()=>{
  const html=context.renderMini({nome:"Teste",hpMax:0,hpAtual:0,revelada:true});
