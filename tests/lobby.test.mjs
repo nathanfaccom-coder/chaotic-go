@@ -5,6 +5,7 @@ import vm from "node:vm";
 
 const source = await readFile(new URL("../chaotic-lobby.js", import.meta.url), "utf8");
 const rooms = new Map();
+const rematchRequests = new Map();
 const realtimeChannels = [];
 const browserStorage = new Map();
 let counter = 0;
@@ -33,8 +34,34 @@ function makeClient(userId) {
           expires_at:new Date(Date.now()+3600000).toISOString()};
         rooms.set(room.id,room); return {data:{...room},error:null};
       }
-      const room = [...rooms.values()].find(r => r.id===args.p_id || r.code===args.p_code);
+      const room = [...rooms.values()].find(r => r.id===args.p_id ||
+        r.id===args.p_source_lobby_id || r.code===args.p_code);
       if (!room) return {data:null,error:{message:"Sala indisponível"}};
+      if (method === "chaotic_request_rematch") {
+        if(!room.finished || room.guest_id==null || room.status!=="ready"
+          || ![room.host_id,room.guest_id].includes(userId))
+          return {data:null,error:{message:"A revanche só é permitida depois da conclusão do treino"}};
+        let req=rematchRequests.get(room.id);
+        if(!req){
+          req={source_lobby_id:room.id,host_accepted:false,guest_accepted:false,new_lobby_id:null};
+          rematchRequests.set(room.id,req);
+        }
+        if(userId===room.host_id)req.host_accepted=true;
+        else req.guest_accepted=true;
+        if(req.new_lobby_id)
+          return {data:{state:"ready",new_lobby_id:req.new_lobby_id,training_only:true},error:null};
+        if(!req.host_accepted||!req.guest_accepted)
+          return {data:{state:"waiting_for_other_player",new_lobby_id:null,training_only:true},error:null};
+        const code="ABCDEF12345"+(++counter);
+        const created={
+          id:"room-"+counter,code,host_id:room.host_id,guest_id:room.guest_id,
+          mode:room.mode,status:"ready",
+          expires_at:new Date(Date.now()+3600000).toISOString()
+        };
+        room.status="cancelled";
+        rooms.set(created.id,created);req.new_lobby_id=created.id;
+        return {data:{state:"ready",new_lobby_id:created.id,training_only:true},error:null};
+      }
       if (method === "chaotic_join_lobby") {
         if (room.host_id===userId || room.guest_id || room.status!=="waiting")
           return {data:null,error:{message:"Não é possível entrar"}};
@@ -52,7 +79,7 @@ function makeClient(userId) {
       throw Error("Unexpected RPC "+method);
     },
     from(table) {
-      assert.ok(["chaotic_lobbies","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances"].includes(table));
+      assert.ok(["chaotic_lobbies","chaotic_rematch_requests","chaotic_match_turns","chaotic_match_events","chaotic_combat_declarations","chaotic_preview_board","chaotic_preview_clashes","chaotic_preview_damage","chaotic_preview_modifiers","chaotic_preview_dice","chaotic_preview_loadouts","chaotic_preview_attack_instances"].includes(table));
       return {select(){return this;},eq(_field,id){this.id=id;return this;},
         order(){return this;},
         limit(){return Promise.resolve({data:[],error:null});},
@@ -63,6 +90,11 @@ function makeClient(userId) {
         async maybeSingle() {
           const room=rooms.get(this.id);
           if(table==="chaotic_match_turns")return {data:null,error:null};
+          if(table==="chaotic_rematch_requests"){
+            const source=rooms.get(this.id);
+            return {data:source&&[source.host_id,source.guest_id].includes(userId)
+              ?rematchRequests.get(this.id)||null:null,error:null};
+          }
           return {data:room&&(room.host_id===userId||room.guest_id===userId)?{...room}:null,error:null};
         }};
     }
@@ -269,4 +301,60 @@ test("v0.1.128: invalid pasted message cannot enter another private room",async(
  guest.elem("lobby-input-code").value="Olá, meu ID 111111111111 é outro assunto.";
  await guest.elem("lobby-join-btn").onclick();
  assert.match(guest.elem("lobby-notice").textContent,/Convite inválido/);
+});
+
+test("v0.1.132: both previous players accept a new room after training",async()=>{
+ const host=makeBrowser("rematch-host"),guest=makeBrowser("rematch-guest");
+ host.browser.window.abrirSalaPrivadaDrome();
+ host.elem("lobby-select-mode").value="3x3";
+ await host.elem("lobby-create-btn").onclick();
+ const oldCode=host.elem("lobby-room-code").textContent;
+ const oldRoom=[...rooms.values()].find(x=>x.code===oldCode);
+ guest.browser.window.abrirSalaPrivadaDrome();
+ guest.elem("lobby-input-code").value=oldCode;
+ await guest.elem("lobby-join-btn").onclick();
+ oldRoom.finished=true; // Mock for a SERVER-confirmed terminal training.
+ await host.elem("lobby-rematch-btn").onclick();
+ assert.match(host.elem("lobby-rematch-status").textContent,/aguarde a confirmação/i);
+ assert.equal(oldRoom.status,"ready");
+ await guest.elem("lobby-rematch-btn").onclick();
+ assert.equal(oldRoom.status,"cancelled");
+ const newCode=guest.elem("lobby-room-code").textContent;
+ assert.notEqual(newCode,oldCode);
+ assert.match(guest.elem("lobby-status").textContent,/Sala pronta/);
+ await host.elem("lobby-refresh").onclick();
+ assert.equal(host.elem("lobby-room-code").textContent,newCode);
+ assert.match(host.elem("lobby-status").textContent,/Sala pronta/);
+ const next=[...rooms.values()].find(x=>x.code===newCode);
+ assert.equal(next.host_id,oldRoom.host_id);
+ assert.equal(next.guest_id,oldRoom.guest_id);
+ assert.equal(next.mode,oldRoom.mode);
+ assert.equal(rematchRequests.get(oldRoom.id).new_lobby_id,next.id);
+});
+test("v0.1.132: no rematch while a match is still running",async()=>{
+ const host=makeBrowser("rematch-running-host"),guest=makeBrowser("rematch-running-guest");
+ host.browser.window.abrirSalaPrivadaDrome();
+ host.elem("lobby-select-mode").value="1x1";
+ await host.elem("lobby-create-btn").onclick();
+ const code=host.elem("lobby-room-code").textContent;
+ guest.browser.window.abrirSalaPrivadaDrome();
+ guest.elem("lobby-input-code").value=code;
+ await guest.elem("lobby-join-btn").onclick();
+ const room=[...rooms.values()].find(x=>x.code===code);
+ await host.elem("lobby-rematch-btn").onclick();
+ assert.equal(room.status,"ready");
+ assert.equal(rematchRequests.has(room.id),false);
+ assert.match(host.elem("lobby-notice").textContent,/só é permitida depois/i);
+});
+test("v0.1.132: a different account cannot request rematch from another room",async()=>{
+ const host=makeBrowser("rematch-protected-host");
+ host.browser.window.abrirSalaPrivadaDrome();
+ host.elem("lobby-select-mode").value="3x3";
+ await host.elem("lobby-create-btn").onclick();
+ const room=[...rooms.values()].find(x=>x.code===host.elem("lobby-room-code").textContent);
+ room.finished=true;
+ const outsider=makeClient("unrelated");
+ const answer=await outsider.rpc("chaotic_request_rematch",{p_source_lobby_id:room.id});
+ assert.ok(answer.error);
+ assert.equal(rematchRequests.has(room.id),false);
 });
