@@ -63,7 +63,7 @@
       // Career counters are computed by an authenticated, RLS-scoped server RPC.
       // Never infer a win from a pending result or from a local training match.
       if(typeof api.rpc==="function"){
-        api.rpc("chaotic_my_official_career_by_mode").then(response=>{
+        try { Promise.resolve(api.rpc("chaotic_my_official_career_by_mode")).then(response=>{
           if(request!==serial||$("lobby-rewards-list")!==list
             ||currentIdentity().playerId!==playerId)return;
           if(response?.error||!Array.isArray(response?.data))return;
@@ -92,6 +92,7 @@
           }
           list.parentNode.insertBefore(section,list);
         }).catch(()=>{ /* Offline: never invent career statistics. */ });
+        } catch (_careerError) { /* Optional career RPC must not hide validated reward receipts. */ }
       }
       // Show the server's provenance separately from paid rewards. A pending
       // result is never a victory, and cannot increase XP or currency.
