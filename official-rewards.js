@@ -20,6 +20,7 @@
     // Remove any provenance section from a prior refresh.
     if(list.parentNode?.querySelectorAll){
       for(const section of [...list.parentNode.querySelectorAll('section[aria-label="Resultados oficiais do servidor"]')])section.remove();
+      for(const section of [...list.parentNode.querySelectorAll('section[aria-label="Carreira oficial por modo"]')])section.remove();
     }
     if(!playerId||!api){
       status.textContent="Entre na sua conta para consultar o extrato.";
