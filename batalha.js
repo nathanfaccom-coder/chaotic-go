@@ -43,7 +43,12 @@ function desenharMiniCarta(criaturaObj) {
     const triboMap = {'Azul': 'tribo-azul', 'Vermelho': 'tribo-vermelho', 'Amarelo': 'tribo-amarelo', 'Verde': 'tribo-verde', 'Ciano': 'tribo-ciano', 'Cinza': 'tribo-cinza'};
     // Se oculta, não mostra a tribo (fica cinza). Se revelada, mostra a cor real.
     triboClass = isOculta ? 'tribo-cinza' : (triboMap[criaturaObj.tribo] || 'tribo-cinza');
-    pct = Math.max(0, Math.min(100, (hpAtual / hpMax) * 100));
+    // A carta pode chegar sem energia inicial durante reconexão ou montagem do deck.
+    // Nunca produzir largura NaN%/Infinity% nem barras de vida negativas.
+    const maxHpSeguro = Number(hpMax);
+    const hpSeguro = Number(hpAtual);
+    pct = Number.isFinite(maxHpSeguro) && maxHpSeguro > 0 && Number.isFinite(hpSeguro)
+        ? Math.max(0, Math.min(100, (hpSeguro / maxHpSeguro) * 100)) : 0;
     corHp = pct <= 20 ? 'red' : (pct <= 50 ? 'orange' : 'lime');
 
     // Equipamentos SÓ aparecem se a criatura estiver revelada!
