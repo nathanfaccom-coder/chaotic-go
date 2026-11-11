@@ -39,7 +39,7 @@ const item=(id=who,kind="official_victory",xp=200,coins=50)=>({
 test("v0.1.130: rewards controls and client module load with DROME",()=>{
  for(const id of ["lobby-official-rewards","lobby-rewards-refresh","lobby-rewards-status",
   "lobby-rewards-summary","lobby-rewards-list"])assert.ok(ui.includes('id="'+id+'"'),id);
- assert.match(boot,/official-rewards\.js\?v=release-131/);
+ assert.match(boot,/official-rewards\.js\?v=release-132/);
 });
 test("v0.1.130: player sees signed receipts, NOT legacy wallet totals",async()=>{
  const h=createHarness([item(),item(who,"official_participation",70,0)]);

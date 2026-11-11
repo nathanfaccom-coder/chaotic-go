@@ -85,6 +85,23 @@
     return true;
   }
 
+  function updateRematchUI() {
+    const panel=$("lobby-rematch-panel");
+    if(!panel)return;
+    const finished=!!room&&room.status==="ready"&&
+      new Date(room.expires_at).getTime()>Date.now()&&
+      (match?.status==="finished"||
+       (room.mode==="3x3"&&trainingOutcomes3x3.length>0));
+    panel.hidden=!finished;
+    if(!finished)return;
+    const pending=pendingRematchId()===room.id;
+    const button=$("lobby-rematch-btn");
+    const message=$("lobby-rematch-status");
+    if(button)button.hidden=pending;
+    if(message)message.textContent=pending
+      ?"Você confirmou. Aguarde a confirmação do outro jogador para criar uma nova sala."
+      :"Ambos precisam aceitar a revanche. O modo será mantido e o novo duelo não gera recompensas oficiais.";
+  }
   function forgetLastRoom() {
     try { window.localStorage?.removeItem(lastRoomStorageKey); } catch (_error) {}
   }
@@ -213,25 +230,8 @@
     }
     return stage;
   }
-  function updateRematchUI() {
-    const panel=$("lobby-rematch-panel");
-    if(!panel)return;
-    const finished=!!room&&room.status==="ready"&&
-      new Date(room.expires_at).getTime()>Date.now()&&
-      (match?.status==="finished"||
-       (room.mode==="3x3"&&trainingOutcomes3x3.length>0));
-    panel.hidden=!finished;
-    if(!finished)return;
-    const pending=pendingRematchId()===room.id;
-    const button=$("lobby-rematch-btn");
-    const message=$("lobby-rematch-status");
-    if(button)button.hidden=pending;
-    if(message)message.textContent=pending
-      ?"Você confirmou. Aguarde a confirmação do outro jogador para criar uma nova sala."
-      :"Ambos precisam aceitar a revanche. O modo será mantido e o novo duelo não gera recompensas oficiais.";
-  }
   function updateMatchUI() {
-    updateRematchUI();
+    if(typeof updateRematchUI==="function")updateRematchUI();
     const panel = $("lobby-turns");
     if (!panel) return;
     panel.hidden = !room || (room.status !== "ready" && !match);
@@ -2493,7 +2493,8 @@
       || new Date(data.expires_at).getTime()<=Date.now();
     // The first player may be waiting while the second accepted on another
     // phone. Read only their own rematch handoff before clearing the old room.
-    if(data.status==="cancelled" && pendingRematchId()===requestedRoomId
+    if(data.status==="cancelled" && typeof pendingRematchId==="function"
+       && pendingRematchId()===requestedRoomId
        && [data.host_id,data.guest_id].includes(userId)){
       const nextId=await findNewRematchId(requestedRoomId);
       if(room?.id!==requestedRoomId || viewGeneration!==requestedView)return;
@@ -2801,6 +2802,7 @@
       if(generation!==viewGeneration || room || busy)return;
       if(error)throw new Error(error.message);
       if(data && data.status==="cancelled"
+         && typeof pendingRematchId==="function"
          && pendingRematchId()===id
          && [data.host_id,data.guest_id].includes(userId)){
         const newId=await findNewRematchId(id);
@@ -3412,6 +3414,7 @@
       if(ledger?.refresh)ledger.refresh();
       else note("Extrato indisponível. Recarregue a versão mais recente do jogo.",true);
     };
+    $("lobby-refresh").onclick = () => action(refreshRoom);
     $("lobby-rematch-btn").onclick=()=>action(async()=>{
       if(!room)return;
       const oldId=room.id,view=viewGeneration;
@@ -3429,7 +3432,6 @@
         throw new Error("O servidor não confirmou uma nova sala.");
       }
     });
-    $("lobby-refresh").onclick = () => action(refreshRoom);
     $("lobby-turn-refresh").onclick = () => action(refreshRoom);
     $("lobby-loadout-capture").onclick = () => action(async()=>{
       if(!room||!match||room.mode!=="1x1"||match.status!=="active"
@@ -4552,7 +4554,7 @@
       // releasing its action lock. A fresh screen also clears every
       // private 3x3 result, queued refresh and disabled old-room button.
       const wasHost=method==="chaotic_close_lobby";
-      forgetPendingRematch();
+      if(typeof forgetPendingRematch==="function")forgetPendingRematch();
       forgetLastRoom();
       show();
       note(wasHost?"Você saiu da sala. Sala encerrada; já pode criar outra.":"Você saiu da sala. Já pode entrar em outra.");
