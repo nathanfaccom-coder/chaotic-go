@@ -55,3 +55,10 @@ test("combat mini-card: visible HP label cannot exceed maximum after stale refre
  assert.match(html,/mini-hp-text">100<\/span>/);
  assert.doesNotMatch(html,/mini-hp-text">250<\/span>/);
 });
+
+test("combat mini-card: invalid snapshot attributes show unknown instead of NaN or Infinity",()=>{
+ const html=context.renderMini({nome:"Teste",hpMax:100,hpAtual:70,revelada:true,
+  coragem:NaN,poder:Infinity,sabedoria:-Infinity,velocidade:"invalid"});
+ assert.equal((html.match(/<b>\?<\/b>/g)||[]).length,4);
+ assert.doesNotMatch(html,/<b>(?:NaN|Infinity|-Infinity)<\/b>/);
+});
