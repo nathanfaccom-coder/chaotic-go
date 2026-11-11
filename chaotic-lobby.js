@@ -3195,7 +3195,7 @@
       '<p style="font-size:11px">Histórico separado da coleção e do XP legado. Recompensas oficiais ainda NÃO estão habilitadas; treinos não pagam.</p>',
       '<button id="lobby-rewards-refresh" type="button" class="lobby-outline">Consultar extrato</button>',
       '<p id="lobby-rewards-status" role="status" aria-live="polite">Consulte seus lançamentos oficiais confirmados no servidor.</p>',
-      '<p id="lobby-rewards-summary"></p>',
+      '<p id="lobby-rewards-summary" role="status" aria-live="polite"></p>',
       '<div id="lobby-rewards-list" aria-label="Últimos lançamentos oficiais"></div>',
       '</details>',
       '<p id="lobby-notice" role="status" aria-live="polite"></p>',
