@@ -2,8 +2,9 @@
 // This panel never calculates rewards from a DROME match or the editable profile.
 (function(){
   "use strict";
-  const playerId=window.ChaoticAuthUser?.id;
-  const api=window.ChaoticAuth?.getClient?.();
+  // Resolve identity per refresh: mobile login/logout can change without a page reload.
+  const currentIdentity=()=>({playerId:window.ChaoticAuthUser?.id,
+    api:window.ChaoticAuth?.getClient?.()});
   let serial=0;
   const $=id=>document.getElementById(id);
   const format=n=>Number(n).toLocaleString("pt-BR");
@@ -13,8 +14,11 @@
     const list=$("lobby-rewards-list");
     if(!status||!summary||!list)return;
     const request=++serial;
+    const {playerId,api}=currentIdentity();
     summary.textContent="";
     list.replaceChildren();
+    // Remove any provenance section from a prior refresh.
+    for(const section of [...list.parentNode.querySelectorAll('section[aria-label="Resultados oficiais do servidor"]')])section.remove();
     if(!playerId||!api){
       status.textContent="Entre na sua conta para consultar o extrato.";
       return;
@@ -26,7 +30,7 @@
         .select("player_id,award_kind,xp_awarded,coins_awarded,awarded_at,reward_scope")
         .eq("player_id",playerId)
         .order("awarded_at",{ascending:false}).limit(20);
-      if(request!==serial||$("lobby-rewards-list")!==list)return;
+      if(request!==serial||$("lobby-rewards-list")!==list||currentIdentity().playerId!==playerId)return;
       if(error)throw error;
       const records=(Array.isArray(data)?data:[]).filter(entry=>
         entry&&entry.player_id===playerId
@@ -39,7 +43,7 @@
       // 20 receipts. A stale RPC can never repaint a newer DROME screen.
       if(typeof api.rpc==="function"){
         api.rpc("chaotic_my_official_reward_totals").then(response=>{
-          if(request!==serial||$("lobby-rewards-list")!==list)return;
+          if(request!==serial||$("lobby-rewards-list")!==list||currentIdentity().playerId!==playerId)return;
           if(response?.error)return; // Keep the verified recent view.
           const raw=Array.isArray(response?.data)?response.data[0]:response?.data;
           if(!raw)return;
@@ -52,6 +56,50 @@
             format(count)+" lançamento(s)."+
             (recent?" "+recent:"");
         }).catch(()=>{ /* Offline: do not invent a total or clear recent receipts. */ });
+      }
+      // Show the server's provenance separately from paid rewards. A pending
+      // result is never a victory, and cannot increase XP or currency.
+      const provenance=document.createElement("section");
+      provenance.setAttribute("aria-label","Resultados oficiais do servidor");
+      const provenanceTitle=document.createElement("p");
+      provenanceTitle.textContent="Resultados oficiais — verificação do servidor";
+      provenanceTitle.style.fontWeight="bold";
+      provenance.appendChild(provenanceTitle);
+      const provenanceStatus=document.createElement("p");
+      provenanceStatus.textContent="Consultando resultados...";
+      provenance.appendChild(provenanceStatus);
+      list.parentNode.insertBefore(provenance,list);
+      try{
+        const {data:matches,error:matchesError}=await api
+          .from("chaotic_official_match_results")
+          .select("id,host_id,guest_id,mode,winner_id,result_state,verification_source,created_at,verified_at")
+          .or("host_id.eq."+playerId+",guest_id.eq."+playerId)
+          .order("created_at",{ascending:false}).limit(10);
+        if(request!==serial||currentIdentity().playerId!==playerId){
+          provenance.remove();return;
+        }
+        if(matchesError)throw matchesError;
+        const safe=(Array.isArray(matches)?matches:[]).filter(m=>
+          m&&(m.host_id===playerId||m.guest_id===playerId)
+          &&["1x1","3x3","6x6"].includes(m.mode));
+        provenanceStatus.textContent=safe.length
+          ?"Últimos "+safe.length+" registro(s); pendentes não contam como vitórias."
+          :"Nenhuma partida oficial registrada pelo motor.";
+        for(const m of safe){
+          const verified=m.result_state==="verified"
+            &&m.verification_source==="official_engine_v1"
+            &&m.verified_at&&[m.host_id,m.guest_id].includes(m.winner_id);
+          const label=verified?(m.winner_id===playerId?"Vitória verificada":"Derrota verificada")
+            :"Pendente de verificação oficial";
+          const p=document.createElement("p");
+          p.textContent=m.mode+" · "+label+" · "+
+            (Number.isFinite(new Date(m.created_at).getTime())
+              ?new Date(m.created_at).toLocaleString("pt-BR"):"Data indisponível");
+          provenance.appendChild(p);
+        }
+      }catch(_err){
+        if(request===serial&&currentIdentity().playerId===playerId)
+          provenanceStatus.textContent="Não foi possível consultar os resultados oficiais.";
       }
       if(!records.length){
         status.textContent="Nenhuma recompensa oficial lançada neste extrato. Treinos 3×3 não geram XP nem moedas oficiais.";
@@ -73,7 +121,7 @@
         list.appendChild(div);
       }
     }catch(_error){
-      if(request!==serial||$("lobby-rewards-list")!==list)return;
+      if(request!==serial||$("lobby-rewards-list")!==list||currentIdentity().playerId!==playerId)return;
       status.textContent="Não foi possível acessar o extrato. Confira sua conexão e tente novamente.";
       summary.textContent="";
       list.replaceChildren();
