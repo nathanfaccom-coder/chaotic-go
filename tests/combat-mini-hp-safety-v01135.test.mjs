@@ -24,3 +24,15 @@ test("combat mini-card: hidden creature still conceals HP and attributes",()=>{
  assert.match(html,/mini-hp-text">\?\?\?</);
  assert.doesNotMatch(html,/mini-hp-text">25</);
 });
+
+test("combat mini-card: explicit zero maximum overrides fallback stats",()=>{
+ const html=context.renderMini({nome:"Teste",hpMax:0,statsMax:{energia:100},hpAtual:25,revelada:true});
+ assert.ok(html.includes('style="width: 0%;'));
+});
+test("combat mini-card: invalid current HP never appears as NaN or Infinity label",()=>{
+ for(const hp of [NaN,Infinity,-Infinity]){
+  const html=context.renderMini({nome:"Teste",hpMax:100,hpAtual:hp,revelada:true});
+  assert.doesNotMatch(html,/mini-hp-text">(?:NaN|Infinity|-Infinity)</);
+  assert.ok(html.includes('style="width: 0%;'));
+ }
+});
