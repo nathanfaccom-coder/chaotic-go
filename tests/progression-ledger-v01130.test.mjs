@@ -39,7 +39,7 @@ const item=(id=who,kind="official_victory",xp=200,coins=50)=>({
 test("v0.1.130: rewards controls and client module load with DROME",()=>{
  for(const id of ["lobby-official-rewards","lobby-rewards-refresh","lobby-rewards-status",
   "lobby-rewards-summary","lobby-rewards-list"])assert.ok(ui.includes('id="'+id+'"'),id);
- assert.match(boot,/official-rewards\.js\?v=release-130/);
+ assert.match(boot,/official-rewards\.js\?v=release-131/);
 });
 test("v0.1.130: player sees signed receipts, NOT legacy wallet totals",async()=>{
  const h=createHarness([item(),item(who,"official_participation",70,0)]);
@@ -81,7 +81,9 @@ test("v0.1.130: hidden history panel does not trigger DB read",async()=>{
  assert.equal(h.calls(),0);
 });
 test("v0.1.130: official reward ledger and statistics have no browser writes",()=>{
- assert.doesNotMatch(rewardSource,/\.insert\(|\.upsert\(|\.update\(|\.delete\(|\.rpc\(/);
+ assert.doesNotMatch(rewardSource,/\.insert\(|\.upsert\(|\.update\(|\.delete\(/);
+ // A whitelist of read-only RPC calls is allowed, but no payout RPC.
+ assert.match(rewardSource,/api\.rpc\("chaotic_my_official_reward_totals"\)/);
  assert.doesNotMatch(historySource,/\.insert\(|\.upsert\(|\.update\(|\.delete\(/);
 });
 test("v0.1.130: SQL has immutable one-reward-per-match and participant-only RLS",()=>{

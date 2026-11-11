@@ -3,10 +3,10 @@
 **11 de novembro de 2026.**
 
 ## Segurança de recompensas
-- Nova tabela \`chaotic_official_match_results\` com status \`pending_engine_verification\` ou \`verified\`, vencedor do par participante, modo e proveniência obrigatória. Ainda não existe um motor que produza resultados oficiais verificados: a tabela começa vazia.
+- Nova tabela `chaotic_official_match_results` com status `pending_engine_verification` ou `verified`, vencedor do par participante, modo e proveniência obrigatória. Ainda não existe um motor que produza resultados oficiais verificados: a tabela começa vazia.
 - RLS: somente host e convidado conseguem ler uma eventual partida; **nenhum jogador pode gravar resultados**.
-- O extrato de XP/moedas agora exige uma chave estrangeira para um resultado oficial existente e o gatilho valida \`verified\`, vencedor, destinatário e tipo de premiação. Resultados de treino DROME continuam explicitamente bloqueados.
-- \`chaotic_my_official_reward_totals()\` consulta a **soma de todo o extrato autenticado** com SECURITY INVOKER. Não utiliza perfil legado editável e não estima saldo a partir das últimas 20 linhas.
+- O extrato de XP/moedas agora exige uma chave estrangeira para um resultado oficial existente e o gatilho valida `verified`, vencedor, destinatário e tipo de premiação. Resultados de treino DROME continuam explicitamente bloqueados.
+- `chaotic_my_official_reward_totals()` consulta a **soma de todo o extrato autenticado** com SECURITY INVOKER. Não utiliza perfil legado editável e não estima saldo a partir das últimas 20 linhas.
 - Contas comuns não podem inserir resultados, modificar recompensas ou chamar uma RPC de pagamento; **nenhum pagamento foi ativado**.
 
 ## Interface
