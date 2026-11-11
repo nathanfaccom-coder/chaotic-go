@@ -33,7 +33,7 @@
         .select("player_id,award_kind,xp_awarded,coins_awarded,awarded_at,reward_scope")
         .eq("player_id",playerId)
         .order("awarded_at",{ascending:false}).limit(20);
-      if(request!==serial||$("lobby-rewards-list")!==list||currentIdentity().playerId!==playerId)return;
+      if(request!==serial||$("lobby-rewards-list")!==list||(currentIdentity().playerId!==playerId||currentIdentity().api!==api))return;
       if(error)throw error;
       const records=(Array.isArray(data)?data:[]).filter(entry=>
         entry&&entry.player_id===playerId
@@ -46,7 +46,7 @@
       // 20 receipts. A stale RPC can never repaint a newer DROME screen.
       if(typeof api.rpc==="function"){
         api.rpc("chaotic_my_official_reward_totals").then(response=>{
-          if(request!==serial||$("lobby-rewards-list")!==list||currentIdentity().playerId!==playerId)return;
+          if(request!==serial||$("lobby-rewards-list")!==list||(currentIdentity().playerId!==playerId||currentIdentity().api!==api))return;
           if(response?.error)return; // Keep the verified recent view.
           const raw=Array.isArray(response?.data)?response.data[0]:response?.data;
           if(!raw)return;
@@ -65,7 +65,7 @@
       if(typeof api.rpc==="function"){
         api.rpc("chaotic_my_official_career_by_mode").then(response=>{
           if(request!==serial||$("lobby-rewards-list")!==list
-            ||currentIdentity().playerId!==playerId)return;
+            ||(currentIdentity().playerId!==playerId||currentIdentity().api!==api))return;
           if(response?.error||!Array.isArray(response?.data))return;
           const expected=["1x1","3x3","6x6"];
           const rows=response.data;
@@ -112,7 +112,7 @@
           .select("id,host_id,guest_id,mode,winner_id,result_state,verification_source,created_at,verified_at")
           .or("host_id.eq."+playerId+",guest_id.eq."+playerId)
           .order("created_at",{ascending:false}).limit(10);
-        if(request!==serial||currentIdentity().playerId!==playerId){
+        if(request!==serial||(currentIdentity().playerId!==playerId||currentIdentity().api!==api)){
           provenance.remove();return;
         }
         if(matchesError)throw matchesError;
@@ -159,7 +159,7 @@
         list.appendChild(div);
       }
     }catch(_error){
-      if(request!==serial||$("lobby-rewards-list")!==list||currentIdentity().playerId!==playerId)return;
+      if(request!==serial||$("lobby-rewards-list")!==list||(currentIdentity().playerId!==playerId||currentIdentity().api!==api))return;
       status.textContent="Não foi possível acessar o extrato. Confira sua conexão e tente novamente.";
       summary.textContent="";
       list.replaceChildren();
