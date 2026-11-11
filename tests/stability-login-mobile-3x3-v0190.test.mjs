@@ -125,7 +125,7 @@ test("stability v0.1.132: authenticated JS and all core loaders refresh together
  assert.ok(index.includes("VERSÃO 0.1.132"));
  assert.match(index,/sw\.js\?v=release-132/);
  assert.match(worker,/chaotic-go-release-20261111-132/);
- assert.match(worker,/request\.mode\s*!==\s*'navigate'/);
+ assert.match(worker,/request\.mode\s*===\s*'navigate'/);
  assert.match(worker,/offlineAssets\.includes\(url\.pathname\)/);
  assert.match(index,/login e as partidas precisam de internet|acesso rápido no celular/i);
  assert.equal(JSON.parse(manifest).start_url,"index.html");
