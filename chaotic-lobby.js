@@ -13,6 +13,7 @@
   // Persist only the latest room UUID, scoped to the signed-in player.
   // Never store combat actions, hidden cards, login tokens, or Deck contents.
   const lastRoomStorageKey="chaotic-go:last-room:"+userId;
+  const pendingRematchStorageKey="chaotic-go:pending-rematch:"+userId;
   let viewGeneration=0, restoreInProgress=false, restoreOwner=null;
   let realtimeRetryPending=false, realtimeRetryAfter=0;
   let offlineRealtimeRoomId=null;
@@ -29,6 +30,61 @@
     return "Convite Chaotic GO ("+currentRoom.mode+"): "+currentRoom.code+
       " — Abra https://nathanfaccom-coder.github.io/chaotic-go/ e entre em DROME > Sala privada.";
   }
+  // Remember ONLY a source-room ID while both participants are agreeing
+  // to rematch. Never store a card, token, hidden hand, or action on device.
+  function pendingRematchId() {
+    try {
+      const raw=window.localStorage?.getItem(pendingRematchStorageKey);
+      const saved=JSON.parse(raw||"null");
+      if(saved && typeof saved.id==="string" && saved.id.length<=128
+        && typeof saved.expires_at==="string"
+        && new Date(saved.expires_at).getTime()>Date.now())
+        return saved.id;
+    }catch(_error){}
+    return null;
+  }
+  function rememberPendingRematch(sourceRoom) {
+    try {
+      window.localStorage?.setItem(pendingRematchStorageKey,JSON.stringify({
+        id:sourceRoom.id,expires_at:sourceRoom.expires_at
+      }));
+    }catch(_error){}
+  }
+  function forgetPendingRematch() {
+    try { window.localStorage?.removeItem(pendingRematchStorageKey); }
+    catch(_error){}
+  }
+  async function findNewRematchId(oldId) {
+    const {data,error}=await api.from("chaotic_rematch_requests")
+      .select("new_lobby_id").eq("source_lobby_id",oldId).maybeSingle();
+    if(error)throw new Error("Não foi possível consultar a revanche: "+error.message);
+    return data?.new_lobby_id||null;
+  }
+  async function switchToRematch(newId,oldId,expectedView) {
+    if(typeof newId!=="string"||newId.length>128)return false;
+    const {data,error}=await api.from("chaotic_lobbies")
+      .select("id,code,host_id,guest_id,mode,status,expires_at")
+      .eq("id",newId).maybeSingle();
+    if(viewGeneration!==expectedView || (room&&room.id!==oldId))return false;
+    if(error)throw new Error("Não foi possível recuperar a nova sala: "+error.message);
+    if(!data || data.id!==newId || ![data.host_id,data.guest_id].includes(userId)
+      || data.status!=="ready"||new Date(data.expires_at).getTime()<=Date.now())
+      throw new Error("A revanche já não está disponível. Crie uma nova sala.");
+    // Full reset prevents cross-match replay, stale cards, attack buttons or
+    // late responses from the old arena. No inventory/deck is overwritten.
+    forgetPendingRematch();
+    forgetLastRoom();
+    show();
+    room=data;
+    rememberLastRoom();
+    const slot=$("lobby-combat-slot");
+    if(slot)slot.value=data.mode==="1x1"?"6":data.mode==="3x3"?"4":"1";
+    updateRoomUI();watch();
+    note("Revanche aceita! Nova sala "+data.code+
+      " pronta com os mesmos jogadores. O novo treino começa do zero, sem XP ou moedas oficiais.");
+    return true;
+  }
+
   function forgetLastRoom() {
     try { window.localStorage?.removeItem(lastRoomStorageKey); } catch (_error) {}
   }
@@ -157,7 +213,25 @@
     }
     return stage;
   }
+  function updateRematchUI() {
+    const panel=$("lobby-rematch-panel");
+    if(!panel)return;
+    const finished=!!room&&room.status==="ready"&&
+      new Date(room.expires_at).getTime()>Date.now()&&
+      (match?.status==="finished"||
+       (room.mode==="3x3"&&trainingOutcomes3x3.length>0));
+    panel.hidden=!finished;
+    if(!finished)return;
+    const pending=pendingRematchId()===room.id;
+    const button=$("lobby-rematch-btn");
+    const message=$("lobby-rematch-status");
+    if(button)button.hidden=pending;
+    if(message)message.textContent=pending
+      ?"Você confirmou. Aguarde a confirmação do outro jogador para criar uma nova sala."
+      :"Ambos precisam aceitar a revanche. O modo será mantido e o novo duelo não gera recompensas oficiais.";
+  }
   function updateMatchUI() {
+    updateRematchUI();
     const panel = $("lobby-turns");
     if (!panel) return;
     panel.hidden = !room || (room.status !== "ready" && !match);
@@ -2417,6 +2491,17 @@
     }
     const serverRoomEnded=data.status==="cancelled"
       || new Date(data.expires_at).getTime()<=Date.now();
+    // The first player may be waiting while the second accepted on another
+    // phone. Read only their own rematch handoff before clearing the old room.
+    if(data.status==="cancelled" && pendingRematchId()===requestedRoomId
+       && [data.host_id,data.guest_id].includes(userId)){
+      const nextId=await findNewRematchId(requestedRoomId);
+      if(room?.id!==requestedRoomId || viewGeneration!==requestedView)return;
+      if(nextId){
+        if(await switchToRematch(nextId,requestedRoomId,requestedView))return;
+      }
+      forgetPendingRematch();
+    }
     if(data.mode==="3x3" && [data.host_id,data.guest_id].includes(userId)
       && serverRoomEnded){
       // Room ID is a lookup hint, never permission. The server rechecks membership,
@@ -2715,6 +2800,16 @@
         .eq("id",id).maybeSingle();
       if(generation!==viewGeneration || room || busy)return;
       if(error)throw new Error(error.message);
+      if(data && data.status==="cancelled"
+         && pendingRematchId()===id
+         && [data.host_id,data.guest_id].includes(userId)){
+        const newId=await findNewRematchId(id);
+        if(generation!==viewGeneration || room || busy)return;
+        if(newId){
+          if(await switchToRematch(newId,id,generation))return;
+        }
+        forgetPendingRematch();
+      }
       if(data && [data.host_id,data.guest_id].includes(userId)
         && data.mode==="3x3"
         && (data.status==="cancelled" || new Date(data.expires_at).getTime()<=Date.now())){
@@ -2801,13 +2896,18 @@
       '<option value="3x3" selected>3x3 Rápido (treino)</option><option value="6x6">6x6 Principal (teste)</option></select>',
       '<button id="lobby-create-btn" type="button">Criar sala</button></div>',
       '<div id="lobby-join"><label for="lobby-input-code">Código recebido de outro jogador</label>',
-      '<input id="lobby-input-code" type="text" maxlength="12" autocomplete="off"',
-      ' autocapitalize="characters" placeholder="12 caracteres" aria-label="Código de convite">',
+      '<input id="lobby-input-code" type="text" maxlength="512" autocomplete="off"',
+      ' autocapitalize="characters" placeholder="Código ou convite completo" aria-label="Código ou mensagem de convite">',
       '<button id="lobby-paste-invite" class="lobby-outline" type="button">Colar convite recebido</button>',
       '<button id="lobby-join-btn" type="button">Entrar pelo código</button></div>',
       '<div id="lobby-current" hidden><p>Modo: <strong id="lobby-mode"></strong></p>',
       '<p>Código: <strong id="lobby-room-code"></strong></p>',
       '<p id="lobby-status" role="status"></p>',
+      '<div id="lobby-rematch-panel" hidden style="padding:10px;margin:10px 0;border:1px solid #5e9b72;border-radius:8px;">',
+      '<strong>🔁 REVANCHE</strong>',
+      '<p id="lobby-rematch-status" role="status" aria-live="polite">Ambos confirmam para criar nova sala.</p>',
+      '<button id="lobby-rematch-btn" type="button">Aceitar revanche</button>',
+      '</div>',
       '<section id="lobby-turns" class="lobby-turns" hidden>',
       '<strong>⚔️ SINCRONIZAÇÃO DE TURNOS — TESTE</strong>',
       '<p>O 3x3 valida dano e nocaute de treino no servidor. Outros modos testam turnos.</p>',
@@ -3312,6 +3412,23 @@
       if(ledger?.refresh)ledger.refresh();
       else note("Extrato indisponível. Recarregue a versão mais recente do jogo.",true);
     };
+    $("lobby-rematch-btn").onclick=()=>action(async()=>{
+      if(!room)return;
+      const oldId=room.id,view=viewGeneration;
+      const result=await rpc("chaotic_request_rematch",{
+        p_source_lobby_id:oldId
+      });
+      if(!isActionContextCurrent(oldId,null,view))return;
+      if(result?.state==="waiting_for_other_player"){
+        rememberPendingRematch(room);
+        updateRematchUI();
+        note("Sua revanche foi aceita. O outro jogador também precisa confirmar.");
+      }else if(result?.state==="ready"&&typeof result.new_lobby_id==="string"){
+        await switchToRematch(result.new_lobby_id,oldId,view);
+      }else{
+        throw new Error("O servidor não confirmou uma nova sala.");
+      }
+    });
     $("lobby-refresh").onclick = () => action(refreshRoom);
     $("lobby-turn-refresh").onclick = () => action(refreshRoom);
     $("lobby-loadout-capture").onclick = () => action(async()=>{
@@ -4435,6 +4552,7 @@
       // releasing its action lock. A fresh screen also clears every
       // private 3x3 result, queued refresh and disabled old-room button.
       const wasHost=method==="chaotic_close_lobby";
+      forgetPendingRematch();
       forgetLastRoom();
       show();
       note(wasHost?"Você saiu da sala. Sala encerrada; já pode criar outra.":"Você saiu da sala. Já pode entrar em outra.");
