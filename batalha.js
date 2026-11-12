@@ -96,7 +96,7 @@ function desenharMiniCarta(criaturaObj) {
     let displayPct = isOculta ? 100 : pct;
 
     return `
-        <div class="mini-card-wrapper ${criaturaObj.moveuNesteTurno ? 'esgotado' : ''}">
+        <div class="mini-card-wrapper ${!isOculta && criaturaObj.moveuNesteTurno ? 'esgotado' : ''}">
             ${htmlEquipamento}
             <div class="mini-card-body ${triboClass}">
                 <div class="mini-top-row"><div class="mini-art" style="${img ? `background-image: url('${img}');` : ''}">${!img ? '🛡️' : ''}</div></div>
