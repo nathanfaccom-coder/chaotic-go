@@ -132,3 +132,15 @@ test("combat mini-card: absent HP metadata is unknown, not a defeated creature",
  const fallback=context.renderMini({nome:"Teste",statsMax:{energia:75},revelada:true});
  assert.match(fallback,/mini-hp-text">75<\/span>/);
 });
+
+test("combat mini-card: missing attributes stay unknown instead of inventing zero",()=>{
+ const html=context.renderMini({nome:"Teste",hpMax:100,hpAtual:50,revelada:true});
+ assert.equal((html.match(/<b>\?<\/b>/g)||[]).length,4);
+});
+test("combat mini-card: partial stats preserve real zero and catalog fallback",()=>{
+ const html=context.renderMini({nome:"Teste",hpMax:100,hpAtual:50,revelada:true,
+   coragem:0,statsMax:{poder:65}});
+ assert.equal((html.match(/<b>\?<\/b>/g)||[]).length,2);
+ assert.match(html,/<b>0<\/b>/);
+ assert.match(html,/<b>65<\/b>/);
+});
