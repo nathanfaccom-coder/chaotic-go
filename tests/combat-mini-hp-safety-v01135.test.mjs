@@ -62,3 +62,15 @@ test("combat mini-card: invalid snapshot attributes show unknown instead of NaN 
  assert.equal((html.match(/<b>\?<\/b>/g)||[]).length,4);
  assert.doesNotMatch(html,/<b>(?:NaN|Infinity|-Infinity)<\/b>/);
 });
+
+test("combat mini-card: only whole elemental tokens activate icons",()=>{
+ const html=context.renderMini({nome:"Teste",hpMax:100,hpAtual:80,revelada:true,elementos:["Armadura","Mar","Terra"]});
+ assert.match(html,/mini-el terra ativo/);
+ assert.doesNotMatch(html,/mini-el ar ativo/);
+ assert.doesNotMatch(html,/mini-el agua ativo/);
+});
+test("combat mini-card: wind alias and accented water work in elemental list",()=>{
+ const html=context.renderMini({nome:"Teste",hpMax:100,hpAtual:80,revelada:true,elementos:["Vento","Água"]});
+ assert.match(html,/mini-el ar ativo/);
+ assert.match(html,/mini-el agua ativo/);
+});
