@@ -93,3 +93,15 @@ test("combat mini-card: rejects malicious artwork URLs without breaking legacy r
  const legacy=context.renderMini({nome:"Teste",hpMax:100,hpAtual:70,revelada:true,cartaBlank:"cartas/criatura.png"});
  assert.match(legacy,/background-image: url\('cartas\/criatura.png'\)/);
 });
+
+test("combat mini-card: revealed equipment keeps zoom with safe relative image",()=>{
+ const html=context.renderMini({nome:"Teste",revelada:true,equipamentoRevelado:true,equipamento:{img:"cartas/equipamento.png"}});
+ assert.match(html,/mini-equip-icon revelado/);
+ assert.match(html,/ampliarCartaClicada\(decodeURIComponent/);
+ assert.match(html,/cartas%2Fequipamento.png/);
+});
+test("combat mini-card: unsafe revealed equipment URL cannot inject HTML",()=>{
+ const html=context.renderMini({nome:"Teste",revelada:true,equipamentoRevelado:true,equipamento:{img:"x' onclick='alert(1)"}});
+ assert.doesNotMatch(html,/mini-equip-icon revelado/);
+ assert.doesNotMatch(html,/alert\(1\)/);
+});

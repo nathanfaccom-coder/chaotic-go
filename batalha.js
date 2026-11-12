@@ -78,7 +78,12 @@ function desenharMiniCarta(criaturaObj) {
     // Equipamentos SÓ aparecem se a criatura estiver revelada!
     if (criaturaObj.equipamento && !isOculta) {
         if (criaturaObj.equipamentoRevelado) {
-            htmlEquipamento = `<div class="mini-equip-icon revelado" style="background-image: url('${criaturaObj.equipamento.img}'); background-color: #ffd700; display: block !important; width: 26px !important; height: 26px !important; border: 2px solid #ffd700 !important; border-radius: 50%; background-size: cover; background-position: center;" onpointerdown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="event.stopPropagation(); window.ampliarCartaClicada('${criaturaObj.equipamento.img}')"></div>`;
+            const imgEquipamento = urlArteSegura(criaturaObj.equipamento.img);
+            // O clique mantém o zoom legado, sem interpolar a URL em código executável.
+            const imgClique = encodeURIComponent(imgEquipamento).replace(/'/g, '%27');
+            htmlEquipamento = imgEquipamento
+                ? `<div class="mini-equip-icon revelado" style="background-image: url('${imgEquipamento}'); background-color: #ffd700; display: block !important; width: 26px !important; height: 26px !important; border: 2px solid #ffd700 !important; border-radius: 50%; background-size: cover; background-position: center;" onpointerdown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="event.stopPropagation(); window.ampliarCartaClicada(decodeURIComponent('${imgClique}'))"></div>`
+                : '';
         } else {
             let msgOculto = criaturaObj.dono === 'jogador' ? 'Seu equipamento secreto.' : 'Equipamento inimigo oculto.';
             htmlEquipamento = `<div class="mini-equip-icon oculto" style="display: flex !important; justify-content: center !important; align-items: center !important;" onpointerdown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="event.stopPropagation(); window.mostrarMensagemScanner('${msgOculto}')">?</div>`;
