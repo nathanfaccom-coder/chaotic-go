@@ -3011,14 +3011,38 @@ window.fecharEntradaDrome = function() {
     window.modoMenu = true;
 };
 
-// Função para, de fato, entrar no Tabuleiro de Batalha!
+// Formatos visuais do Drome. Não cria resultado oficial nem concede recompensas.
+const DROME_FORMATOS = Object.freeze({ '1x1': [6], '3x3': [4, 5, 6], '6x6': [1, 2, 3, 4, 5, 6] });
 window.iniciarBatalhaDrome = function(modoEscolhido) {
-    document.getElementById("tela-entrada-drome").style.display = "none";
-    document.getElementById("tela-batalha").style.display = "flex";
-    
-    // Mostra o aviso de qual modo foi selecionado
-    mostrarMensagemScanner("INICIANDO DROME: MODO " + modoEscolhido + "!");
-    
-    // Opcional: Aqui você pode colocar a lógica futura para esconder/mostrar 
-    // os slots do tabuleiro dependendo se o jogador escolheu 1x1 ou 6x6.
+    const ativos = DROME_FORMATOS[modoEscolhido];
+    const arena = document.getElementById("tela-batalha");
+    const entrada = document.getElementById("tela-entrada-drome");
+    if (!ativos || !arena || !entrada) {
+        mostrarMensagemScanner("FORMATO DE DROME INVÁLIDO OU ARENA INDISPONÍVEL.");
+        return;
+    }
+    // Atua somente na arena; os slots da oficina de Decks não são modificados.
+    for (const lado of ['op', 'jog']) {
+        for (let indice = 1; indice <= 6; indice++) {
+            const slot = arena.querySelector('#' + lado + '-c' + indice);
+            if (slot) slot.style.display = ativos.includes(indice) ? '' : 'none';
+        }
+        const metade = arena.querySelector(lado === 'op' ? '.lado-oponente' : '.lado-jogador');
+        if (metade) metade.querySelectorAll('.linha-formacao-batalha').forEach(linha => {
+            linha.style.display = Array.from(linha.querySelectorAll('.slot-carta-batalha'))
+                .some(slot => slot.style.display !== 'none') ? '' : 'none';
+        });
+    }
+    let aviso = arena.querySelector('#aviso-drome-nao-oficial');
+    if (!aviso) {
+        aviso = document.createElement('div');
+        aviso.id = 'aviso-drome-nao-oficial';
+        aviso.setAttribute('role', 'status');
+        aviso.style.cssText = 'position:absolute;top:6px;left:8px;z-index:199;color:#fff;background:#222;padding:5px 8px;border:1px solid #ffd54f;border-radius:4px;font-size:11px;max-width:calc(100% - 100px)';
+        arena.appendChild(aviso);
+    }
+    aviso.textContent = 'DROME ' + modoEscolhido + ' — preparação local, sem vitória ou recompensas oficiais';
+    entrada.style.display = 'none';
+    arena.style.display = 'flex';
+    mostrarMensagemScanner("DROME " + modoEscolhido + ": FORMAÇÃO PREPARADA (SEM PREMIAÇÃO).");
 };
