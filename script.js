@@ -3069,11 +3069,25 @@ window.iniciarBatalhaDrome = function(modoEscolhido) {
         const ids = deck && deck.criaturas;
         const lista = Array.isArray(ids) ? ids : (ids && typeof ids === 'object' ? Object.keys(ids).sort((a,b) => Number(a)-Number(b)).map(k => ids[k]) : []);
         const selecionadas = lista.filter(id => id !== null && id !== undefined && String(id).trim() !== '');
-        if (deck.modo !== modoEscolhido || selecionadas.length !== ativos.length) {
-            aviso.textContent = 'DROME ' + modoEscolhido + ' — Deck incompleto ou incompatível';
+        // Não confundir uma formação ilustrada com um Deck legal para uma partida.
+        // Conferir também ataques e locais, sem confiar no sinalizador salvo pelo cliente.
+        const ataques = Array.isArray(deck.ataques) ? deck.ataques : [];
+        const locais = Array.isArray(deck.locais) ? deck.locais : [];
+        const album = Array.isArray(window.inventario) ? window.inventario : [];
+        const ataquesValidos = ataques.length === 20 && ataques.every(id =>
+            album.some(c => String(c.id) === String(id) && c.tipoCarta === 'Ataque'));
+        const custoAtaques = ataques.reduce((total, id) => {
+            const carta = album.find(c => String(c.id) === String(id) && c.tipoCarta === 'Ataque');
+            return total + (carta ? Number(carta.custo) : 0);
+        }, 0);
+        const locaisValidos = locais.length === 10 && locais.every(id =>
+            album.some(c => String(c.id) === String(id) && (c.tipoCarta === 'Local' || c.tipoCarta === 'Locação')));
+        if (deck.modo !== modoEscolhido || selecionadas.length !== ativos.length ||
+            !ataquesValidos || !Number.isFinite(custoAtaques) || custoAtaques !== 20 || !locaisValidos) {
+            aviso.textContent = 'DROME ' + modoEscolhido + ' — Deck incompleto ou fora das regras (20 ataques/custo 20, 10 locais)';
             return;
         }
-        const cartas = selecionadas.map(id => window.inventario.find(c => String(c.id) === String(id) && c.tipoCarta === 'Criatura'));
+        const cartas = selecionadas.map(id => album.find(c => String(c.id) === String(id) && c.tipoCarta === 'Criatura'));
         if (cartas.some(c => !c)) {
             aviso.textContent = 'DROME ' + modoEscolhido + ' — Criaturas ausentes no álbum';
             return;
