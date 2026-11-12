@@ -18,6 +18,7 @@
     
     <div id="painel-instalacao" style="display: none; position: fixed; bottom: max(16px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); background: #111; border: 2px solid #4CAF50; padding: 15px; border-radius: 10px; z-index: 10000; text-align: center; width: min(85%, 400px); box-sizing: border-box; box-shadow: 0 0 15px #4CAF50; font-family: monospace;">
         <p style="color: white; font-size: 14px; margin-top: 0; margin-bottom: 15px;">Deseja instalar o Scanner no seu terminal para acesso rápido no celular?</p>
+        <p id="instrucoes-ios" style="display: none; color: #fff; font-size: 13px; line-height: 1.5;">No Safari, toque em Compartilhar e depois em “Adicionar à Tela de Início”.</p>
         <button id="btn-instalar" type="button" disabled style="background: #4CAF50; color: black; border: none; padding: 8px 15px; font-weight: bold; border-radius: 5px; cursor: pointer; margin-right: 10px;">INSTALAR</button>
         <button id="btn-fechar-install" type="button" style="background: #ff5555; color: white; border: none; padding: 8px 15px; font-weight: bold; border-radius: 5px; cursor: pointer;">AGORA NÃO</button>
     </div>
@@ -35,6 +36,9 @@
         let dismissedThisSession = false;
         const painelInstalacao = document.getElementById('painel-instalacao');
         const btnInstalar = document.getElementById('btn-instalar');
+        const instrucoesIos = document.getElementById('instrucoes-ios');
+        const isIosSafari = () => /iPad|iPhone|iPod/.test(navigator.userAgent)
+          && /Safari/.test(navigator.userAgent) && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(navigator.userAgent);
         const btnFecharInstall = document.getElementById('btn-fechar-install');
         const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches
           || window.navigator.standalone === true;
@@ -42,7 +46,10 @@
         function syncInstallPanel() {
             const canInstall = !!deferredPrompt && !installInProgress
               && !dismissedThisSession && !isStandalone();
-            painelInstalacao.style.display = canInstall ? 'block' : 'none';
+            const showIosHelp = isIosSafari() && !dismissedThisSession && !isStandalone();
+            painelInstalacao.style.display = (canInstall || showIosHelp) ? 'block' : 'none';
+            instrucoesIos.style.display = showIosHelp && !canInstall ? 'block' : 'none';
+            btnInstalar.style.display = canInstall ? 'inline-block' : 'none';
             btnInstalar.disabled = !canInstall;
         }
 
