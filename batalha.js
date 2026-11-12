@@ -164,7 +164,11 @@ window.carregarDeckParaBatalha = function(salaId, souP1) {
     campoJogador = { c1: null, c2: null, c3: null, c4: null, c5: null, c6: null };
     window.campoOponente = { c1: null, c2: null, c3: null, c4: null, c5: null, c6: null };
     window.slotSelecionadoMovimento = null;
-    window.jogadorMugics = []; 
+    window.jogadorMugics = [];
+    // Limpar a mão anterior mesmo se o novo deck estiver ausente/incompleto.
+    // Sem isso, um retorno antecipado reutiliza ataques da partida anterior.
+    window.baralhoAtaques = [];
+    window.maoAtaques = [];
     window.lixoAtaques = []; 
     window.lixoAtaquesOponente = 0; 
     window.cemiterio = [];
@@ -173,8 +177,8 @@ window.carregarDeckParaBatalha = function(salaId, souP1) {
 
     if (typeof limparDestaquesMovimento === "function") limparDestaquesMovimento();
 
-    let deck = window.estadoDrome.deckSelecionado;
-    if (!deck || !deck.criaturas) return;
+    let deck = window.estadoDrome?.deckSelecionado;
+    if (!deck || !Array.isArray(deck.criaturas)) return;
 
     // 1. CARREGA O SEU DECK (P1 ou P2 local)
     if (deck.ataques && deck.ataques.length > 0) {
