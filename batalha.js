@@ -46,20 +46,24 @@ function desenharMiniCarta(criaturaObj) {
     hpAtual = Number.isFinite(hpRecebido) ? hpRecebido : hpMax;
     // Ausência de atributo durante sincronização não equivale a zero real.
     // O zero explícito e os valores originais do catálogo continuam preservados.
-    c = criaturaObj.coragem ?? criaturaObj.statsMax?.coragem ?? null;
-    p = criaturaObj.poder ?? criaturaObj.statsMax?.poder ?? null;
-    s = criaturaObj.sabedoria ?? criaturaObj.statsMax?.sabedoria ?? null;
-    v = criaturaObj.velocidade ?? criaturaObj.statsMax?.velocidade ?? null;
-    
-    // Um snapshot incompleto não deve exibir NaN ou Infinity nos atributos.
-    const atributoSeguro = valor => {
+    // Snapshots podem conter campos vazios ou malformados; nesses casos
+    // recuperar o atributo original conhecido, sem substituir zero legítimo.
+    const atributoNumerico = valor => {
+        if (valor === null || valor === undefined || typeof valor === 'boolean' ||
+            (typeof valor === 'string' && !valor.trim())) return NaN;
         const numero = Number(valor);
-        return valor !== null && valor !== '' && Number.isFinite(numero) ? numero : '?';
+        return Number.isFinite(numero) ? numero : NaN;
     };
-    c = atributoSeguro(c);
-    p = atributoSeguro(p);
-    s = atributoSeguro(s);
-    v = atributoSeguro(v);
+    const atributoVisivel = (atual, original) => {
+        const primario = atributoNumerico(atual);
+        if (Number.isFinite(primario)) return primario;
+        const catalogo = atributoNumerico(original);
+        return Number.isFinite(catalogo) ? catalogo : '?';
+    };
+    c = atributoVisivel(criaturaObj.coragem, criaturaObj.statsMax?.coragem);
+    p = atributoVisivel(criaturaObj.poder, criaturaObj.statsMax?.poder);
+    s = atributoVisivel(criaturaObj.sabedoria, criaturaObj.statsMax?.sabedoria);
+    v = atributoVisivel(criaturaObj.velocidade, criaturaObj.statsMax?.velocidade);
 
     let elemsBrutos = criaturaObj.elementos;
     if ((!elemsBrutos || elemsBrutos.length === 0) && typeof MONSTROS !== 'undefined' && Array.isArray(MONSTROS)) {
