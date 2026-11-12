@@ -144,3 +144,13 @@ test("combat mini-card: partial stats preserve real zero and catalog fallback",(
  assert.match(html,/<b>0<\/b>/);
  assert.match(html,/<b>65<\/b>/);
 });
+
+test("combat mini-card: contradictory zero maximum does not falsely display knockout",()=>{
+ const html=context.renderMini({nome:"Teste",hpMax:0,hpAtual:25,revelada:true});
+ assert.match(html,/mini-hp-text">\?<\/span>/);
+ assert.match(html,/mini-hp-fill" style="width: 0%;/);
+});
+test("combat mini-card: negative maximum is unknown, not a defeated creature",()=>{
+ const html=context.renderMini({nome:"Teste",hpMax:-10,hpAtual:0,revelada:true});
+ assert.match(html,/mini-hp-text">\?<\/span>/);
+});
