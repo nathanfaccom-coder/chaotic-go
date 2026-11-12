@@ -122,3 +122,13 @@ test("combat mini-card: nonfinite HP is shown as unknown without exposing invali
  assert.match(html,/mini-hp-text">\?<\/span>/);
  assert.doesNotMatch(html,/mini-hp-text">NaN/);
 });
+
+test("combat mini-card: absent HP metadata is unknown, not a defeated creature",()=>{
+ const absent=context.renderMini({nome:"Teste",revelada:true});
+ assert.match(absent,/mini-hp-text">\?<\/span>/);
+ assert.match(absent,/mini-hp-fill" style="width: 0%;/);
+ const explicitZero=context.renderMini({nome:"Teste",hpMax:0,hpAtual:0,revelada:true});
+ assert.match(explicitZero,/mini-hp-text">0<\/span>/);
+ const fallback=context.renderMini({nome:"Teste",statsMax:{energia:75},revelada:true});
+ assert.match(fallback,/mini-hp-text">75<\/span>/);
+});
