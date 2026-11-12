@@ -39,8 +39,8 @@ function desenharMiniCarta(criaturaObj) {
     v = atributoSeguro(v);
 
     let elemsBrutos = criaturaObj.elementos;
-    if ((!elemsBrutos || elemsBrutos.length === 0) && typeof MONSTROS !== 'undefined') {
-        let dbCarta = MONSTROS.find(m => m.nome === criaturaObj.nome);
+    if ((!elemsBrutos || elemsBrutos.length === 0) && typeof MONSTROS !== 'undefined' && Array.isArray(MONSTROS)) {
+        let dbCarta = MONSTROS.find(m => m && m.nome === criaturaObj.nome);
         if (dbCarta && dbCarta.elementos) elemsBrutos = dbCarta.elementos;
     }
 
