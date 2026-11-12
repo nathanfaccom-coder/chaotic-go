@@ -29,8 +29,10 @@ function desenharMiniCarta(criaturaObj) {
     // Se estiver oculta, mostra o verso. Se revelada, mostra a arte real!
     img = urlArteSegura(isOculta ? URL_FUNDO_CARTA : criaturaObj.cartaBlank); 
     
+    // Snapshot parcial não significa criatura derrotada: distinguir HP ausente de zero real.
+    const hpMaxDisponivel = criaturaObj.hpMax != null || criaturaObj.statsMax?.energia != null;
     let hpMax = criaturaObj.hpMax ?? criaturaObj.statsMax?.energia ?? 0;
-    hpAtual = criaturaObj.hpAtual !== undefined ? criaturaObj.hpAtual : hpMax;
+    hpAtual = criaturaObj.hpAtual != null ? criaturaObj.hpAtual : (hpMaxDisponivel ? hpMax : NaN);
     c = criaturaObj.coragem ?? criaturaObj.statsMax?.coragem ?? 0;
     p = criaturaObj.poder ?? criaturaObj.statsMax?.poder ?? 0;
     s = criaturaObj.sabedoria ?? criaturaObj.statsMax?.sabedoria ?? 0;
