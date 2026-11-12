@@ -33,7 +33,16 @@
     <script>
         let deferredPrompt = null;
         let installInProgress = false;
+        const installDismissKey = 'chaotic-go-install-dismissed';
         let dismissedThisSession = false;
+        try { dismissedThisSession = sessionStorage.getItem(installDismissKey) === '1'; }
+        catch (_) { /* Storage may be unavailable; in-memory dismissal still works. */ }
+        function dismissInstallPanel() {
+            dismissedThisSession = true;
+            try { sessionStorage.setItem(installDismissKey, '1'); }
+            catch (_) { /* Keep the in-memory dismissal. */ }
+            syncInstallPanel();
+        }
         const painelInstalacao = document.getElementById('painel-instalacao');
         const btnInstalar = document.getElementById('btn-instalar');
         const instrucoesIos = document.getElementById('instrucoes-ios');
@@ -72,20 +81,17 @@
             try {
                 await promptEvent.prompt();
                 const choice = await promptEvent.userChoice;
-                if (choice?.outcome === 'dismissed') dismissedThisSession = true;
+                if (choice?.outcome === 'dismissed') dismissInstallPanel();
             } catch (error) {
                 console.warn('Não foi possível abrir a instalação:', error);
-                dismissedThisSession = true;
+                dismissInstallPanel();
             } finally {
                 installInProgress = false;
                 syncInstallPanel();
             }
         });
 
-        btnFecharInstall.addEventListener('click', () => {
-            dismissedThisSession = true;
-            syncInstallPanel();
-        });
+        btnFecharInstall.addEventListener('click', dismissInstallPanel);
 
         window.addEventListener('appinstalled', () => {
             deferredPrompt = null;
