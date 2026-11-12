@@ -44,11 +44,17 @@ function desenharMiniCarta(criaturaObj) {
         if (dbCarta && dbCarta.elementos) elemsBrutos = dbCarta.elementos;
     }
 
-    let textoElementos = JSON.stringify(elemsBrutos || "").toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "");
-    temFogo = textoElementos.includes('fogo');
-    temAgua = textoElementos.includes('agua');
-    temTerra = textoElementos.includes('terra');
-    temAr = textoElementos.includes('ar');
+    // Reconhece elementos inteiros: "armadura" e "mar" não concedem Ar.
+    // Suporta listas do catálogo, strings separadas e o sinônimo Vento.
+    const normalizarElemento = valor => String(valor ?? '').toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const tokensElementos = (Array.isArray(elemsBrutos) ? elemsBrutos : [elemsBrutos ?? ''])
+        .flatMap(valor => normalizarElemento(valor).split(/[^a-z]+/).filter(Boolean));
+    const elementosAtivos = new Set(tokensElementos);
+    temFogo = elementosAtivos.has('fogo');
+    temAgua = elementosAtivos.has('agua');
+    temTerra = elementosAtivos.has('terra');
+    temAr = elementosAtivos.has('ar') || elementosAtivos.has('vento');
     
     const triboMap = {'Azul': 'tribo-azul', 'Vermelho': 'tribo-vermelho', 'Amarelo': 'tribo-amarelo', 'Verde': 'tribo-verde', 'Ciano': 'tribo-ciano', 'Cinza': 'tribo-cinza'};
     // Se oculta, não mostra a tribo (fica cinza). Se revelada, mostra a cor real.
