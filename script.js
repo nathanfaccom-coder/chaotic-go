@@ -2876,9 +2876,12 @@ if (btnSalvarDeck) {
 }
 
 // 📥 SISTEMA DE CARREGAR DA NUVEM
-window.carregarDeckDaNuvem = function(idFogo) { // Agora recebe o ID combinado
+let sequenciaCarregamentoDeck = 0;
+window.carregarDeckDaNuvem = function(idFogo) {
+    const sequenciaAtual = ++sequenciaCarregamentoDeck; // Agora recebe o ID combinado
     mostrarMensagemScanner("CARREGANDO DECK...");
     get(ref(db, 'jogadores/' + uid + '/decks/' + idFogo)).then((snapshot) => {
+        if (sequenciaAtual !== sequenciaCarregamentoDeck) return;
         window.limparTabuleiroDeck(); // 🔥 Sempre limpa a mesa antes! Se o slot for vazio, a mesa já fica pronta!
         
         if (snapshot.exists()) {
@@ -2906,6 +2909,7 @@ window.carregarDeckDaNuvem = function(idFogo) { // Agora recebe o ID combinado
 
             // 2. Restaura Imagens Individuais (Corrigido para driblar o Firebase!)
             setTimeout(() => {
+                if (sequenciaAtual !== sequenciaCarregamentoDeck) return;
                 let slotsCriatura = document.querySelectorAll('.slot-criatura');
                 slotsCriatura.forEach((slot, i) => {
                     // Pega pelo índice (funciona tanto se o Firebase devolver Lista quanto Objeto)
@@ -2960,7 +2964,9 @@ window.carregarDeckDaNuvem = function(idFogo) { // Agora recebe o ID combinado
         } else {
             mostrarMensagemScanner("SLOT VAZIO. CRIE SUA ESTRATÉGIA!");
         }
-    }).catch(err => { mostrarMensagemScanner("FALHA AO CONECTAR COM A NUVEM!"); });
+    }).catch(err => {
+        if (sequenciaAtual === sequenciaCarregamentoDeck) mostrarMensagemScanner("FALHA AO CONECTAR COM A NUVEM!");
+    });
 };
 
 // ==========================================
