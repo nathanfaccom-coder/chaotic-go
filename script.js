@@ -3073,6 +3073,10 @@ window.iniciarBatalhaDrome = function(modoEscolhido) {
         // Conferir também ataques e locais, sem confiar no sinalizador salvo pelo cliente.
         const ataques = Array.isArray(deck.ataques) ? deck.ataques : [];
         const locais = Array.isArray(deck.locais) ? deck.locais : [];
+        // Cartas opcionais equipadas também precisam pertencer ao jogador.
+        // Preservar posições vazias, mas nunca aceitar IDs desconhecidos.
+        const equipamentos = Array.isArray(deck.equipamentos) ? deck.equipamentos.filter(id => id != null && String(id).trim() !== '') : [];
+        const mugics = Array.isArray(deck.mugics) ? deck.mugics.filter(id => id != null && String(id).trim() !== '') : [];
         const album = Array.isArray(window.inventario) ? window.inventario : [];
         // Conferência de posse por quantidade: uma única cópia não pode ocupar
         // várias posições. É uma proteção de preparação LOCAL, não autorização oficial.
@@ -3091,6 +3095,8 @@ window.iniciarBatalhaDrome = function(modoEscolhido) {
         };
         const cartasAtaque = cartasDoAlbum(ataques, ['Ataque']);
         const cartasLocais = cartasDoAlbum(locais, ['Local', 'Locação']);
+        const cartasEquipamentos = cartasDoAlbum(equipamentos, ['Equipamento']);
+        const cartasMugics = cartasDoAlbum(mugics, ['Mugic']);
         const cartas = cartasDoAlbum(selecionadas, ['Criatura']);
         const custoAtaques = cartasAtaque.reduce((total, carta) =>
             total + (carta ? Number(carta.custo) : NaN), 0);
@@ -3099,7 +3105,8 @@ window.iniciarBatalhaDrome = function(modoEscolhido) {
         const locaisValidos = locais.length === 10 && cartasLocais.every(Boolean);
         if (deck.modo !== modoEscolhido || selecionadas.length !== ativos.length ||
             !ataquesValidos || !Number.isFinite(custoAtaques) || custoAtaques !== 20 ||
-            !locaisValidos || cartas.some(c => !c)) {
+            !locaisValidos || cartas.some(c => !c) ||
+            cartasEquipamentos.some(c => !c) || cartasMugics.some(c => !c)) {
             aviso.textContent = 'DROME ' + modoEscolhido +
                 ' — Deck inválido: confira quantidade possuída, criaturas, 20 ataques/custo 20 e 10 locais';
             return;
