@@ -23,7 +23,7 @@ function desenharMiniCarta(criaturaObj) {
     const urlArteSegura = valor => {
         if (typeof valor !== 'string') return '';
         const url = valor.trim();
-        if (!url || /[\\u0000-\\u001f\\u007f'"<>\\\\]/.test(url) || /^(?:javascript|data|vbscript):/i.test(url)) return '';
+        if (!url || /[\u0000-\u001f\u007f'"<>\\]/.test(url) || /^(?:javascript|data|vbscript):/i.test(url)) return '';
         return url;
     };
     // Se estiver oculta, mostra o verso. Se revelada, mostra a arte real!
