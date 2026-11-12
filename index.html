@@ -37,8 +37,12 @@
         const painelInstalacao = document.getElementById('painel-instalacao');
         const btnInstalar = document.getElementById('btn-instalar');
         const instrucoesIos = document.getElementById('instrucoes-ios');
-        const isIosSafari = () => /iPad|iPhone|iPod/.test(navigator.userAgent)
-          && /Safari/.test(navigator.userAgent) && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(navigator.userAgent);
+        // iPadOS 13+ can report a Macintosh user agent even in Safari.
+        const isAppleMobile = () => /iPad|iPhone|iPod/.test(navigator.userAgent)
+          || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isIosSafari = () => isAppleMobile()
+          && /Safari/.test(navigator.userAgent)
+          && !/CriOS|FxiOS|EdgiOS|OPiOS|DuckDuckGo|GSA/.test(navigator.userAgent);
         const btnFecharInstall = document.getElementById('btn-fechar-install');
         const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches
           || window.navigator.standalone === true;
