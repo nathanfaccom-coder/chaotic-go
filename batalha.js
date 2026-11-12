@@ -33,10 +33,12 @@ function desenharMiniCarta(criaturaObj) {
     const hpMaxDisponivel = criaturaObj.hpMax != null || criaturaObj.statsMax?.energia != null;
     let hpMax = criaturaObj.hpMax ?? criaturaObj.statsMax?.energia ?? 0;
     hpAtual = criaturaObj.hpAtual != null ? criaturaObj.hpAtual : (hpMaxDisponivel ? hpMax : NaN);
-    c = criaturaObj.coragem ?? criaturaObj.statsMax?.coragem ?? 0;
-    p = criaturaObj.poder ?? criaturaObj.statsMax?.poder ?? 0;
-    s = criaturaObj.sabedoria ?? criaturaObj.statsMax?.sabedoria ?? 0;
-    v = criaturaObj.velocidade ?? criaturaObj.statsMax?.velocidade ?? 0;
+    // Ausência de atributo durante sincronização não equivale a zero real.
+    // O zero explícito e os valores originais do catálogo continuam preservados.
+    c = criaturaObj.coragem ?? criaturaObj.statsMax?.coragem ?? null;
+    p = criaturaObj.poder ?? criaturaObj.statsMax?.poder ?? null;
+    s = criaturaObj.sabedoria ?? criaturaObj.statsMax?.sabedoria ?? null;
+    v = criaturaObj.velocidade ?? criaturaObj.statsMax?.velocidade ?? null;
     
     // Um snapshot incompleto não deve exibir NaN ou Infinity nos atributos.
     const atributoSeguro = valor => {
