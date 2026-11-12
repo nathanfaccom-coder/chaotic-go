@@ -28,6 +28,16 @@ function desenharMiniCarta(criaturaObj) {
     s = criaturaObj.sabedoria ?? criaturaObj.statsMax?.sabedoria ?? 0;
     v = criaturaObj.velocidade ?? criaturaObj.statsMax?.velocidade ?? 0;
     
+    // Um snapshot incompleto não deve exibir NaN ou Infinity nos atributos.
+    const atributoSeguro = valor => {
+        const numero = Number(valor);
+        return valor !== null && valor !== '' && Number.isFinite(numero) ? numero : '?';
+    };
+    c = atributoSeguro(c);
+    p = atributoSeguro(p);
+    s = atributoSeguro(s);
+    v = atributoSeguro(v);
+
     let elemsBrutos = criaturaObj.elementos;
     if ((!elemsBrutos || elemsBrutos.length === 0) && typeof MONSTROS !== 'undefined') {
         let dbCarta = MONSTROS.find(m => m.nome === criaturaObj.nome);
