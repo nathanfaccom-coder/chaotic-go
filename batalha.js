@@ -30,9 +30,19 @@ function desenharMiniCarta(criaturaObj) {
     img = urlArteSegura(isOculta ? URL_FUNDO_CARTA : criaturaObj.cartaBlank); 
     
     // Snapshot parcial não significa criatura derrotada: distinguir HP ausente de zero real.
-    const hpMaxDisponivel = criaturaObj.hpMax != null || criaturaObj.statsMax?.energia != null;
-    let hpMax = criaturaObj.hpMax ?? criaturaObj.statsMax?.energia ?? 0;
-    hpAtual = criaturaObj.hpAtual != null ? criaturaObj.hpAtual : (hpMaxDisponivel ? hpMax : NaN);
+    // Strings vazias em snapshots parciais não representam zero HP.
+    // Aceitar apenas valores numéricos finitos, preservando o zero explícito.
+    const hpNumerico = valor => {
+        if (valor === null || valor === undefined || typeof valor === 'boolean' ||
+            (typeof valor === 'string' && !valor.trim())) return NaN;
+        const numero = Number(valor);
+        return Number.isFinite(numero) && numero >= 0 ? numero : NaN;
+    };
+    const hpMaxPrimario = hpNumerico(criaturaObj.hpMax);
+    const hpMaxCatalogo = hpNumerico(criaturaObj.statsMax?.energia);
+    let hpMax = Number.isFinite(hpMaxPrimario) ? hpMaxPrimario : hpMaxCatalogo;
+    const hpRecebido = hpNumerico(criaturaObj.hpAtual);
+    hpAtual = Number.isFinite(hpRecebido) ? hpRecebido : hpMax;
     // Ausência de atributo durante sincronização não equivale a zero real.
     // O zero explícito e os valores originais do catálogo continuam preservados.
     c = criaturaObj.coragem ?? criaturaObj.statsMax?.coragem ?? null;
