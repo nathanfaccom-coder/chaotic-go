@@ -83,3 +83,13 @@ test("combat mini-card: incomplete catalog hydration does not crash element fall
   assert.match(html,/mini-card-wrapper/);
  }
 });
+
+test("combat mini-card: rejects malicious artwork URLs without breaking legacy relative images",()=>{
+ const malicious=["javascript:alert(1)","data:image/svg+xml,<svg>","x');alert(1);//",'x" onmouseover="alert(1)'];
+ for(const cartaBlank of malicious){
+  const html=context.renderMini({nome:"Teste",hpMax:100,hpAtual:70,revelada:true,cartaBlank});
+  assert.doesNotMatch(html,/background-image:\s*url\(/);
+ }
+ const legacy=context.renderMini({nome:"Teste",hpMax:100,hpAtual:70,revelada:true,cartaBlank:"cartas/criatura.png"});
+ assert.match(legacy,/background-image: url\('cartas\/criatura.png'\)/);
+});
