@@ -74,3 +74,12 @@ test("combat mini-card: wind alias and accented water work in elemental list",()
  assert.match(html,/mini-el ar ativo/);
  assert.match(html,/mini-el agua ativo/);
 });
+
+test("combat mini-card: incomplete catalog hydration does not crash element fallback",()=>{
+ for(const monsters of [{loading:true},null,[null,{nome:"Teste",elementos:["Água"]}]]){
+  const ctx={MONSTROS:monsters};
+  vm.runInNewContext("const URL_FUNDO_CARTA='cartas/verso.jpg';\n"+mini+"\nthis.renderMini=desenharMiniCarta;",ctx);
+  const html=ctx.renderMini({nome:"Teste",hpMax:100,hpAtual:80,revelada:true});
+  assert.match(html,/mini-card-wrapper/);
+ }
+});
