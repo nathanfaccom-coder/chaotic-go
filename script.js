@@ -3074,22 +3074,34 @@ window.iniciarBatalhaDrome = function(modoEscolhido) {
         const ataques = Array.isArray(deck.ataques) ? deck.ataques : [];
         const locais = Array.isArray(deck.locais) ? deck.locais : [];
         const album = Array.isArray(window.inventario) ? window.inventario : [];
-        const ataquesValidos = ataques.length === 20 && ataques.every(id =>
-            album.some(c => String(c.id) === String(id) && c.tipoCarta === 'Ataque'));
-        const custoAtaques = ataques.reduce((total, id) => {
-            const carta = album.find(c => String(c.id) === String(id) && c.tipoCarta === 'Ataque');
-            return total + (carta ? Number(carta.custo) : 0);
-        }, 0);
-        const locaisValidos = locais.length === 10 && locais.every(id =>
-            album.some(c => String(c.id) === String(id) && (c.tipoCarta === 'Local' || c.tipoCarta === 'Locação')));
+        // Conferência de posse por quantidade: uma única cópia não pode ocupar
+        // várias posições. É uma proteção de preparação LOCAL, não autorização oficial.
+        const cartasDoAlbum = (ids, tipos) => {
+            const usadas = new Map();
+            return ids.map(id => {
+                const chave = String(id);
+                const carta = album.find(c => String(c.id) === chave && tipos.includes(c.tipoCarta));
+                if (!carta) return null;
+                const quantidade = Number(carta.quantidade);
+                if (!Number.isSafeInteger(quantidade) || quantidade < 1) return null;
+                const total = (usadas.get(chave) || 0) + 1;
+                usadas.set(chave, total);
+                return total <= quantidade ? carta : null;
+            });
+        };
+        const cartasAtaque = cartasDoAlbum(ataques, ['Ataque']);
+        const cartasLocais = cartasDoAlbum(locais, ['Local', 'Locação']);
+        const cartas = cartasDoAlbum(selecionadas, ['Criatura']);
+        const custoAtaques = cartasAtaque.reduce((total, carta) =>
+            total + (carta ? Number(carta.custo) : NaN), 0);
+        const ataquesValidos = ataques.length === 20 && cartasAtaque.every(Boolean) &&
+            cartasAtaque.every(c => Number.isSafeInteger(Number(c.custo)) && Number(c.custo) >= 0);
+        const locaisValidos = locais.length === 10 && cartasLocais.every(Boolean);
         if (deck.modo !== modoEscolhido || selecionadas.length !== ativos.length ||
-            !ataquesValidos || !Number.isFinite(custoAtaques) || custoAtaques !== 20 || !locaisValidos) {
-            aviso.textContent = 'DROME ' + modoEscolhido + ' — Deck incompleto ou fora das regras (20 ataques/custo 20, 10 locais)';
-            return;
-        }
-        const cartas = selecionadas.map(id => album.find(c => String(c.id) === String(id) && c.tipoCarta === 'Criatura'));
-        if (cartas.some(c => !c)) {
-            aviso.textContent = 'DROME ' + modoEscolhido + ' — Criaturas ausentes no álbum';
+            !ataquesValidos || !Number.isFinite(custoAtaques) || custoAtaques !== 20 ||
+            !locaisValidos || cartas.some(c => !c)) {
+            aviso.textContent = 'DROME ' + modoEscolhido +
+                ' — Deck inválido: confira quantidade possuída, criaturas, 20 ataques/custo 20 e 10 locais';
             return;
         }
         cartas.forEach((c, pos) => {
