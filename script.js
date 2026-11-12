@@ -3043,6 +3043,52 @@ window.iniciarBatalhaDrome = function(modoEscolhido) {
         aviso.style.cssText = 'position:absolute;top:6px;left:8px;z-index:199;color:#fff;background:#222;padding:5px 8px;border:1px solid #ffd54f;border-radius:4px;font-size:11px;max-width:calc(100% - 100px)';
         arena.appendChild(aviso);
     }
+    // Preparação visual vinculada ao Deck do próprio jogador; nunca resolve partidas.
+    const preparacaoAtual = ++dromePreparacaoId;
+    for (const lado of ['op', 'jog']) {
+        for (let i = 1; i <= 6; i++) {
+            const slot = arena.querySelector('#' + lado + '-c' + i);
+            if (slot) {
+                slot.style.backgroundImage = 'none';
+                delete slot.dataset.cartaId;
+            }
+        }
+    }
+    const slotDeck = document.querySelector('#tela-decks select') &&
+        Array.from(document.querySelectorAll('#tela-decks select')).find(el => el.innerHTML.includes('Slot'));
+    const identificadorSlot = slotDeck ? slotDeck.value.toLowerCase().replace(/salvar no /g, '').replace(/ /g, '_') : 'slot_1';
+    const caminhoDeck = 'jogadores/' + uid + '/decks/' + modoEscolhido + '_' + identificadorSlot;
+    get(ref(db, caminhoDeck)).then(snapshot => {
+        if (preparacaoAtual !== dromePreparacaoId || arena.style.display === 'none') return;
+        if (!snapshot.exists()) {
+            aviso.textContent = 'DROME ' + modoEscolhido + ' — Deck não encontrado; sem combate oficial';
+            return;
+        }
+        const deck = snapshot.val();
+        const ids = deck && deck.criaturas;
+        const lista = Array.isArray(ids) ? ids : (ids && typeof ids === 'object' ? Object.keys(ids).sort((a,b) => Number(a)-Number(b)).map(k => ids[k]) : []);
+        const selecionadas = lista.filter(id => id !== null && id !== undefined && String(id).trim() !== '');
+        if (deck.modo !== modoEscolhido || selecionadas.length !== ativos.length) {
+            aviso.textContent = 'DROME ' + modoEscolhido + ' — Deck incompleto ou incompatível';
+            return;
+        }
+        const cartas = selecionadas.map(id => window.inventario.find(c => String(c.id) === String(id) && c.tipoCarta === 'Criatura'));
+        if (cartas.some(c => !c)) {
+            aviso.textContent = 'DROME ' + modoEscolhido + ' — Criaturas ausentes no álbum';
+            return;
+        }
+        cartas.forEach((c, pos) => {
+            const slot = arena.querySelector('#jog-c' + ativos[pos]);
+            if (!slot) return;
+            slot.style.backgroundImage = 'url(' + JSON.stringify(String(c.img || '')) + ')';
+            slot.style.backgroundSize = 'cover';
+            slot.style.backgroundPosition = 'center';
+            slot.dataset.cartaId = String(c.id);
+        });
+        aviso.textContent = 'DROME ' + modoEscolhido + ' — Deck preparado; sem vitória ou recompensas oficiais';
+    }).catch(() => {
+        if (preparacaoAtual === dromePreparacaoId) aviso.textContent = 'DROME — falha ao carregar Deck; sem combate oficial';
+    });
     aviso.textContent = 'DROME ' + modoEscolhido + ' — preparação local, sem vitória ou recompensas oficiais';
     entrada.style.display = 'none';
     arena.style.display = 'flex';
