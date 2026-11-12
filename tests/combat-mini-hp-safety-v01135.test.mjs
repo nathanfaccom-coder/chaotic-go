@@ -105,3 +105,10 @@ test("combat mini-card: unsafe revealed equipment URL cannot inject HTML",()=>{
  assert.doesNotMatch(html,/mini-equip-icon revelado/);
  assert.doesNotMatch(html,/alert\(1\)/);
 });
+
+test("combat fog: movement status stays private until creature is revealed",()=>{
+ const hidden=context.renderMini({nome:"Teste",hpMax:100,hpAtual:50,revelada:false,moveuNesteTurno:true});
+ const revealed=context.renderMini({nome:"Teste",hpMax:100,hpAtual:50,revelada:true,moveuNesteTurno:true});
+ assert.doesNotMatch(hidden,/mini-card-wrapper esgotado/);
+ assert.match(revealed,/mini-card-wrapper esgotado/);
+});
