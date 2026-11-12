@@ -18,8 +18,16 @@ function desenharMiniCarta(criaturaObj) {
     // 🔥 DETETIVE DO BLEFE: A carta está virada para baixo?
     let isOculta = criaturaObj.revelada === false;
 
+    // URLs de arte são dados externos: impedir injeção em style/HTML sem
+    // bloquear caminhos relativos das artes legadas.
+    const urlArteSegura = valor => {
+        if (typeof valor !== 'string') return '';
+        const url = valor.trim();
+        if (!url || /[\\u0000-\\u001f\\u007f'"<>\\\\]/.test(url) || /^(?:javascript|data|vbscript):/i.test(url)) return '';
+        return url;
+    };
     // Se estiver oculta, mostra o verso. Se revelada, mostra a arte real!
-    img = isOculta ? URL_FUNDO_CARTA : criaturaObj.cartaBlank; 
+    img = urlArteSegura(isOculta ? URL_FUNDO_CARTA : criaturaObj.cartaBlank); 
     
     let hpMax = criaturaObj.hpMax ?? criaturaObj.statsMax?.energia ?? 0;
     hpAtual = criaturaObj.hpAtual !== undefined ? criaturaObj.hpAtual : hpMax;
