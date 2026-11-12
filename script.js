@@ -3067,16 +3067,25 @@ window.iniciarBatalhaDrome = function(modoEscolhido) {
         }
         const deck = snapshot.val();
         const ids = deck && deck.criaturas;
-        const lista = Array.isArray(ids) ? ids : (ids && typeof ids === 'object' ? Object.keys(ids).sort((a,b) => Number(a)-Number(b)).map(k => ids[k]) : []);
+        // Aceitar apenas listas ou mapas de índices inteiros (formato legado do bridge).
+        // Não permitir propriedades arbitrárias nem índices duplicados/negativos.
+        const listaDeck = valor => {
+            if (Array.isArray(valor)) return valor;
+            if (!valor || typeof valor !== 'object') return [];
+            const chaves = Object.keys(valor);
+            if (!chaves.every(k => /^(0|[1-9]\\d*)$/.test(k) && Number.isSafeInteger(Number(k)))) return [];
+            return chaves.sort((a, b) => Number(a) - Number(b)).map(k => valor[k]);
+        };
+        const lista = listaDeck(ids);
         const selecionadas = lista.filter(id => id !== null && id !== undefined && String(id).trim() !== '');
         // Não confundir uma formação ilustrada com um Deck legal para uma partida.
         // Conferir também ataques e locais, sem confiar no sinalizador salvo pelo cliente.
-        const ataques = Array.isArray(deck.ataques) ? deck.ataques : [];
-        const locais = Array.isArray(deck.locais) ? deck.locais : [];
+        const ataques = listaDeck(deck.ataques);
+        const locais = listaDeck(deck.locais);
         // Cartas opcionais equipadas também precisam pertencer ao jogador.
         // Preservar posições vazias, mas nunca aceitar IDs desconhecidos.
-        const equipamentos = Array.isArray(deck.equipamentos) ? deck.equipamentos.filter(id => id != null && String(id).trim() !== '') : [];
-        const mugics = Array.isArray(deck.mugics) ? deck.mugics.filter(id => id != null && String(id).trim() !== '') : [];
+        const equipamentos = listaDeck(deck.equipamentos).filter(id => id != null && String(id).trim() !== '');
+        const mugics = listaDeck(deck.mugics).filter(id => id != null && String(id).trim() !== '');
         const album = Array.isArray(window.inventario) ? window.inventario : [];
         // Conferência de posse por quantidade: uma única cópia não pode ocupar
         // várias posições. É uma proteção de preparação LOCAL, não autorização oficial.
