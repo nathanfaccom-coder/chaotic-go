@@ -91,7 +91,8 @@ function desenharMiniCarta(criaturaObj) {
     }
 
     // 🔥 BLINDAGEM DE DADOS: Troca todos os números por "?" se estiver oculta!
-    let displayHP = isOculta ? '???' : (Number.isFinite(hpSeguro) && hpSeguro > 0 ? Math.max(0, Math.min(hpSeguro, Number.isFinite(maxHpSeguro) ? Math.max(0, maxHpSeguro) : hpSeguro)) : '');
+    // Mostrar zero explicitamente para criaturas derrotadas; não confundir 0 HP com dado ausente.
+    let displayHP = isOculta ? '???' : (Number.isFinite(hpSeguro) ? Math.max(0, Math.min(hpSeguro, Number.isFinite(maxHpSeguro) ? Math.max(0, maxHpSeguro) : hpSeguro)) : '?');
     let displayCorHp = isOculta ? '#222' : corHp;
     let displayPct = isOculta ? 100 : pct;
 

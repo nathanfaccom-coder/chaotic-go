@@ -112,3 +112,13 @@ test("combat fog: movement status stays private until creature is revealed",()=>
  assert.doesNotMatch(hidden,/mini-card-wrapper esgotado/);
  assert.match(revealed,/mini-card-wrapper esgotado/);
 });
+
+test("combat mini-card: defeated creature displays zero HP rather than blank",()=>{
+ const html=context.renderMini({nome:"Teste",hpMax:100,hpAtual:0,revelada:true});
+ assert.match(html,/mini-hp-text">0<\/span>/);
+});
+test("combat mini-card: nonfinite HP is shown as unknown without exposing invalid numbers",()=>{
+ const html=context.renderMini({nome:"Teste",hpMax:100,hpAtual:NaN,revelada:true});
+ assert.match(html,/mini-hp-text">\?<\/span>/);
+ assert.doesNotMatch(html,/mini-hp-text">NaN/);
+});
