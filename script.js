@@ -2995,6 +2995,7 @@ if (evtSeletorSlot) {
 let btnSairDrome = document.getElementById("btn-sair-drome");
 if (btnSairDrome) {
     btnSairDrome.onclick = () => {
+        ++dromePreparacaoId;
         document.getElementById("tela-batalha").style.display = "none";
         document.getElementById("tela-menu").style.display = "flex";
         window.modoMenu = true;
