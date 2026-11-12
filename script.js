@@ -3013,6 +3013,8 @@ window.fecharEntradaDrome = function() {
 
 // Formatos visuais do Drome. Não cria resultado oficial nem concede recompensas.
 const DROME_FORMATOS = Object.freeze({ '1x1': [6], '3x3': [4, 5, 6], '6x6': [1, 2, 3, 4, 5, 6] });
+// Identificador impede que uma resposta atrasada de outro formato sobrescreva a arena.
+let dromePreparacaoId = 0;
 window.iniciarBatalhaDrome = function(modoEscolhido) {
     const ativos = DROME_FORMATOS[modoEscolhido];
     const arena = document.getElementById("tela-batalha");
