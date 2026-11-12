@@ -41,7 +41,8 @@ function desenharMiniCarta(criaturaObj) {
     const hpMaxPrimario = hpNumerico(criaturaObj.hpMax);
     const hpMaxCatalogo = hpNumerico(criaturaObj.statsMax?.energia);
     let hpMax = Number.isFinite(hpMaxPrimario) ? hpMaxPrimario : hpMaxCatalogo;
-    const hpRecebido = hpNumerico(criaturaObj.hpAtual);
+    const hpRecebido = typeof criaturaObj.hpAtual === 'number' && Number.isFinite(criaturaObj.hpAtual) && criaturaObj.hpAtual < 0
+        ? criaturaObj.hpAtual : hpNumerico(criaturaObj.hpAtual);
     hpAtual = Number.isFinite(hpRecebido) ? hpRecebido : hpMax;
     // Ausência de atributo durante sincronização não equivale a zero real.
     // O zero explícito e os valores originais do catálogo continuam preservados.
