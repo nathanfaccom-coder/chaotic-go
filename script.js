@@ -3073,7 +3073,7 @@ window.iniciarBatalhaDrome = function(modoEscolhido) {
             if (Array.isArray(valor)) return valor;
             if (!valor || typeof valor !== 'object') return [];
             const chaves = Object.keys(valor);
-            if (!chaves.every(k => /^(0|[1-9]\\d*)$/.test(k) && Number.isSafeInteger(Number(k)))) return [];
+            if (!chaves.every(k => /^(0|[1-9]\d*)$/.test(k) && Number.isSafeInteger(Number(k)))) return [];
             return chaves.sort((a, b) => Number(a) - Number(b)).map(k => valor[k]);
         };
         const lista = listaDeck(ids);
