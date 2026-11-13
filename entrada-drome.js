@@ -173,9 +173,14 @@ function carregarDecksParaEscolha(modo) {
             lista.textContent = "Nenhum deck " + modo + " encontrado. Crie um deck na Oficina primeiro!";
         }
     }).catch(err => {
-        if (document.getElementById("lista-decks-drome") !== lista) return;
+        // A failed request from a previous account or mode must not erase
+        // a newer successful Deck list (or disclose the old account state).
+        if (!isCurrent()) return;
         console.error("Erro na leitura da Nuvem:", err);
         lista.textContent = "Falha ao carregar decks! Verifique sua conexão.";
+        window.estadoDrome.deckSelecionado = null;
+        const btn = document.getElementById("btn-jogar-drome");
+        if (btn) btn.style.display = "none";
     });
 }
 
