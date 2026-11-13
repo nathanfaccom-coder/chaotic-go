@@ -612,6 +612,14 @@ function _desafioDromeValido(salaId, modo) {
 const _desafiosDromeEmProcessamento = new Set();
 
 window.responderDesafioDrome = async function(resposta, salaId, modo) {
+    // Incoming invitations must not bypass the same multiplayer rollout gate
+    // enforced when the challenger initiates a match.
+    if (window.CHAOTIC_MULTIPLAYER_ENABLED !== true) {
+        window.mostrarMensagemScanner?.("Desafios legados indisponíveis até validação do servidor.");
+        const blockedModal = document.getElementById("modal-desafio-drome");
+        if (blockedModal) blockedModal.style.display = "none";
+        return;
+    }
     if (!_desafioDromeValido(salaId, modo) || !["aceitar", "recusar"].includes(resposta)) {
         window.mostrarMensagemScanner?.("Desafio inválido. Solicite um novo convite.");
         return;
@@ -644,7 +652,9 @@ window.responderDesafioDrome = async function(resposta, salaId, modo) {
         btn.onclick = async () => {
             if (_desafiosDromeEmProcessamento.has(salaId)) return;
             const deck = window.estadoDrome.deckSelecionado;
-            if (window.estadoDrome.modo !== modo || !deck ||
+            if (window.CHAOTIC_MULTIPLAYER_ENABLED !== true ||
+                window.estadoDrome.modo !== modo || !deck ||
+                verificarIrregularidadeDeck(deck, modo) ||
                 (typeof window.validarDeckParaModo === "function" && !window.validarDeckParaModo(deck, modo))) {
                 window.mostrarMensagemScanner?.("Escolha um Deck válido para este modo.");
                 return;
