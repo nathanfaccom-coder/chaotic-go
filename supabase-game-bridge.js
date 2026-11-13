@@ -120,6 +120,9 @@ export function set(reference, value) {
     }
     if (result.error) { report(result.error); throw result.error; }
     notify(node, value);
+    // Atualiza a lista agregada imediatamente após salvar/remover um slot.
+    // Realtime pode estar desativado ou atrasado; não depender dele para a UI local.
+    if (node.startsWith("decks/")) reloadDeckCollection();
   });
 }
 export function remove(reference) { return set(reference,null); }
@@ -137,6 +140,7 @@ export function update(reference, patch) {
     });
     if(error) { report(error); throw error; }
     notify(node, data);
+    if (node.startsWith("decks/")) reloadDeckCollection();
   });
 }
 function releaseRealtimeIfUnused() {
