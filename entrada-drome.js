@@ -562,8 +562,19 @@ function mostrarModalDesafioDrome(desafio) {
     if (navigator.vibrate) navigator.vibrate([100,50,100]);
 }
 
+// Legacy Firebase challenge paths must never be built from untrusted room identifiers.
+function _desafioDromeValido(salaId, modo) {
+    return typeof salaId === "string" &&
+        /^drome_[A-Za-z0-9_-]{1,128}_[A-Za-z0-9_-]{1,128}$/.test(salaId) &&
+        ["1x1", "3x3", "6x6"].includes(modo);
+}
+
 window.responderDesafioDrome = function(resposta, salaId, modo) {
     document.getElementById("modal-desafio-drome").style.display = "none";
+    if (!_desafioDromeValido(salaId, modo) || !["aceitar", "recusar"].includes(resposta)) {
+        window.mostrarMensagemScanner?.("Desafio inválido. Solicite um novo convite.");
+        return;
+    }
     if (resposta === 'recusar') {
         _dbUpdate('salas_drome/' + salaId, { status:"recusado" });
     } else {
@@ -575,10 +586,21 @@ window.responderDesafioDrome = function(resposta, salaId, modo) {
         window.renderizarPassoEscolhaDeck();
         setTimeout(() => {
             let btn = document.getElementById("btn-jogar-drome");
-            if (btn) btn.onclick = () => { 
-                let deckPronto = window.expandirDeckParaOnline(window.estadoDrome.deckSelecionado);
-                _dbUpdate('salas_drome/' + salaId, { status: "pronta", "p2/deck": deckPronto }); 
-                iniciarPartidaDrome(salaId, false); 
+            if (btn) btn.onclick = async () => {
+                const deck = window.estadoDrome.deckSelecionado;
+                if (window.estadoDrome.modo !== modo || !deck ||
+                    (typeof window.validarDeckParaModo === "function" && !window.validarDeckParaModo(deck, modo))) {
+                    window.mostrarMensagemScanner?.("Escolha um Deck válido para este modo.");
+                    return;
+                }
+                const deckPronto = window.expandirDeckParaOnline(deck);
+                try {
+                    await _dbUpdate('salas_drome/' + salaId, { status: "pronta", "p2/deck": deckPronto });
+                    iniciarPartidaDrome(salaId, false);
+                } catch (erro) {
+                    console.error("Falha ao confirmar desafio Drome", erro);
+                    window.mostrarMensagemScanner?.("Não foi possível confirmar o desafio. Tente novamente.");
+                }
             };
         }, 1500);
     }
