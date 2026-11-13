@@ -118,10 +118,19 @@ function carregarDecksParaEscolha(modo) {
         return;
     }
 
+    // A request can become stale even when the same list DOM node is reused.
+    // Bind its result to the current user, mode and request generation.
+    const requestId = (window._dromeDeckRequestId || 0) + 1;
+    window._dromeDeckRequestId = requestId;
+    const isCurrent = () => window._dromeDeckRequestId === requestId &&
+        document.getElementById("lista-decks-drome") === lista &&
+        window.estadoDrome.modo === modo &&
+        localStorage.getItem("chaoticUID") === uid;
+
     _dbGet('jogadores/' + uid + '/decks').then(snapshot => {
         // A delayed request from an older mode must NEVER overwrite the
         // list opened afterward (common on slow Android connections).
-        if (document.getElementById("lista-decks-drome") !== lista) return;
+        if (!isCurrent()) return;
         lista.innerHTML = "";
         let encontrouAlgum = false;
         const todosOsDecks = snapshot.exists() ? (snapshot.val() || {}) : {};
