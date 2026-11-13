@@ -544,10 +544,27 @@ function renderizarAguardandoAmigo(salaId, nomeAmigo) {
     });
 }
 
-window.cancelarDesafioDrome = function(salaId) {
-    _dbUpdate('salas_drome/' + salaId, { status:"cancelado" });
-    setTimeout(() => _dbRemove('salas_drome/' + salaId), 2000);
-    window.renderizarPassoEscolhaDeck();
+// Cancelamento legado: nunca apague a sala por temporizador. Uma confirmação
+// atrasada poderia sobrescrever o cancelamento ou perder o histórico da disputa.
+const _cancelamentosDromePendentes = new Set();
+window.cancelarDesafioDrome = async function(salaId) {
+    if (window.CHAOTIC_MULTIPLAYER_ENABLED !== true ||
+        typeof salaId !== "string" ||
+        !/^drome_[A-Za-z0-9_-]{1,128}_[A-Za-z0-9_-]{1,128}$/.test(salaId)) {
+        window.mostrarMensagemScanner?.("Não foi possível cancelar: sala inválida ou modo indisponível.");
+        return;
+    }
+    if (_cancelamentosDromePendentes.has(salaId)) return;
+    _cancelamentosDromePendentes.add(salaId);
+    try {
+        await _dbUpdate('salas_drome/' + salaId, { status:"cancelado" });
+        window.renderizarPassoEscolhaDeck();
+    } catch (erro) {
+        console.error("Falha ao cancelar desafio Drome", erro);
+        window.mostrarMensagemScanner?.("Cancelamento não confirmado. Tente novamente.");
+    } finally {
+        _cancelamentosDromePendentes.delete(salaId);
+    }
 };
 
 window.escutarDesafiosDrome = function() {
