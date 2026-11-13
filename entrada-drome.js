@@ -263,6 +263,21 @@ window.confirmarEntradaDrome = function() {
         }
         return;
     }
+    // Cached Deck selection is not proof of an active login.
+    // The server must still authenticate every multiplayer action.
+    const activeUid = localStorage.getItem("chaoticUID");
+    if (!activeUid || activeUid === "null" || activeUid === "undefined") {
+        window.estadoDrome.deckSelecionado = null;
+        const aviso = document.getElementById("aviso-deck-irregular");
+        const texto = document.getElementById("texto-irregularidade");
+        if (aviso && texto) {
+            aviso.style.display = "block";
+            texto.textContent = "Sua sessão não está disponível. Entre novamente e escolha seu Deck.";
+        }
+        const btn = document.getElementById("btn-jogar-drome");
+        if (btn) btn.style.display = "none";
+        return;
+    }
     if (window.estadoDrome.tipoJogo === 'online') {
         window.mostrarMensagemScanner("Conectando aos servidores do Drome...");
         renderizarFilaOnline(); 
@@ -350,7 +365,7 @@ function renderizarFilaOnline() {
     let filaPath = 'fila_drome/' + modo; 
     tela.innerHTML = `
         <p class="titulo-tela" style="margin-top:30px;font-size:14px;letter-spacing:2px;">⚔️ DROME ONLINE ⚔️</p>
-        <p style="color:#4CAF50;font-size:10px;margin-bottom:40px;font-family:monospace;">MODO ${modo.toUpperCase()} · ${window.estadoDrome.deckSelecionado.nome}</p>
+        <p style="color:#4CAF50;font-size:10px;margin-bottom:40px;font-family:monospace;">MODO ${modo.toUpperCase()} · <span id="nome-deck-fila"></span></p>
         <div style="display:flex;flex-direction:column;align-items:center;gap:20px;">
             <div style="width:80px;height:80px;border:4px solid #4CAF50;border-top-color:transparent;border-radius:50%;animation:girar 1s linear infinite;"></div>
             <p class="texto-carregando" style="font-size:13px;">Procurando adversário...</p>
@@ -359,6 +374,9 @@ function renderizarFilaOnline() {
         <button class="btn-voltar-pequeno" style="margin-top:40px;border-color:#e53935;color:#e53935;" onclick="window.cancelarFila()">Cancelar e Voltar</button>
         <style>@keyframes girar{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}</style>
     `;
+    // Saved Deck names are user-controlled and must never be parsed as HTML.
+    const nomeDeckFila = document.getElementById("nome-deck-fila");
+    if (nomeDeckFila) nomeDeckFila.textContent = String(window.estadoDrome.deckSelecionado?.nome || "Deck Sem Nome");
     let s = 0;
     window._timerFila = setInterval(() => {
         s++;
