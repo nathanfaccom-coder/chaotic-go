@@ -9,10 +9,14 @@ const watchers = new Map();
 const queues = new Map();
 const revisions = new Map();
 let realtimeChannel = null;
+let deckReloadSequence = 0;
 function reloadDeckCollection() {
   if (!watchers.has("decks")) return;
+  const sequence = ++deckReloadSequence;
   get(ref(db,"jogadores/"+ownerId+"/decks"))
-    .then(s => notify("decks",s.val())).catch(report);
+    .then(s => {
+      if (sequence === deckReloadSequence && watchers.has("decks")) notify("decks",s.val());
+    }).catch(error => { if (sequence === deckReloadSequence) report(error); });
 }
 function handleCloudChange(payload) {
   const row = payload?.new?.node_path ? payload.new : payload?.old;
@@ -135,6 +139,13 @@ export function update(reference, patch) {
     notify(node, data);
   });
 }
+function releaseRealtimeIfUnused() {
+  if (watchers.size || !realtimeChannel) return;
+  const channel = realtimeChannel;
+  realtimeChannel = null;
+  if (typeof client.removeChannel === "function") client.removeChannel(channel);
+  else if (typeof channel.unsubscribe === "function") channel.unsubscribe();
+}
 export function onValue(reference, callback) {
   let node;
   try { node=keyOf(reference); } catch (error) { report(error); return () => {}; }
@@ -150,12 +161,7 @@ export function onValue(reference, callback) {
   return () => {
     listeners.delete(callback);
     if(!listeners.size) watchers.delete(node);
-    if(!watchers.size && realtimeChannel) {
-      const channel=realtimeChannel;
-      realtimeChannel=null;
-      if(typeof client.removeChannel==="function")client.removeChannel(channel);
-      else if(typeof channel.unsubscribe==="function")channel.unsubscribe();
-    }
+    releaseRealtimeIfUnused();
   };
 }
 export function installDbCompat() {
@@ -165,7 +171,7 @@ export function installDbCompat() {
   window._dbRemove = path => remove(ref(db,path));
   window._dbOn = (path,cb) => onValue(ref(db,path),cb);
   window._dbOff = path => {
-    try { const key=keyOf(path); watchers.delete(key); }
+    try { const key=keyOf(path); watchers.delete(key); releaseRealtimeIfUnused(); }
     catch (_error) { /* caminhos multiplayer legados não têm assinatura ativa */ }
   };
 }
