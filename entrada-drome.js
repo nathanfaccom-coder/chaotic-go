@@ -608,41 +608,62 @@ function _desafioDromeValido(salaId, modo) {
         ["1x1", "3x3", "6x6"].includes(modo);
 }
 
-window.responderDesafioDrome = function(resposta, salaId, modo) {
-    document.getElementById("modal-desafio-drome").style.display = "none";
+// Prevent duplicate writes when a player taps the same challenge action repeatedly.
+const _desafiosDromeEmProcessamento = new Set();
+
+window.responderDesafioDrome = async function(resposta, salaId, modo) {
     if (!_desafioDromeValido(salaId, modo) || !["aceitar", "recusar"].includes(resposta)) {
         window.mostrarMensagemScanner?.("Desafio inválido. Solicite um novo convite.");
         return;
     }
-    if (resposta === 'recusar') {
-        _dbUpdate('salas_drome/' + salaId, { status:"recusado" });
-    } else {
-        window.estadoDrome.tipoJogo = 'amigo';
-        window.estadoDrome.modo = modo;
-        document.getElementById("tela-menu").style.display = "none";
-        document.getElementById("tela-entrada-drome").style.display = "flex";
-        window.modoMenu = false;
-        window.renderizarPassoEscolhaDeck();
-        setTimeout(() => {
-            let btn = document.getElementById("btn-jogar-drome");
-            if (btn) btn.onclick = async () => {
-                const deck = window.estadoDrome.deckSelecionado;
-                if (window.estadoDrome.modo !== modo || !deck ||
-                    (typeof window.validarDeckParaModo === "function" && !window.validarDeckParaModo(deck, modo))) {
-                    window.mostrarMensagemScanner?.("Escolha um Deck válido para este modo.");
-                    return;
-                }
-                const deckPronto = window.expandirDeckParaOnline(deck);
-                try {
-                    await _dbUpdate('salas_drome/' + salaId, { status: "pronta", "p2/deck": deckPronto });
-                    iniciarPartidaDrome(salaId, false);
-                } catch (erro) {
-                    console.error("Falha ao confirmar desafio Drome", erro);
-                    window.mostrarMensagemScanner?.("Não foi possível confirmar o desafio. Tente novamente.");
-                }
-            };
-        }, 1500);
+    if (_desafiosDromeEmProcessamento.has(salaId)) return;
+    const modal = document.getElementById("modal-desafio-drome");
+    if (resposta === "recusar") {
+        _desafiosDromeEmProcessamento.add(salaId);
+        try {
+            await _dbUpdate("salas_drome/" + salaId, { status: "recusado" });
+            if (modal) modal.style.display = "none";
+        } catch (erro) {
+            console.error("Falha ao recusar desafio Drome", erro);
+            window.mostrarMensagemScanner?.("Não foi possível recusar o desafio. Tente novamente.");
+        } finally {
+            _desafiosDromeEmProcessamento.delete(salaId);
+        }
+        return;
     }
+    if (modal) modal.style.display = "none";
+    window.estadoDrome.tipoJogo = "amigo";
+    window.estadoDrome.modo = modo;
+    document.getElementById("tela-menu").style.display = "none";
+    document.getElementById("tela-entrada-drome").style.display = "flex";
+    window.modoMenu = false;
+    window.renderizarPassoEscolhaDeck();
+    setTimeout(() => {
+        const btn = document.getElementById("btn-jogar-drome");
+        if (!btn || window.estadoDrome.modo !== modo || window.estadoDrome.tipoJogo !== "amigo") return;
+        btn.onclick = async () => {
+            if (_desafiosDromeEmProcessamento.has(salaId)) return;
+            const deck = window.estadoDrome.deckSelecionado;
+            if (window.estadoDrome.modo !== modo || !deck ||
+                (typeof window.validarDeckParaModo === "function" && !window.validarDeckParaModo(deck, modo))) {
+                window.mostrarMensagemScanner?.("Escolha um Deck válido para este modo.");
+                return;
+            }
+            _desafiosDromeEmProcessamento.add(salaId);
+            btn.disabled = true;
+            try {
+                const deckPronto = window.expandirDeckParaOnline(deck);
+                await _dbUpdate("salas_drome/" + salaId, { status: "pronta", "p2/deck": deckPronto });
+                iniciarPartidaDrome(salaId, false);
+            } catch (erro) {
+                console.error("Falha ao confirmar desafio Drome", erro);
+                window.mostrarMensagemScanner?.("Não foi possível confirmar o desafio. Tente novamente.");
+            } finally {
+                _desafiosDromeEmProcessamento.delete(salaId);
+                if (btn.isConnected) btn.disabled = false;
+            }
+        };
+    }, 1500);
 };
 
 window.voltarMenuDrome = function() {
