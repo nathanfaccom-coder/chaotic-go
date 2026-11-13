@@ -397,12 +397,42 @@ function renderizarPassoEscolhaAmigo() {
     `;
     let lista = document.getElementById("lista-amigos-drome");
     amigos.forEach((amigo, i) => {
-        let av = (amigo.avatar.startsWith("http") || amigo.avatar.startsWith("data:"))
-            ? `<div style="width:35px;height:35px;background-image:url('${amigo.avatar}');background-size:cover;border-radius:50%;border:2px solid #4CAF50;flex-shrink:0;"></div>`
-            : `<div style="width:35px;height:35px;background:#000;border-radius:50%;border:2px solid #4CAF50;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">${amigo.avatar}</div>`;
-        let div = document.createElement("div");
-        div.style = "background:#112211;border:1px solid #4CAF50;border-radius:8px;padding:10px;display:flex;justify-content:space-between;align-items:center;";
-        div.innerHTML = `<div style="display:flex;align-items:center;gap:10px;">${av}<div style="text-align:left;"><div style="color:#fff;font-size:11px;font-weight:bold;">${amigo.nome}</div><div style="color:#4CAF50;font-size:9px;">🟢 Online</div></div></div><button style="background:#e53935;color:white;border:none;padding:8px 12px;border-radius:5px;font-weight:bold;cursor:pointer;font-size:10px;" onclick="window.desafiarAmigoDrome(${i})">DESAFIAR</button>`;
+        // Friend profiles are remote data: never interpolate names or avatars
+        // into innerHTML (including CSS url() and inline onclick attributes).
+        const div = document.createElement("div");
+        div.style.cssText = "background:#112211;border:1px solid #4CAF50;border-radius:8px;padding:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;";
+        const identity = document.createElement("div");
+        identity.style.cssText = "display:flex;align-items:center;gap:10px;min-width:0;";
+        const avatar = document.createElement("div");
+        avatar.style.cssText = "width:35px;height:35px;background:#000;border-radius:50%;border:2px solid #4CAF50;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;overflow:hidden;";
+        const avatarValue = typeof amigo.avatar === "string" ? amigo.avatar : "";
+        if (/^https:\/\//i.test(avatarValue)) {
+            const img = document.createElement("img");
+            img.alt = "";
+            img.loading = "lazy";
+            img.referrerPolicy = "no-referrer";
+            img.style.cssText = "width:100%;height:100%;object-fit:cover;";
+            img.src = avatarValue;
+            avatar.appendChild(img);
+        } else {
+            avatar.textContent = avatarValue.slice(0, 2) || "👤";
+        }
+        const info = document.createElement("div");
+        info.style.cssText = "text-align:left;min-width:0;";
+        const name = document.createElement("div");
+        name.style.cssText = "color:#fff;font-size:11px;font-weight:bold;overflow-wrap:anywhere;";
+        name.textContent = String(amigo.nome || "Jogador");
+        const status = document.createElement("div");
+        status.style.cssText = "color:#4CAF50;font-size:9px;";
+        status.textContent = "Amigo";
+        info.append(name, status);
+        identity.append(avatar, info);
+        const challenge = document.createElement("button");
+        challenge.type = "button";
+        challenge.style.cssText = "background:#e53935;color:white;border:none;padding:8px 12px;border-radius:5px;font-weight:bold;cursor:pointer;font-size:10px;flex-shrink:0;";
+        challenge.textContent = "DESAFIAR";
+        challenge.addEventListener("click", () => window.desafiarAmigoDrome(i));
+        div.append(identity, challenge);
         lista.appendChild(div);
     });
 }
