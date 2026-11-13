@@ -289,12 +289,15 @@ window.confirmarEntradaDrome = function() {
 window.ajustarTabuleiroBatalha = function(modo) {
     let opZona = document.querySelector('.lado-oponente .zona-central');
     let jogZona = document.querySelector('.lado-jogador .zona-central');
-    let opLinha3 = document.getElementById('op-c1').parentElement; 
-    let opLinha2 = document.getElementById('op-c4').parentElement; 
-    let opLinha1 = document.getElementById('op-c6').parentElement; 
-    let jogLinha3 = document.getElementById('jog-c1').parentElement; 
-    let jogLinha2 = document.getElementById('jog-c4').parentElement; 
-    let jogLinha1 = document.getElementById('jog-c6').parentElement; 
+    // Some mobile/legacy layouts omit slots while their view is mounting.
+    // Do not crash the battle entry flow when a slot is absent.
+    const parentOf = id => document.getElementById(id)?.parentElement || null;
+    let opLinha3 = parentOf('op-c1');
+    let opLinha2 = parentOf('op-c4');
+    let opLinha1 = parentOf('op-c6');
+    let jogLinha3 = parentOf('jog-c1');
+    let jogLinha2 = parentOf('jog-c4');
+    let jogLinha1 = parentOf('jog-c6');
     let opMugics = document.querySelectorAll('.lado-oponente .hex-mugic');
     let jogMugics = document.querySelectorAll('.lado-jogador .hex-mugic');
     [opZona, jogZona].forEach(zona => {
@@ -307,18 +310,18 @@ window.ajustarTabuleiroBatalha = function(modo) {
         if(linha) { linha.style.marginTop = "0"; linha.style.marginBottom = "0"; }
     });
     if (modo === "6x6") {
-        opLinha3.style.display = "flex"; opLinha2.style.display = "flex"; opLinha1.style.display = "flex";
-        jogLinha3.style.display = "flex"; jogLinha2.style.display = "flex"; jogLinha1.style.display = "flex";
+        if (opLinha3) opLinha3.style.display = "flex"; if (opLinha2) opLinha2.style.display = "flex"; if (opLinha1) opLinha1.style.display = "flex";
+        if (jogLinha3) jogLinha3.style.display = "flex"; if (jogLinha2) jogLinha2.style.display = "flex"; if (jogLinha1) jogLinha1.style.display = "flex";
         opMugics.forEach(m => m.style.display = "block"); jogMugics.forEach(m => m.style.display = "block");
     } else if (modo === "3x3") {
-        opLinha3.style.display = "none"; opLinha2.style.display = "flex"; opLinha1.style.display = "flex";
-        jogLinha3.style.display = "none"; jogLinha2.style.display = "flex"; jogLinha1.style.display = "flex";
+        if (opLinha3) opLinha3.style.display = "none"; if (opLinha2) opLinha2.style.display = "flex"; if (opLinha1) opLinha1.style.display = "flex";
+        if (jogLinha3) jogLinha3.style.display = "none"; if (jogLinha2) jogLinha2.style.display = "flex"; if (jogLinha1) jogLinha1.style.display = "flex";
         if(jogLinha2) jogLinha2.style.marginTop = "10px"; if(opLinha2) opLinha2.style.marginTop = "10px";
         opMugics.forEach((m, i) => m.style.display = i >= 3 ? "none" : "block");
         jogMugics.forEach((m, i) => m.style.display = i >= 3 ? "none" : "block");
     } else if (modo.includes("1x1")) {
-        opLinha3.style.display = "none"; opLinha2.style.display = "none"; opLinha1.style.display = "flex";
-        jogLinha3.style.display = "none"; jogLinha2.style.display = "none"; jogLinha1.style.display = "flex";
+        if (opLinha3) opLinha3.style.display = "none"; if (opLinha2) opLinha2.style.display = "none"; if (opLinha1) opLinha1.style.display = "flex";
+        if (jogLinha3) jogLinha3.style.display = "none"; if (jogLinha2) jogLinha2.style.display = "none"; if (jogLinha1) jogLinha1.style.display = "flex";
         if(jogLinha1) jogLinha1.style.marginTop = "2px"; if(opLinha1) opLinha1.style.marginTop = "2px";
         opMugics.forEach((m, i) => m.style.display = i >= 1 ? "none" : "block");
         jogMugics.forEach((m, i) => m.style.display = i >= 1 ? "none" : "block");
