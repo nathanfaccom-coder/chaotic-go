@@ -451,10 +451,12 @@ function renderizarAguardandoAmigo(salaId, nomeAmigo) {
     let tela = document.getElementById("tela-entrada-drome");
     tela.innerHTML = `
         <p class="titulo-tela" style="margin-top:30px;font-size:14px;letter-spacing:2px;">⚔️ AGUARDANDO ⚔️</p>
-        <p style="color:#4CAF50;font-size:10px;margin-bottom:40px;font-family:monospace;">DESAFIO ENVIADO PARA ${nomeAmigo.toUpperCase()}</p>
+        <p id="drome-nome-amigo-aguardando" style="color:#4CAF50;font-size:10px;margin-bottom:40px;font-family:monospace;"></p>
         <div style="display:flex;flex-direction:column;align-items:center;gap:20px;"><div style="font-size:50px;">⚔️</div><p class="texto-carregando" style="font-size:12px;">Aguardando resposta...</p></div>
-        <button class="btn-voltar-pequeno" style="margin-top:50px;border-color:#e53935;color:#e53935;" onclick="window.cancelarDesafioDrome('${salaId}')">Cancelar Desafio</button>
+        <button id="drome-cancelar-desafio" type="button" class="btn-voltar-pequeno" style="margin-top:50px;border-color:#e53935;color:#e53935;">Cancelar Desafio</button>
     `;
+    document.getElementById("drome-nome-amigo-aguardando").textContent = "DESAFIO ENVIADO PARA " + String(nomeAmigo || "Jogador").toUpperCase();
+    document.getElementById("drome-cancelar-desafio").addEventListener("click", () => window.cancelarDesafioDrome(salaId));
     _dbOn('salas_drome/' + salaId, snapshot => {
         if (!snapshot.exists()) return;
         let sala = snapshot.val();
