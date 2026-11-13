@@ -110,13 +110,14 @@ export function update(reference, patch) {
     return Promise.reject(new Error("Atualização inválida."));
   }
   return serialize(node, async () => {
-    const current = await get(reference);
-    const merged = {...(current.val() || {}),...patch};
-    const {error} = await client.from("chaotic_game_nodes").upsert({
-      user_id:ownerId,node_path:node,data:merged,updated_at:new Date().toISOString()
-    },{onConflict:"user_id,node_path"});
-    if(error) { report(error);throw error; }
-    notify(node, merged);
+    // Patch atômico no PostgreSQL: evita perder alterações de outra aba/dispositivo.
+    // A função é SECURITY INVOKER e usa auth.uid() com RLS do proprietário.
+    const {data, error} = await client.rpc("chaotic_patch_own_node", {
+      p_node_path: node,
+      p_patch: patch
+    });
+    if(error) { report(error); throw error; }
+    notify(node, data);
   });
 }
 export function onValue(reference, callback) {
