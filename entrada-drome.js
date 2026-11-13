@@ -421,12 +421,17 @@ function renderizarPassoEscolhaAmigo() {
     let amigos = window.amigos || [];
     tela.innerHTML = `
         <p class="titulo-tela" style="margin-top:20px;font-size:14px;letter-spacing:2px;">⚔️ DESAFIAR AMIGO ⚔️</p>
-        <p style="color:#4CAF50;font-size:10px;margin-bottom:20px;font-family:monospace;">MODO ${window.estadoDrome.modo.toUpperCase()} · ${window.estadoDrome.deckSelecionado.nome}</p>
+        <p style="color:#4CAF50;font-size:10px;margin-bottom:20px;font-family:monospace;">MODO <span id="modo-amigo-drome"></span> · <span id="deck-amigo-drome"></span></p>
         <div id="lista-amigos-drome" style="display:flex;flex-direction:column;gap:10px;width:85%;margin-bottom:10px;">
             ${amigos.length === 0 ? '<p style="color:#555;font-size:10px;text-align:center;">Nenhum amigo na lista.</p>' : ''}
         </div>
         <button class="btn-voltar-pequeno" style="margin-top:20px;" onclick="window.renderizarPassoEscolhaDeck()">← Voltar</button>
     `;
+    // The selected deck name comes from player storage and must never be parsed as markup.
+    const modoAmigo = document.getElementById("modo-amigo-drome");
+    const deckAmigo = document.getElementById("deck-amigo-drome");
+    if (modoAmigo) modoAmigo.textContent = String(window.estadoDrome.modo || "").toUpperCase();
+    if (deckAmigo) deckAmigo.textContent = String(window.estadoDrome.deckSelecionado?.nome || "Deck Sem Nome");
     let lista = document.getElementById("lista-amigos-drome");
     amigos.forEach((amigo, i) => {
         // Friend profiles are remote data: never interpolate names or avatars
