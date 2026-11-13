@@ -581,12 +581,38 @@ window.cancelarDesafioDrome = async function(salaId) {
 };
 
 window.escutarDesafiosDrome = function() {
-    let uid = localStorage.getItem("chaoticUID");
-    _dbOn('jogadores/' + uid + '/desafio_drome', snapshot => {
-        if (!snapshot.exists()) return;
-        let desafio = snapshot.val();
-        _dbRemove('jogadores/' + uid + '/desafio_drome');
-        mostrarModalDesafioDrome(desafio);
+    // Do not subscribe to an invalid user path or consume invitations while
+    // the legacy multiplayer is disabled. A local UID is not authentication.
+    const uid = localStorage.getItem("chaoticUID");
+    if (window.CHAOTIC_MULTIPLAYER_ENABLED !== true ||
+        !/^[A-Za-z0-9_-]{1,128}$/.test(String(uid || ""))) return;
+    const path = 'jogadores/' + uid + '/desafio_drome';
+    const processing = new Set();
+    _dbOn(path, async snapshot => {
+        if (!snapshot.exists() ||
+            window.CHAOTIC_MULTIPLAYER_ENABLED !== true ||
+            localStorage.getItem("chaoticUID") !== uid ||
+            processing.has(path)) return;
+        const desafio = snapshot.val();
+        if (!desafio || !_desafioDromeValido(desafio.salaId, desafio.modo) ||
+            !/^[A-Za-z0-9_-]{1,128}$/.test(String(desafio.de || ""))) {
+            console.warn("Convite Drome inválido ignorado.");
+            return;
+        }
+        processing.add(path);
+        try {
+            // Only acknowledge the invitation after the remote delete succeeds.
+            // Otherwise a transient write failure would hide a pending invitation.
+            await _dbRemove(path);
+            if (window.CHAOTIC_MULTIPLAYER_ENABLED === true &&
+                localStorage.getItem("chaoticUID") === uid) {
+                mostrarModalDesafioDrome(desafio);
+            }
+        } catch (erro) {
+            console.error("Não foi possível confirmar leitura do convite Drome", erro);
+        } finally {
+            processing.delete(path);
+        }
     });
 };
 
