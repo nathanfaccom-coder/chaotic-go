@@ -95,9 +95,24 @@ export function set(reference, value) {
     if (value === null || value === undefined) {
       result = await client.from("chaotic_game_nodes").delete().eq("user_id",ownerId).eq("node_path",node);
     } else {
-      result = await client.from("chaotic_game_nodes").upsert({
-        user_id:ownerId,node_path:node,data:JSON.parse(JSON.stringify(value)),updated_at:new Date().toISOString()
-      }, {onConflict:"user_id,node_path"});
+      // UPDATE não inclui user_id/node_path: as colunas de identidade são imutáveis
+      // para authenticated. INSERT só é usado quando o nó ainda não existe.
+      const serialized = JSON.parse(JSON.stringify(value));
+      result = await client.from("chaotic_game_nodes")
+        .update({data:serialized,updated_at:new Date().toISOString()})
+        .eq("user_id",ownerId).eq("node_path",node).select("node_path");
+      if (!result.error && !(result.data || []).length) {
+        result = await client.from("chaotic_game_nodes").insert({
+          user_id:ownerId,node_path:node,data:serialized,updated_at:new Date().toISOString()
+        });
+        // Duas sessões podem criar o mesmo nó simultaneamente: nesse caso,
+        // a identidade permanece intacta e apenas o conteúdo é atualizado.
+        if (result.error?.code === "23505") {
+          result = await client.from("chaotic_game_nodes")
+            .update({data:serialized,updated_at:new Date().toISOString()})
+            .eq("user_id",ownerId).eq("node_path",node);
+        }
+      }
     }
     if (result.error) { report(result.error); throw result.error; }
     notify(node, value);
