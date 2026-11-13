@@ -87,6 +87,9 @@ function renderizarPassoModo() {
 // PASSO 3: Escolher Deck
 // ==========================================
 window.renderizarPassoEscolhaDeck = function() {
+    // A previously selected deck belongs to the previous mode/screen.
+    // Never allow a hidden stale selection to launch a different mode.
+    window.estadoDrome.deckSelecionado = null;
     let tela = document.getElementById("tela-entrada-drome");
     let modo = window.estadoDrome.modo;
     tela.innerHTML = `
@@ -110,6 +113,10 @@ function carregarDecksParaEscolha(modo) {
     const lista = document.getElementById("lista-decks-drome");
     if (!lista) return;
     const uid = localStorage.getItem("chaoticUID");
+    if (!uid || uid === "null" || uid === "undefined") {
+        lista.textContent = "Entre na sua conta para carregar os Decks.";
+        return;
+    }
 
     _dbGet('jogadores/' + uid + '/decks').then(snapshot => {
         // A delayed request from an older mode must NEVER overwrite the
@@ -197,7 +204,24 @@ function selecionarDeckDrome(deckData, numSlot, irreg, divEl) {
 }
 
 window.confirmarEntradaDrome = function() {
-    if (!window.estadoDrome.deckSelecionado) return;
+    const selected = window.estadoDrome.deckSelecionado;
+    if (!selected) return;
+    // Revalidate on entry: a saved selection may become stale after navigation.
+    const mode = window.estadoDrome.modo;
+    if (!["1x1", "3x3", "6x6"].includes(mode) ||
+        (selected.modo && selected.modo !== mode) ||
+        verificarIrregularidadeDeck(selected, mode)) {
+        window.estadoDrome.deckSelecionado = null;
+        const aviso = document.getElementById("aviso-deck-irregular");
+        const texto = document.getElementById("texto-irregularidade");
+        if (aviso && texto) {
+            aviso.style.display = "block";
+            texto.textContent = "Deck incompatível ou incompleto para este modo. Selecione um Deck válido novamente.";
+        }
+        const btn = document.getElementById("btn-jogar-drome");
+        if (btn) btn.style.display = "none";
+        return;
+    }
     // Não iniciar matchmaking Firebase nesta prévia: o backend online
     // ainda não foi portado. Preservamos a lógica abaixo para reativá-la
     // quando salas, transações e presença estiverem protegidas no servidor.
