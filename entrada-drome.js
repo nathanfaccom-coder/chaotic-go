@@ -487,15 +487,35 @@ function mostrarModalDesafioDrome(desafio) {
         document.getElementById("tela-jogo").appendChild(m);
     }
     let m = document.getElementById("modal-desafio-drome");
-    m.innerHTML = `
-        <p style="color:#e53935;font-weight:bold;font-size:16px;margin-bottom:5px;text-align:center;">⚔️ DESAFIO RECEBIDO!</p>
-        <p style="color:#fff;font-size:12px;margin-bottom:5px;text-align:center;">${desafio.nome.toUpperCase()} te desafiou!</p>
-        <p style="color:#4CAF50;font-size:10px;margin-bottom:25px;text-align:center;">Modo: ${desafio.modo.toUpperCase()}</p>
-        <div style="display:flex;gap:10px;">
-            <button onclick="window.responderDesafioDrome('recusar','${desafio.salaId}')" style="background:#e53935;color:white;font-weight:bold;padding:10px 15px;border-radius:5px;cursor:pointer;border:none;font-size:11px;">RECUSAR</button>
-            <button onclick="window.responderDesafioDrome('aceitar','${desafio.salaId}','${desafio.modo}')" style="background:#4CAF50;color:black;font-weight:bold;padding:10px 15px;border-radius:5px;cursor:pointer;border:none;font-size:11px;">ACEITAR</button>
-        </div>
-    `;
+    // Challenge fields originate from another player's profile/database.
+    // Render them as text and bind actions without interpolating into HTML.
+    const nome = String(desafio?.nome ?? "Jogador");
+    const modo = String(desafio?.modo ?? "");
+    const salaId = String(desafio?.salaId ?? "");
+    m.replaceChildren();
+    const titulo = document.createElement("p");
+    titulo.style.cssText = "color:#e53935;font-weight:bold;font-size:16px;margin-bottom:5px;text-align:center;";
+    titulo.textContent = "⚔️ DESAFIO RECEBIDO!";
+    const remetente = document.createElement("p");
+    remetente.style.cssText = "color:#fff;font-size:12px;margin-bottom:5px;text-align:center;";
+    remetente.textContent = nome.toUpperCase() + " te desafiou!";
+    const descricao = document.createElement("p");
+    descricao.style.cssText = "color:#4CAF50;font-size:10px;margin-bottom:25px;text-align:center;";
+    descricao.textContent = "Modo: " + modo.toUpperCase();
+    const acoes = document.createElement("div");
+    acoes.style.cssText = "display:flex;gap:10px;";
+    for (const [resposta, rotulo, cor, texto] of [
+        ["recusar", "RECUSAR", "#e53935", "white"],
+        ["aceitar", "ACEITAR", "#4CAF50", "black"]
+    ]) {
+        const botao = document.createElement("button");
+        botao.type = "button";
+        botao.textContent = rotulo;
+        botao.style.cssText = "background:" + cor + ";color:" + texto + ";font-weight:bold;padding:10px 15px;border-radius:5px;cursor:pointer;border:none;font-size:11px;";
+        botao.addEventListener("click", () => window.responderDesafioDrome(resposta, salaId, modo));
+        acoes.appendChild(botao);
+    }
+    m.append(titulo, remetente, descricao, acoes);
     m.style.display = "flex";
     if (navigator.vibrate) navigator.vibrate([100,50,100]);
 }
