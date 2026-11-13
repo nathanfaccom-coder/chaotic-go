@@ -536,11 +536,24 @@ function renderizarAguardandoAmigo(salaId, nomeAmigo) {
     `;
     document.getElementById("drome-nome-amigo-aguardando").textContent = "DESAFIO ENVIADO PARA " + String(nomeAmigo || "Jogador").toUpperCase();
     document.getElementById("drome-cancelar-desafio").addEventListener("click", () => window.cancelarDesafioDrome(salaId));
+    // Process a terminal room state once; repeated realtime snapshots must not
+    // start duplicate battles or overwrite the screen after cancellation.
+    let estadoTerminalProcessado = false;
     _dbOn('salas_drome/' + salaId, snapshot => {
-        if (!snapshot.exists()) return;
-        let sala = snapshot.val();
-        if (sala.status === "pronta") iniciarPartidaDrome(salaId, true);
-        else if (sala.status === "recusado") { window.mostrarMensagemScanner(nomeAmigo.toUpperCase() + " RECUSOU!"); window.renderizarPassoEscolhaDeck(); }
+        if (estadoTerminalProcessado || !snapshot.exists()) return;
+        const sala = snapshot.val();
+        if (!sala || !["pronta", "recusado", "cancelado"].includes(sala.status)) return;
+        estadoTerminalProcessado = true;
+        if (sala.status === "pronta") {
+            // Legacy matchmaking remains gated until server-authoritative validation.
+            if (window.CHAOTIC_MULTIPLAYER_ENABLED === true) iniciarPartidaDrome(salaId, true);
+            else window.mostrarMensagemScanner?.("Partida legada indisponível sem validação do servidor.");
+        } else {
+            window.mostrarMensagemScanner?.(sala.status === "recusado"
+                ? String(nomeAmigo || "Jogador").toUpperCase() + " RECUSOU!"
+                : "Desafio cancelado.");
+            window.renderizarPassoEscolhaDeck();
+        }
     });
 }
 
