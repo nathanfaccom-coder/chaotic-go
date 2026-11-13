@@ -171,20 +171,32 @@ function carregarDecksParaEscolha(modo) {
 }
 
 function verificarIrregularidadeDeck(deck, modo) {
-    let p = [];
-    let qtdAtaques = deck.ataques ? (Array.isArray(deck.ataques) ? deck.ataques.length : Object.values(deck.ataques).length) : 0;
-    let qtdLocais = deck.locais ? (Array.isArray(deck.locais) ? deck.locais.length : Object.values(deck.locais).length) : 0;
-    if (qtdAtaques !== 20) p.push(`Ataques: ${qtdAtaques}/20`);
-    if (qtdLocais !== 10) p.push(`Locais: ${qtdLocais}/10`);
-    let criaturasVivas = 0;
-    if (deck.criaturas) {
-        let listaCrias = Array.isArray(deck.criaturas) ? deck.criaturas : Object.values(deck.criaturas);
-        criaturasVivas = listaCrias.filter(c => c !== null && c !== undefined && String(c).trim() !== "").length;
+    const required = {"1x1": 1, "3x3": 3, "6x6": 6}[modo];
+    if (!required || !deck || typeof deck !== "object" || Array.isArray(deck)) {
+        return "Deck ou modo inválido.";
     }
-    const criaturasNecessarias = {"1x1":1,"3x3":3,"6x6":6}[modo];
-    if (criaturasNecessarias && criaturasVivas !== criaturasNecessarias)
-        p.push(`Criaturas: ${criaturasVivas}/${criaturasNecessarias} para o modo ${modo}`);
-    return p.length > 0 ? p.join(' · ') : null;
+    const problems = [];
+    // Count only occupied slots. Arrays with nulls and sparse keyed objects
+    // must not pass validation simply because they have the expected length.
+    function occupied(value) {
+        if (!value || typeof value !== "object") return [];
+        return Object.values(value).filter(item =>
+            item !== null && item !== undefined &&
+            (typeof item !== "string" || item.trim() !== "") &&
+            (typeof item !== "object" || Object.keys(item).length > 0)
+        );
+    }
+    const attacks = occupied(deck.ataques).length;
+    const locations = occupied(deck.locais).length;
+    const creatures = occupied(deck.criaturas).length;
+    if (attacks !== 20) problems.push(`Ataques: ${attacks}/20`);
+    if (locations !== 10) problems.push(`Locais: ${locations}/10`);
+    if (creatures !== required) problems.push(`Criaturas: ${creatures}/${required}`);
+    // Legacy decks can store equipment and Mugic under different keys.
+    // Do not reject them solely for an unrecognized schema; the server
+    // remains responsible for validating the complete official deck.
+    if (deck.modo && deck.modo !== modo) problems.push("Modo do Deck incompatível");
+    return problems.length ? problems.join(" · ") : null;
 }
 
 function selecionarDeckDrome(deckData, numSlot, irreg, divEl) {
