@@ -477,14 +477,53 @@ function renderizarPassoEscolhaAmigo() {
     });
 }
 
-window.desafiarAmigoDrome = function(index) {
-    let amigo = window.amigos[index];
-    let uid = localStorage.getItem("chaoticUID");
-    let salaId = "drome_" + uid + "_" + amigo.uid;
-    let deckPronto = window.expandirDeckParaOnline(window.estadoDrome.deckSelecionado);
-    _dbSet('salas_drome/' + salaId, { p1:{uid,nome:window.perfilJogador.nome,deck:deckPronto}, p2:{uid:amigo.uid,nome:amigo.nome,deck:null}, modo:window.estadoDrome.modo, status:"aguardando" });
-    _dbSet('jogadores/' + amigo.uid + '/desafio_drome', { de:uid, nome:window.perfilJogador.nome, salaId, modo:window.estadoDrome.modo });
-    renderizarAguardandoAmigo(salaId, amigo.nome);
+// Do not announce a challenge before both remote writes have succeeded.
+// The legacy Firebase flow remains gated; this is not server authorization.
+window.desafiarAmigoDrome = async function(index) {
+    if (window.CHAOTIC_MULTIPLAYER_ENABLED !== true) {
+        window.mostrarMensagemScanner?.("Desafios legados indisponíveis até validação do servidor.");
+        return;
+    }
+    if (window._dromeEnviandoDesafio) return;
+    const amigo = Array.isArray(window.amigos) ? window.amigos[index] : null;
+    const uid = localStorage.getItem("chaoticUID");
+    const modo = window.estadoDrome.modo;
+    const deck = window.estadoDrome.deckSelecionado;
+    if (!amigo || !/^[A-Za-z0-9_-]{1,128}$/.test(String(uid || "")) ||
+        !/^[A-Za-z0-9_-]{1,128}$/.test(String(amigo.uid || "")) ||
+        uid === amigo.uid || !["1x1", "3x3", "6x6"].includes(modo) ||
+        !deck || verificarIrregularidadeDeck(deck, modo)) {
+        window.mostrarMensagemScanner?.("Desafio inválido. Confira a sessão, o amigo e o Deck.");
+        return;
+    }
+    const salaId = "drome_" + uid + "_" + amigo.uid;
+    const salaPath = 'salas_drome/' + salaId;
+    const desafioPath = 'jogadores/' + amigo.uid + '/desafio_drome';
+    window._dromeEnviandoDesafio = true;
+    try {
+        const deckPronto = window.expandirDeckParaOnline(deck);
+        await _dbSet(salaPath, {
+            p1: {uid, nome: String(window.perfilJogador?.nome || "Jogador"), deck: deckPronto},
+            p2: {uid: amigo.uid, nome: String(amigo.nome || "Jogador"), deck: null},
+            modo, status: "aguardando"
+        });
+        try {
+            await _dbSet(desafioPath, {
+                de: uid, nome: String(window.perfilJogador?.nome || "Jogador"), salaId, modo
+            });
+        } catch (erroConvite) {
+            // The room belongs to this attempt, so clean it up if delivery fails.
+            try { await _dbRemove(salaPath); }
+            catch (erroLimpeza) { console.error("Falha ao limpar sala não enviada", erroLimpeza); }
+            throw erroConvite;
+        }
+        renderizarAguardandoAmigo(salaId, String(amigo.nome || "Jogador"));
+    } catch (erro) {
+        console.error("Falha ao enviar desafio Drome", erro);
+        window.mostrarMensagemScanner?.("Não foi possível enviar o desafio. Tente novamente.");
+    } finally {
+        window._dromeEnviandoDesafio = false;
+    }
 };
 
 function renderizarAguardandoAmigo(salaId, nomeAmigo) {
