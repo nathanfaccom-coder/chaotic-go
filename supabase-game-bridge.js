@@ -10,6 +10,42 @@ const queues = new Map();
 const revisions = new Map();
 let realtimeChannel = null;
 let deckReloadSequence = 0;
+let fallbackPollTimer = null;
+let fallbackPollInFlight = false;
+async function pollWatchedNodes() {
+  if (fallbackPollInFlight || !watchers.size) return;
+  fallbackPollInFlight = true;
+  try {
+    for (const node of [...watchers.keys()]) {
+      if (!watchers.has(node)) continue;
+      const revision = revisions.get(node) || 0;
+      try {
+        const result = await get(ref(db,"jogadores/"+ownerId+"/"+node));
+        // Never replace an update received while the network request was pending.
+        if (watchers.has(node) && (revisions.get(node)||0) === revision) {
+          const value = result.val();
+          const serialized = JSON.stringify(value);
+          if (lastPolledValues.get(node) !== serialized) {
+            lastPolledValues.set(node, serialized);
+            notify(node, value);
+          }
+        }
+      } catch (error) { report(error); }
+    }
+  } finally { fallbackPollInFlight = false; }
+}
+const lastPolledValues = new Map();
+function setFallbackPolling(enabled) {
+  if (!enabled || !watchers.size) {
+    if (fallbackPollTimer !== null) clearInterval(fallbackPollTimer);
+    fallbackPollTimer = null;
+    if (!enabled) lastPolledValues.clear();
+    return;
+  }
+  if (fallbackPollTimer !== null) return;
+  pollWatchedNodes();
+  fallbackPollTimer = setInterval(pollWatchedNodes, 20000);
+}
 function reloadDeckCollection() {
   if (!watchers.has("decks")) return;
   const sequence = ++deckReloadSequence;
@@ -35,8 +71,11 @@ function ensureRealtime() {
       filter:"user_id=eq."+ownerId
     },handleCloudChange)
     .subscribe(status=>{
-      if (status==="CHANNEL_ERROR" || status==="TIMED_OUT") {
-        console.warn("Chaotic GO: Realtime indisponível; os dados continuam acessíveis por consulta.");
+      if (status==="CHANNEL_ERROR" || status==="TIMED_OUT" || status==="CLOSED") {
+        console.warn("Chaotic GO: Realtime indisponível; ativando sincronização por consultas.");
+        setFallbackPolling(true);
+      } else if (status==="SUBSCRIBED") {
+        setFallbackPolling(false);
       }
     });
 }
@@ -58,6 +97,7 @@ export function ref(_database, path) { return { path }; }
 const snapshot = value => ({ exists: () => value !== null && value !== undefined, val: () => value ?? null });
 function notify(node, value) {
   revisions.set(node,(revisions.get(node)||0)+1);
+  lastPolledValues.set(node, JSON.stringify(value));
   for (const cb of watchers.get(node) || []) {
     try { cb(snapshot(value)); } catch (error) { console.error(error); }
   }
@@ -144,7 +184,9 @@ export function update(reference, patch) {
   });
 }
 function releaseRealtimeIfUnused() {
-  if (watchers.size || !realtimeChannel) return;
+  if (watchers.size) return;
+  setFallbackPolling(false);
+  if (!realtimeChannel) return;
   const channel = realtimeChannel;
   realtimeChannel = null;
   if (typeof client.removeChannel === "function") client.removeChannel(channel);
@@ -164,7 +206,7 @@ export function onValue(reference, callback) {
   }).catch(report);
   return () => {
     listeners.delete(callback);
-    if(!listeners.size) watchers.delete(node);
+    if(!listeners.size) { watchers.delete(node); lastPolledValues.delete(node); }
     releaseRealtimeIfUnused();
   };
 }
