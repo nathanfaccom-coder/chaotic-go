@@ -33,20 +33,20 @@ function renderizarPassoTipoJogo() {
         <p class="titulo-tela" style="margin-top:20px;font-size:14px;letter-spacing:2px;">⚔️ DROME ⚔️</p>
         <p style="color:#4CAF50;font-size:10px;margin-bottom:30px;font-family:monospace;">SELECIONE O MODO DE BATALHA</p>
         <div style="display:flex;flex-direction:column;gap:15px;width:85%;">
-            <div class="btn-entrada-drome online" onclick="window.selecionarTipoJogo('online')">
+            <button type="button" class="btn-entrada-drome online" style="width:100%;text-align:left;font:inherit;cursor:pointer;" onclick="window.selecionarTipoJogo('online')">
                 <span style="font-size:28px;">🌐</span>
                 <div>
                     <div style="font-size:13px;font-weight:bold;color:#fff;">JOGAR ONLINE (LEGADO)</div>
                     <div style="font-size:9px;color:#aaa;margin-top:3px;">Fila aleatória antiga; pode exigir serviços ainda em migração</div>
                 </div>
-            </div>
-            <div class="btn-entrada-drome amigo" onclick="window.selecionarTipoJogo('amigo')">
+            </button>
+            <button type="button" class="btn-entrada-drome amigo" style="width:100%;text-align:left;font:inherit;cursor:pointer;" onclick="window.selecionarTipoJogo('amigo')">
                 <span style="font-size:28px;">🤝</span>
                 <div>
                     <div style="font-size:13px;font-weight:bold;color:#fff;">JOGAR COM AMIGO (LEGADO)</div>
                     <div style="font-size:9px;color:#aaa;margin-top:3px;">Modo de amigos antigo; sala por código é o caminho recomendado</div>
                 </div>
-            </div>
+            </button>
         </div>
         <button class="btn-entrada-drome modo" type="button" style="width:85%; margin:20px auto 0; padding:12px; border:2px solid #64cb83; border-radius:10px; background:#103321; color:white; cursor:pointer;"
           onclick="window.abrirSalaPrivadaDrome && window.abrirSalaPrivadaDrome()">🔐 TREINO 3x3 POR CÓDIGO</button>
@@ -66,18 +66,18 @@ function renderizarPassoModo() {
         <p style="color:#4CAF50;font-size:10px;margin-bottom:5px;font-family:monospace;">${labelTipo}</p>
         <p style="color:#fff;font-size:11px;margin-bottom:25px;">ESCOLHA O MODO DE JOGO</p>
         <div style="display:flex;flex-direction:column;gap:12px;width:85%;">
-            <div class="btn-entrada-drome modo" onclick="window.selecionarModo('6x6')">
+            <button type="button" class="btn-entrada-drome modo" style="width:100%;text-align:left;font:inherit;cursor:pointer;" onclick="window.selecionarModo('6x6')">
                 <span style="font-size:24px;">⚔️</span>
                 <div><div style="font-size:13px;font-weight:bold;color:#fff;">6x6 PRINCIPAL</div><div style="font-size:9px;color:#aaa;margin-top:2px;">6 Criaturas · 6 Mugics · 6 Equips · 20 Ataques · 10 Locais</div></div>
-            </div>
-            <div class="btn-entrada-drome modo" onclick="window.selecionarModo('3x3')">
+            </button>
+            <button type="button" class="btn-entrada-drome modo" style="width:100%;text-align:left;font:inherit;cursor:pointer;" onclick="window.selecionarModo('3x3')">
                 <span style="font-size:24px;">🗡️</span>
                 <div><div style="font-size:13px;font-weight:bold;color:#fff;">3x3 RÁPIDO</div><div style="font-size:9px;color:#aaa;margin-top:2px;">3 Criaturas · 3 Mugics · 3 Equips · 20 Ataques · 10 Locais</div></div>
-            </div>
-            <div class="btn-entrada-drome modo" onclick="window.selecionarModo('1x1')">
+            </button>
+            <button type="button" class="btn-entrada-drome modo" style="width:100%;text-align:left;font:inherit;cursor:pointer;" onclick="window.selecionarModo('1x1')">
                 <span style="font-size:24px;">🎯</span>
                 <div><div style="font-size:13px;font-weight:bold;color:#fff;">1x1 DUELO</div><div style="font-size:9px;color:#aaa;margin-top:2px;">1 Criatura · 1 Mugic · 1 Equip · 20 Ataques · 10 Locais</div></div>
-            </div>
+            </button>
         </div>
         <button class="btn-voltar-pequeno" style="margin-top:30px;" onclick="renderizarPassoTipoJogo()">← Voltar</button>
     `;
