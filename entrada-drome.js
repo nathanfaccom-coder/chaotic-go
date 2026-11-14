@@ -90,6 +90,8 @@ window.renderizarPassoEscolhaDeck = function() {
     // A previously selected deck belongs to the previous mode/screen.
     // Never allow a hidden stale selection to launch a different mode.
     window.estadoDrome.deckSelecionado = null;
+    window.estadoDrome.deckSelecionadoUid = null;
+    window.estadoDrome.deckSelecionadoModo = null;
     let tela = document.getElementById("tela-entrada-drome");
     let modo = window.estadoDrome.modo;
     tela.innerHTML = `
@@ -217,6 +219,9 @@ function selecionarDeckDrome(deckData, numSlot, irreg, divEl) {
     document.querySelectorAll('.card-deck-drome').forEach(d => d.classList.remove('selecionado'));
     divEl.classList.add('selecionado');
     window.estadoDrome.deckSelecionado = Object.assign({}, deckData, { slot: numSlot });
+    // Bind the cached choice to the account and mode that loaded it.
+    window.estadoDrome.deckSelecionadoUid = localStorage.getItem('chaoticUID');
+    window.estadoDrome.deckSelecionadoModo = window.estadoDrome.modo;
     let aviso = document.getElementById("aviso-deck-irregular");
     let btn = document.getElementById("btn-jogar-drome");
     if (irreg) {
@@ -232,6 +237,18 @@ function selecionarDeckDrome(deckData, numSlot, irreg, divEl) {
 window.confirmarEntradaDrome = function() {
     const selected = window.estadoDrome.deckSelecionado;
     if (!selected) return;
+    const currentUid = localStorage.getItem('chaoticUID');
+    if (!currentUid || currentUid === 'null' || currentUid === 'undefined' ||
+        currentUid !== window.estadoDrome.deckSelecionadoUid ||
+        window.estadoDrome.modo !== window.estadoDrome.deckSelecionadoModo) {
+        window.estadoDrome.deckSelecionado = null;
+        const btn = document.getElementById('btn-jogar-drome');
+        if (btn) btn.style.display = 'none';
+        const aviso = document.getElementById('aviso-deck-irregular');
+        const texto = document.getElementById('texto-irregularidade');
+        if (aviso && texto) { aviso.style.display = 'block'; texto.textContent = 'Conta ou modo alterado. Carregue e selecione novamente seu Deck.'; }
+        return;
+    }
     // Revalidate on entry: a saved selection may become stale after navigation.
     const mode = window.estadoDrome.modo;
     if (!["1x1", "3x3", "6x6"].includes(mode) ||
