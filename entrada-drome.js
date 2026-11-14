@@ -208,9 +208,19 @@ function verificarIrregularidadeDeck(deck, modo) {
     if (attacks !== 20) problems.push(`Ataques: ${attacks}/20`);
     if (locations !== 10) problems.push(`Locais: ${locations}/10`);
     if (creatures !== required) problems.push(`Criaturas: ${creatures}/${required}`);
-    // Legacy decks can store equipment and Mugic under different keys.
-    // Do not reject them solely for an unrecognized schema; the server
-    // remains responsible for validating the complete official deck.
+    // When these collections are present, enforce the selected mode's size.
+    // Older decks may omit the fields entirely: keep them readable and let
+    // the authoritative server reject incomplete competitive submissions.
+    const equipment = deck.equipamentos ?? deck.equips;
+    const mugics = deck.mugics ?? deck.mugic;
+    if (equipment !== undefined && occupied(equipment).length !== required) {
+        problems.push(`Equipamentos: ${occupied(equipment).length}/${required}`);
+    }
+    if (mugics !== undefined && occupied(mugics).length !== required) {
+        problems.push(`Mugics: ${occupied(mugics).length}/${required}`);
+    }
+    // This UI validation is not proof of ownership or official legality.
+    // The server must validate catalog entries and inventory before play.
     if (deck.modo && deck.modo !== modo) problems.push("Modo do Deck incompatível");
     return problems.length ? problems.join(" · ") : null;
 }
