@@ -213,10 +213,13 @@ function verificarIrregularidadeDeck(deck, modo) {
     // the authoritative server reject incomplete competitive submissions.
     const equipment = deck.equipamentos ?? deck.equips;
     const mugics = deck.mugics ?? deck.mugic;
-    if (equipment !== undefined && occupied(equipment).length !== required) {
+    // A missing collection is not a legal competitive loadout. Keep legacy
+    // saved Decks intact, but require the player to complete them before entry.
+    // This is only a client-side precheck; server ownership validation remains required.
+    if (occupied(equipment).length !== required) {
         problems.push(`Equipamentos: ${occupied(equipment).length}/${required}`);
     }
-    if (mugics !== undefined && occupied(mugics).length !== required) {
+    if (occupied(mugics).length !== required) {
         problems.push(`Mugics: ${occupied(mugics).length}/${required}`);
     }
     // This UI validation is not proof of ownership or official legality.
