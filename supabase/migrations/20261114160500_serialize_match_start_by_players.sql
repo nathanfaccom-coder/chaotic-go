@@ -11,7 +11,6 @@ DECLARE
   second_player uuid;
 BEGIN
   IF actor IS NULL THEN RAISE EXCEPTION 'Faça login'; END IF;
-  -- Read participant IDs before taking locks. Revalidate under row lock below.
   SELECT * INTO lobby FROM public.chaotic_lobbies WHERE id=p_lobby_id;
   IF NOT FOUND THEN RAISE EXCEPTION 'Sala não encontrada'; END IF;
   IF lobby.host_id <> actor THEN RAISE EXCEPTION 'Somente o anfitrião inicia a partida'; END IF;
@@ -20,13 +19,11 @@ BEGIN
   END IF;
   first_player := least(lobby.host_id,lobby.guest_id);
   second_player := greatest(lobby.host_id,lobby.guest_id);
-  -- Same namespace as create/join, deterministic order prevents player-lock inversion.
   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(first_player::text,358));
   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(second_player::text,358));
   SELECT * INTO lobby FROM public.chaotic_lobbies WHERE id=p_lobby_id FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'Sala não encontrada'; END IF;
-  IF lobby.host_id <> actor OR lobby.host_id <> first_player AND lobby.host_id <> second_player
-     OR lobby.guest_id IS DISTINCT FROM CASE WHEN lobby.host_id=first_player THEN second_player ELSE first_player END THEN
+  IF lobby.host_id <> actor OR lobby.guest_id IS DISTINCT FROM (CASE WHEN actor=first_player THEN second_player ELSE first_player END) THEN
     RAISE EXCEPTION 'Participantes da sala foram alterados';
   END IF;
   IF lobby.status <> 'ready' OR lobby.expires_at <= now() THEN
