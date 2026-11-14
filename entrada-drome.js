@@ -361,6 +361,14 @@ function iniciarPartidaDrome(salaId, souP1) {
 }
 
 function renderizarFilaOnline() {
+    // A fila legada usa gravações diretas do cliente e não comprova vitória no servidor.
+    // Não permitir que entre na fila nem que inicie partidas enquanto não houver autorização.
+    if (window.CHAOTIC_MULTIPLAYER_ENABLED !== true) {
+        window.estadoDrome.naFila = false;
+        window.mostrarMensagemScanner?.("Fila online legada indisponível até validação autoritativa do servidor.");
+        renderizarPassoTipoJogo();
+        return;
+    }
     let tela = document.getElementById("tela-entrada-drome");
     window.estadoDrome.naFila = true;
     let modo = window.estadoDrome.modo;
@@ -388,7 +396,7 @@ function renderizarFilaOnline() {
     }, 1000);
     let deckPronto = window.expandirDeckParaOnline(window.estadoDrome.deckSelecionado);
     window._dbOn('jogadores/' + uid + '/match_drome', snap => {
-        if (!snap.exists() || !window.estadoDrome.naFila) return;
+        if (!snap.exists() || !window.estadoDrome.naFila || window.CHAOTIC_MULTIPLAYER_ENABLED !== true) return;
         let match = snap.val();
         window.cancelarFila(); 
         window._dbRemove('jogadores/' + uid + '/match_drome'); 
@@ -396,7 +404,7 @@ function renderizarFilaOnline() {
     });
     window._dbSet(filaPath + '/' + uid, { uid, nome: window.perfilJogador.nome, deck: deckPronto, timestamp: Date.now() });
     window._dbOn(filaPath, snapshot => {
-        if (!snapshot.exists() || !window.estadoDrome.naFila) return;
+        if (!snapshot.exists() || !window.estadoDrome.naFila || window.CHAOTIC_MULTIPLAYER_ENABLED !== true) return;
         let lista = Object.entries(snapshot.val()).sort((a,b) => a[1].timestamp - b[1].timestamp);
         if (lista.length >= 2) {
             let p1 = lista[0], p2 = lista[1];
