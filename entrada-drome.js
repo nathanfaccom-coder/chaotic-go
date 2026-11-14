@@ -247,7 +247,7 @@ function selecionarDeckDrome(deckData, numSlot, irreg, divEl) {
     }
 }
 
-window.confirmarEntradaDrome = function() {
+window.confirmarEntradaDrome = async function() {
     const selected = window.estadoDrome.deckSelecionado;
     if (!selected) return;
     const currentUid = localStorage.getItem('chaoticUID');
@@ -308,11 +308,53 @@ window.confirmarEntradaDrome = function() {
         if (btn) btn.style.display = "none";
         return;
     }
-    if (window.estadoDrome.tipoJogo === 'online') {
-        window.mostrarMensagemScanner("Conectando aos servidores do Drome...");
-        renderizarFilaOnline(); 
-    } else {
-        renderizarPassoEscolhaAmigo();
+    // Re-read the actual saved Deck before entering the legacy matchmaking.
+    // A cached selection can have been edited/deleted in another tab or device.
+    if (window._dromeEntryPending) return;
+    window._dromeEntryPending = true;
+    const entryButton = document.getElementById('btn-jogar-drome');
+    if (entryButton) entryButton.disabled = true;
+    const entryMode = mode;
+    const entryType = window.estadoDrome.tipoJogo;
+    const entrySlot = selected.slot;
+    const entryUid = activeUid;
+    try {
+        if (![1, 2, 3].includes(entrySlot)) throw new Error('Seleção de Deck inválida.');
+        const snapshot = await _dbGet('jogadores/' + entryUid + '/decks');
+        const decks = snapshot.exists() ? (snapshot.val() || {}) : {};
+        const stored = decks[entryMode + '_slot_' + entrySlot] || decks[entryMode + '_' + entrySlot];
+        const original = Object.assign({}, selected);
+        delete original.slot;
+        const stillCurrent = localStorage.getItem('chaoticUID') === entryUid &&
+            window.estadoDrome.modo === entryMode &&
+            window.estadoDrome.tipoJogo === entryType &&
+            window.estadoDrome.deckSelecionado === selected &&
+            window.CHAOTIC_MULTIPLAYER_ENABLED === true;
+        if (!stillCurrent || !stored || JSON.stringify(stored) !== JSON.stringify(original) ||
+            verificarIrregularidadeDeck(stored, entryMode)) {
+            throw new Error('O Deck foi alterado, removido ou a sessão mudou. Selecione novamente.');
+        }
+        if (entryType === 'online') {
+            window.mostrarMensagemScanner("Conectando aos servidores do Drome...");
+            renderizarFilaOnline();
+        } else if (entryType === 'amigo') {
+            renderizarPassoEscolhaAmigo();
+        } else {
+            throw new Error('Tipo de partida inválido.');
+        }
+    } catch (error) {
+        console.warn('Entrada no Drome interrompida:', error);
+        window.estadoDrome.deckSelecionado = null;
+        const aviso = document.getElementById('aviso-deck-irregular');
+        const texto = document.getElementById('texto-irregularidade');
+        if (aviso && texto) {
+            aviso.style.display = 'block';
+            texto.textContent = error && error.message ? error.message : 'Não foi possível validar o Deck salvo.';
+        }
+        if (entryButton) entryButton.style.display = 'none';
+    } finally {
+        window._dromeEntryPending = false;
+        if (entryButton) entryButton.disabled = false;
     }
 };
 
