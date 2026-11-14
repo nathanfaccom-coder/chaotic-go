@@ -718,6 +718,15 @@ window.responderDesafioDrome = async function(resposta, salaId, modo) {
             _desafiosDromeEmProcessamento.add(salaId);
             btn.disabled = true;
             try {
+                // Recheck the authoritative room snapshot before attempting a legacy write.
+                // This is defense in depth, NOT an atomic server-side state transition.
+                const salaSnapshot = await _dbGet("salas_drome/" + salaId);
+                const salaAtual = salaSnapshot && typeof salaSnapshot.val === "function"
+                    ? salaSnapshot.val() : salaSnapshot;
+                if (!salaAtual || salaAtual.status !== "aguardando" || salaAtual.modo !== modo) {
+                    window.mostrarMensagemScanner?.("Este desafio expirou, foi cancelado ou mudou de estado.");
+                    return;
+                }
                 const deckPronto = window.expandirDeckParaOnline(deck);
                 await _dbUpdate("salas_drome/" + salaId, { status: "pronta", "p2/deck": deckPronto });
                 iniciarPartidaDrome(salaId, false);
