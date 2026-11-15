@@ -682,3 +682,44 @@ export async function openDrome3x3TrainingContact(lobbyId, expectedTurn, attacke
   }
   return { ...data, training_only: true };
 }
+
+
+// Open a paid 3x3 training attack's defender reaction window on the server.
+// Only the attacking player can open it, after contact, projection and payment.
+// This does not apply official damage or grant rewards.
+export async function openDrome3x3TrainingDefenseWindow(lobbyId, expectedTurn) {
+  assertDromeLobbyId(lobbyId);
+  if (!Number.isInteger(expectedTurn) || expectedTurn < 1 || expectedTurn > 120)
+    throw new RangeError("Turno de reação 3x3 inválido.");
+  const { data, error } = await client.rpc("chaotic_open_preview_3x3_defense_window", {
+    p_lobby_id: lobbyId, p_expected_turn: expectedTurn
+  });
+  if (error) { report(error); throw error; }
+  if (!data || data.lobby_id !== lobbyId || data.turn_no !== expectedTurn ||
+      data.attacker_id !== ownerId || !data.defender_id ||
+      data.defender_id === ownerId || data.status !== "awaiting_defender" ||
+      ![4, 5, 6].includes(data.attacker_slot) ||
+      ![4, 5, 6].includes(data.defender_slot)) {
+    throw new Error("Janela de defesa 3x3 inconsistente com o servidor.");
+  }
+  return { ...data, training_only: true };
+}
+
+// Defender explicitly declines a 3x3 training reaction. The server enforces
+// that only the opposing player may pass once on an awaiting window.
+export async function passDrome3x3TrainingDefense(lobbyId, expectedTurn) {
+  assertDromeLobbyId(lobbyId);
+  if (!Number.isInteger(expectedTurn) || expectedTurn < 1 || expectedTurn > 120)
+    throw new RangeError("Turno de reação 3x3 inválido.");
+  const { data, error } = await client.rpc("chaotic_pass_preview_3x3_defense", {
+    p_lobby_id: lobbyId, p_expected_turn: expectedTurn
+  });
+  if (error) { report(error); throw error; }
+  if (!data || data.lobby_id !== lobbyId || data.turn_no !== expectedTurn ||
+      data.defender_id !== ownerId || !data.attacker_id ||
+      data.attacker_id === ownerId || data.status !== "defender_passed_preview" ||
+      !data.defender_passed_at) {
+    throw new Error("Passagem de defesa 3x3 inconsistente com o servidor.");
+  }
+  return { ...data, training_only: true };
+}
