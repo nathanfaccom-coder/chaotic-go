@@ -315,35 +315,36 @@ export function consumeDromeEvents(lobbyId, onEvents, limit = 100) {
 // Drain a bounded backlog after reconnect. Each page is acknowledged only after
 // the consumer completes, and subsequent pages are fetched using the saved cursor.
 // No local combat result or economy mutation is inferred from the event feed.
-export async function consumeDromeBacklog(lobbyId, onEvents, options = {}) {
+// Keep full backlog drains serialized per lobby. Without this lock, two callers
+// can interleave pages and acknowledge a cursor before another UI has rendered.
+const dromeBacklogQueues = new Map();
+export function consumeDromeBacklog(lobbyId, onEvents, options = {}) {
   assertDromeLobbyId(lobbyId);
-  if (typeof onEvents !== "function") throw new TypeError("Processador de eventos obrigatório.");
+  if (typeof onEvents !== "function") return Promise.reject(new TypeError("Processador de eventos obrigatório."));
   const { pageSize = 100, maxPages = 20 } = options;
-  if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) {
-    throw new RangeError("Tamanho de página inválido.");
-  }
-  if (!Number.isInteger(maxPages) || maxPages < 1 || maxPages > 100) {
-    throw new RangeError("Número máximo de páginas inválido.");
-  }
-  let total = 0;
-  let previousCursor = -1;
-  for (let page = 0; page < maxPages; page++) {
-    const state = await consumeDromeEvents(lobbyId, onEvents, pageSize);
-    total += state.consumed;
-    const cursor = state.next_after_seq;
-    if (!Number.isSafeInteger(cursor) || cursor < 0) {
-      throw new Error("Cursor de reconexão inválido.");
-    }
-    if (state.consumed > 0 && cursor <= previousCursor) {
-      throw new Error("Reconexão sem progresso; interrompida para evitar repetição.");
-    }
-    previousCursor = cursor;
-    if (!state.has_more || state.consumed === 0) {
-      if (state.has_more && state.consumed === 0) {
-        throw new Error("Servidor indicou mais eventos sem retornar dados.");
+  if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) return Promise.reject(new RangeError("Tamanho de página inválido."));
+  if (!Number.isInteger(maxPages) || maxPages < 1 || maxPages > 100) return Promise.reject(new RangeError("Número máximo de páginas inválido."));
+  const previous = dromeBacklogQueues.get(lobbyId) || Promise.resolve();
+  const task = previous.catch(() => {}).then(async () => {
+    let total = 0;
+    let previousCursor = -1;
+    for (let page = 0; page < maxPages; page++) {
+      const state = await consumeDromeEvents(lobbyId, onEvents, pageSize);
+      total += state.consumed;
+      const cursor = state.next_after_seq;
+      if (!Number.isSafeInteger(cursor) || cursor < 0) throw new Error("Cursor de reconexão inválido.");
+      if (state.consumed > 0 && cursor <= previousCursor) throw new Error("Reconexão sem progresso; interrompida para evitar repetição.");
+      previousCursor = cursor;
+      if (!state.has_more || state.consumed === 0) {
+        if (state.has_more && state.consumed === 0) throw new Error("Servidor indicou mais eventos sem retornar dados.");
+        return { lobby_id: lobbyId, consumed: total, pages: page + 1, has_more: false };
       }
-      return { lobby_id: lobbyId, consumed: total, pages: page + 1, has_more: false };
     }
-  }
-  return { lobby_id: lobbyId, consumed: total, pages: maxPages, has_more: true };
+    return { lobby_id: lobbyId, consumed: total, pages: maxPages, has_more: true };
+  });
+  dromeBacklogQueues.set(lobbyId, task);
+  task.finally(() => {
+    if (dromeBacklogQueues.get(lobbyId) === task) dromeBacklogQueues.delete(lobbyId);
+  }).catch(() => {});
+  return task;
 }
