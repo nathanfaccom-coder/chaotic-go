@@ -278,17 +278,35 @@ export async function acknowledgeDromeEvents(lobbyId, lastSeq) {
 }
 // Invokes onEvents before acknowledging. If rendering fails, the cursor is
 // deliberately NOT advanced, so the same events can be retried on reconnect.
-export async function consumeDromeEvents(lobbyId, onEvents, limit = 100) {
-  if (typeof onEvents !== "function") throw new TypeError("Processador de eventos obrigatório.");
-  const state = await resumeDromeMatch(lobbyId, limit);
-  const events = state.events;
-  await onEvents(events, state);
-  if (events.length) {
-    const last = events[events.length - 1]?.seq;
-    if (!Number.isSafeInteger(last) || last < 1 || last !== state.next_after_seq) {
+// Serialize consumption per lobby so concurrent reconnects cannot render the same
+// unread batch twice or acknowledge an event before an earlier render completes.
+const dromeConsumptionQueues = new Map();
+export function consumeDromeEvents(lobbyId, onEvents, limit = 100) {
+  assertDromeLobbyId(lobbyId);
+  if (typeof onEvents !== "function") return Promise.reject(new TypeError("Processador de eventos obrigatório."));
+  const previous = dromeConsumptionQueues.get(lobbyId) || Promise.resolve();
+  const task = previous.catch(() => {}).then(async () => {
+    const state = await resumeDromeMatch(lobbyId, limit);
+    const events = state.events;
+    let last = null;
+    for (const event of events) {
+      const seq = event?.seq;
+      if (!Number.isSafeInteger(seq) || seq < 1 || (last !== null && seq <= last)) {
+        throw new Error("Histórico de eventos fora de ordem.");
+      }
+      last = seq;
+    }
+    if (last !== null && last !== state.next_after_seq) {
       throw new Error("Sequência de eventos inconsistente.");
     }
-    await acknowledgeDromeEvents(lobbyId, last);
-  }
-  return { ...state, consumed: events.length };
+    // A render failure must leave the cursor untouched for a later retry.
+    await onEvents(events, state);
+    if (last !== null) await acknowledgeDromeEvents(lobbyId, last);
+    return { ...state, consumed: events.length };
+  });
+  dromeConsumptionQueues.set(lobbyId, task);
+  task.finally(() => {
+    if (dromeConsumptionQueues.get(lobbyId) === task) dromeConsumptionQueues.delete(lobbyId);
+  }).catch(() => {});
+  return task;
 }
