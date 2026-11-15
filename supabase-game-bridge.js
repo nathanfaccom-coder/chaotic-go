@@ -288,13 +288,24 @@ export function consumeDromeEvents(lobbyId, onEvents, limit = 100) {
   const task = previous.catch(() => {}).then(async () => {
     const state = await resumeDromeMatch(lobbyId, limit);
     const events = state.events;
+    // A missing sequence must not be ACKed: doing so could permanently skip
+    // an attack, knockout or turn transition on the reconnecting device.
+    const savedCursor = state.last_seq ?? state.read_cursor?.last_seq ?? null;
     let last = null;
     for (const event of events) {
       const seq = event?.seq;
-      if (!Number.isSafeInteger(seq) || seq < 1 || (last !== null && seq <= last)) {
-        throw new Error("Histórico de eventos fora de ordem.");
+      if (!Number.isSafeInteger(seq) || seq < 1 || (last !== null && seq !== last + 1)) {
+        throw new Error("Histórico de eventos com lacuna ou fora de ordem.");
+      }
+      if (typeof event.event_type !== "string" || !event.event_type.trim()) {
+        throw new Error("Evento de combate sem tipo válido.");
       }
       last = seq;
+    }
+    // Do not assume the cursor is present in older RPC responses.
+    if (savedCursor !== null && events.length &&
+        (!Number.isSafeInteger(savedCursor) || events[0].seq !== savedCursor + 1)) {
+      throw new Error("Histórico de eventos não continua o cursor salvo.");
     }
     if (last !== null && last !== state.next_after_seq) {
       throw new Error("Sequência de eventos inconsistente.");
