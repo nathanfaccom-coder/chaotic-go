@@ -354,9 +354,12 @@ export function consumeDromeBacklog(lobbyId, onEvents, options = {}) {
 export function watchDromeMatch(lobbyId, onEvents, options = {}) {
   assertDromeLobbyId(lobbyId);
   if (typeof onEvents !== "function") throw new TypeError("Processador de eventos obrigatório.");
-  const { intervalMs = 3000, pageSize = 100, maxPages = 20, onError = report } = options;
+  const { intervalMs = 3000, pageSize = 100, maxPages = 20, onError = report, onState = null } = options;
   if (!Number.isInteger(intervalMs) || intervalMs < 1000 || intervalMs > 60000) throw new RangeError("Intervalo inválido.");
+  if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) throw new RangeError("Tamanho de página inválido.");
+  if (!Number.isInteger(maxPages) || maxPages < 1 || maxPages > 100) throw new RangeError("Número máximo de páginas inválido.");
   if (typeof onError !== "function") throw new TypeError("Tratador de erro inválido.");
+  if (onState !== null && typeof onState !== "function") throw new TypeError("Tratador de estado inválido.");
   let stopped = false;
   let busy = false;
   let timer = null;
@@ -366,6 +369,11 @@ export function watchDromeMatch(lobbyId, onEvents, options = {}) {
     try {
       // Drains are bounded; the next tick resumes any remaining backlog.
       await consumeDromeBacklog(lobbyId, async (events, state) => {
+        if (stopped) throw new Error("Observação da partida encerrada.");
+        // The screen needs current turn/status even when no new combat events exist.
+        // Process the snapshot before acknowledging any events, so a failed UI update
+        // is retried on the next poll rather than silently skipped.
+        if (onState) await onState(state);
         if (stopped) throw new Error("Observação da partida encerrada.");
         if (events.length) await onEvents(events, state);
       }, { pageSize, maxPages });
