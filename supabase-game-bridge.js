@@ -567,3 +567,44 @@ export async function prepareDrome3x3TrainingAttack(lobbyId, expectedTurn, attac
     training_only: true
   };
 }
+
+
+// Apply catalog attacks 111/112 in the authenticated 3x3 TRAINING HP ledger.
+// Unlike a projection, this RPC atomically debits training HP and records a
+// turn-scoped damage event plus attack-lock effect. It rejects replays, unpaid
+// attacks, unresolved defense, mismatched cards and invalid turn ownership.
+// It does NOT mutate official match HP, verify wins or award XP/coins.
+export async function applyDrome3x3TrainingAttackLock(lobbyId, expectedTurn) {
+  assertDromeLobbyId(lobbyId);
+  if (!Number.isInteger(expectedTurn) || expectedTurn < 1 || expectedTurn > 120) {
+    throw new RangeError("Turno 3x3 inválido.");
+  }
+  const { data, error } = await client.rpc("chaotic_apply_preview_3x3_training_attack_lock", {
+    p_lobby_id: lobbyId,
+    p_expected_turn: expectedTurn
+  });
+  if (error) { report(error); throw error; }
+  if (!data || data.lobby_id !== lobbyId || data.turn_no !== expectedTurn ||
+      data.attacker_id !== ownerId || !["111", "112"].includes(String(data.catalog_attack_id)) ||
+      !Number.isInteger(data.hp_before) || data.hp_before < 1 ||
+      !Number.isInteger(data.hp_after) || data.hp_after < 0 ||
+      !Number.isInteger(data.damage_dealt) || data.damage_dealt < 0 ||
+      data.hp_before - data.hp_after !== data.damage_dealt ||
+      data.effects_fully_resolved !== true) {
+    throw new Error("Aplicação de dano de treino inconsistente com o servidor.");
+  }
+  return {
+    lobby_id: data.lobby_id,
+    turn_no: data.turn_no,
+    attacker_id: data.attacker_id,
+    defender_id: data.defender_id,
+    attacker_slot: data.attacker_slot,
+    defender_slot: data.defender_slot,
+    catalog_attack_id: data.catalog_attack_id,
+    hp_before: data.hp_before,
+    hp_after: data.hp_after,
+    damage_dealt: data.damage_dealt,
+    attack_lock_applied: true,
+    training_only: true
+  };
+}
