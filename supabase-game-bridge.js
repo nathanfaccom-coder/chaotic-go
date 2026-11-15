@@ -723,3 +723,29 @@ export async function passDrome3x3TrainingDefense(lobbyId, expectedTurn) {
   }
   return { ...data, training_only: true };
 }
+
+
+// Spend a validated 3x3 training attack from the player's private hand.
+// Server atomically checks contact, projected attack, catalog cost, wallet,
+// hand ownership and replay protection. No official HP, victory or XP changes.
+export async function spendDrome3x3TrainingAttack(lobbyId, expectedTurn) {
+  assertDromeLobbyId(lobbyId);
+  if (!Number.isInteger(expectedTurn) || expectedTurn < 1 || expectedTurn > 120)
+    throw new RangeError("Turno de gasto 3x3 inválido.");
+  const { data, error } = await client.rpc("chaotic_spend_preview_3x3_attack", {
+    p_lobby_id: lobbyId, p_expected_turn: expectedTurn
+  });
+  if (error) { report(error); throw error; }
+  if (!data || data.lobby_id !== lobbyId || data.turn_no !== expectedTurn ||
+      data.actor_id !== ownerId ||
+      !Number.isInteger(data.training_attack_cost) || data.training_attack_cost < 0 ||
+      !Number.isInteger(data.points_before) || !Number.isInteger(data.points_after) ||
+      data.points_before - data.points_after !== data.training_attack_cost ||
+      data.points_after < 0 ||
+      !Number.isInteger(data.card_slot) || data.card_slot < 1 || data.card_slot > 20 ||
+      !["101","104","105","107","108","109","110","111","112","113","114","115"]
+        .includes(String(data.catalog_attack_id))) {
+    throw new Error("Pagamento de ataque 3x3 inconsistente com o servidor.");
+  }
+  return { ...data, training_only: true };
+}
