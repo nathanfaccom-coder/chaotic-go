@@ -522,3 +522,48 @@ export async function passDromeTrainingTurn(lobbyId, expectedTurn) {
     last_player: data.last_player
   };
 }
+
+
+// Prepare a catalog-validated 3x3 training attack on the server.
+// This writes a preview projection only: no official HP, victory or reward changes.
+// The RPC verifies the attack instance in the authenticated player's saved Deck
+// and album, validates catalog base damage/cost and locks the current turn.
+export async function prepareDrome3x3TrainingAttack(lobbyId, expectedTurn, attackCardSlot) {
+  assertDromeLobbyId(lobbyId);
+  if (!Number.isInteger(expectedTurn) || expectedTurn < 1 || expectedTurn > 120) {
+    throw new RangeError("Turno 3x3 inválido.");
+  }
+  if (!Number.isInteger(attackCardSlot) || attackCardSlot < 1 || attackCardSlot > 20) {
+    throw new RangeError("Slot de ataque 3x3 inválido.");
+  }
+  const { data, error } = await client.rpc("chaotic_prepare_preview_3x3_base_attack", {
+    p_lobby_id: lobbyId,
+    p_expected_turn: expectedTurn,
+    p_attack_card_slot: attackCardSlot
+  });
+  if (error) { report(error); throw error; }
+  if (!data || data.lobby_id !== lobbyId || data.actor_id !== ownerId ||
+      data.turn_no !== expectedTurn || data.attack_card_slot !== attackCardSlot ||
+      !Number.isInteger(data.base_damage) || data.base_damage < 0 ||
+      !Number.isInteger(data.projected_hp_loss) || data.projected_hp_loss < 0 ||
+      data.projected_hp_loss > data.base_damage ||
+      data.official_match_modified !== undefined && data.official_match_modified !== false) {
+    throw new Error("Projeção 3x3 inconsistente com o servidor.");
+  }
+  return {
+    lobby_id: data.lobby_id,
+    turn_no: data.turn_no,
+    attacker_id: data.actor_id,
+    attack_card_slot: data.attack_card_slot,
+    catalog_attack_id: data.catalog_attack_id,
+    attack_name: data.attack_name,
+    base_damage: data.base_damage,
+    attack_cost: data.attack_cost,
+    defender_slot: data.defender_slot,
+    defender_hp_before: data.defender_hp_before,
+    defender_hp_projected: data.defender_hp_projected,
+    projected_hp_loss: data.projected_hp_loss,
+    hypothetical_knockout: data.hypothetical_knockout === true,
+    training_only: true
+  };
+}
