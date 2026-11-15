@@ -423,7 +423,9 @@ export async function getOfficialDromeResult(matchId) {
     throw new Error("Resultado não pertence à sessão.");
   }
   // An unverified result is never presented as an official victory.
-  if (!data.verified_at || !data.verification_source) return {
+  if (data.result_state !== "verified" || data.verification_source !== "official_engine_v1" ||
+      !data.verified_at || !data.winner_id ||
+      (data.winner_id !== data.host_id && data.winner_id !== data.guest_id)) return {
     match_id: matchId, verified: false, mode: data.mode, result_state: data.result_state
   };
   return {
