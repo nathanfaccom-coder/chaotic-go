@@ -376,6 +376,10 @@ export function watchDromeMatch(lobbyId, onEvents, options = {}) {
         if (onState) await onState(state);
         if (stopped) throw new Error("Observação da partida encerrada.");
         if (events.length) await onEvents(events, state);
+        // An asynchronous renderer can finish after the screen has unmounted.
+        // Do not acknowledge those events: a reopened screen must be able to
+        // reconstruct them instead of inheriting a cursor from a closed view.
+        if (stopped) throw new Error("Observação da partida encerrada durante o processamento.");
       }, { pageSize, maxPages });
     } catch (error) {
       if (!stopped) {
