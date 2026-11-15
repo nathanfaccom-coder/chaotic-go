@@ -348,3 +348,39 @@ export function consumeDromeBacklog(lobbyId, onEvents, options = {}) {
   }).catch(() => {});
   return task;
 }
+
+// Live Drome feed: safely consume server-authored events while a match screen is open.
+// Returns an unsubscribe function. Polls are serialized, and errors never ACK events.
+export function watchDromeMatch(lobbyId, onEvents, options = {}) {
+  assertDromeLobbyId(lobbyId);
+  if (typeof onEvents !== "function") throw new TypeError("Processador de eventos obrigatório.");
+  const { intervalMs = 3000, pageSize = 100, maxPages = 20, onError = report } = options;
+  if (!Number.isInteger(intervalMs) || intervalMs < 1000 || intervalMs > 60000) throw new RangeError("Intervalo inválido.");
+  if (typeof onError !== "function") throw new TypeError("Tratador de erro inválido.");
+  let stopped = false;
+  let busy = false;
+  let timer = null;
+  const poll = async () => {
+    if (stopped || busy) return;
+    busy = true;
+    try {
+      // Drains are bounded; the next tick resumes any remaining backlog.
+      await consumeDromeBacklog(lobbyId, async (events, state) => {
+        if (stopped) throw new Error("Observação da partida encerrada.");
+        if (events.length) await onEvents(events, state);
+      }, { pageSize, maxPages });
+    } catch (error) {
+      if (!stopped) {
+        try { onError(error); } catch (handlerError) { console.error(handlerError); }
+      }
+    } finally { busy = false; }
+  };
+  // Begin immediately; keep a single in-flight request per watcher.
+  void poll();
+  timer = setInterval(() => { void poll(); }, intervalMs);
+  return () => {
+    stopped = true;
+    if (timer !== null) clearInterval(timer);
+    timer = null;
+  };
+}
