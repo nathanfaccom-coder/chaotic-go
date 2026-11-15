@@ -242,3 +242,53 @@ export async function migratePreviousTest() {
     if (!existing.exists()) await set(ref(db,"jogadores/"+ownerId+"/"+node),value);
   }
 }
+
+
+// Durable Drome reconnect API. The caller must render/process events before ACK.
+// Never infer a victory or award XP/currency from this read-only history.
+function assertDromeLobbyId(lobbyId) {
+  if (typeof lobbyId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(lobbyId)) {
+    throw new TypeError("Identificador de partida inválido.");
+  }
+  return lobbyId;
+}
+export async function resumeDromeMatch(lobbyId, limit = 100) {
+  assertDromeLobbyId(lobbyId);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new RangeError("Limite inválido (1 a 100).");
+  const { data, error } = await client.rpc("chaotic_resume_match", {
+    p_lobby_id: lobbyId, p_limit: limit
+  });
+  if (error) { report(error); throw error; }
+  if (!data || data.lobby_id !== lobbyId || !Array.isArray(data.events)) {
+    throw new Error("Resposta de reconexão inválida.");
+  }
+  return data;
+}
+export async function acknowledgeDromeEvents(lobbyId, lastSeq) {
+  assertDromeLobbyId(lobbyId);
+  if (!Number.isSafeInteger(lastSeq) || lastSeq < 0) throw new RangeError("Sequência inválida.");
+  const { data, error } = await client.rpc("chaotic_ack_match_events", {
+    p_lobby_id: lobbyId, p_last_seq: lastSeq
+  });
+  if (error) { report(error); throw error; }
+  if (!data || data.lobby_id !== lobbyId || !Number.isSafeInteger(data.last_seq)) {
+    throw new Error("Confirmação de leitura inválida.");
+  }
+  return data.last_seq;
+}
+// Invokes onEvents before acknowledging. If rendering fails, the cursor is
+// deliberately NOT advanced, so the same events can be retried on reconnect.
+export async function consumeDromeEvents(lobbyId, onEvents, limit = 100) {
+  if (typeof onEvents !== "function") throw new TypeError("Processador de eventos obrigatório.");
+  const state = await resumeDromeMatch(lobbyId, limit);
+  const events = state.events;
+  await onEvents(events, state);
+  if (events.length) {
+    const last = events[events.length - 1]?.seq;
+    if (!Number.isSafeInteger(last) || last < 1 || last !== state.next_after_seq) {
+      throw new Error("Sequência de eventos inconsistente.");
+    }
+    await acknowledgeDromeEvents(lobbyId, last);
+  }
+  return { ...state, consumed: events.length };
+}
