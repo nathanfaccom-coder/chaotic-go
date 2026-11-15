@@ -450,3 +450,45 @@ export async function getMyOfficialDromeRewards(matchId) {
     coins_awarded: entry.coins_awarded ?? 0
   }));
 }
+
+
+// Server-validated Drome training actions. This RPC records a declaration only;
+// it does NOT resolve official combat, verify victories, or award rewards.
+// The server checks auth.uid(), turn ownership and the saved deck card slot.
+export async function declareDromeTrainingAction(lobbyId, expectedTurn, kind, deckSlot, cardSlot) {
+  assertDromeLobbyId(lobbyId);
+  if (!Number.isInteger(expectedTurn) || expectedTurn < 1 || expectedTurn > 120) {
+    throw new RangeError("Turno de treinamento inválido.");
+  }
+  if (kind !== "creature" && kind !== "attack") {
+    throw new TypeError("Tipo de ação de treinamento inválido.");
+  }
+  if (!Number.isInteger(deckSlot) || deckSlot < 1 || deckSlot > 3 ||
+      !Number.isInteger(cardSlot) || cardSlot < 1 || cardSlot > 20) {
+    throw new RangeError("Posição de carta ou deck inválida.");
+  }
+  const { data, error } = await client.rpc("chaotic_declare_combat_action", {
+    p_lobby_id: lobbyId, p_expected_turn: expectedTurn, p_kind: kind,
+    p_deck_slot: deckSlot, p_card_slot: cardSlot
+  });
+  if (error) { report(error); throw error; }
+  if (!data || data.lobby_id !== lobbyId || data.actor_id !== ownerId ||
+      data.turn_no !== expectedTurn || data.kind !== kind ||
+      data.deck_slot !== deckSlot || data.card_slot !== cardSlot) {
+    throw new Error("Declaração de treinamento inconsistente com o servidor.");
+  }
+  return data;
+}
+
+// Read the authoritative training timeline, never a locally inferred outcome.
+export async function getDromeTrainingTimeline(lobbyId) {
+  assertDromeLobbyId(lobbyId);
+  const { data, error } = await client.rpc("chaotic_get_combat_timeline", {
+    p_lobby_id: lobbyId
+  });
+  if (error) { report(error); throw error; }
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    throw new Error("Linha do tempo de treinamento inválida.");
+  }
+  return data;
+}
