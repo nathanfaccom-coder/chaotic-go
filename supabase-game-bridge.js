@@ -608,3 +608,47 @@ export async function applyDrome3x3TrainingAttackLock(lobbyId, expectedTurn) {
     training_only: true
   };
 }
+
+
+// Authenticated, fog-of-war-safe 3x3 training board. The server redacts
+// hidden opponent cards and HP; do not replace this with direct table reads.
+export async function getDrome3x3SafeBoard(lobbyId) {
+  assertDromeLobbyId(lobbyId);
+  const { data, error } = await client.rpc("chaotic_get_preview_3x3_safe_state", {
+    p_lobby_id: lobbyId
+  });
+  if (error) { report(error); throw error; }
+  if (!data || typeof data !== "object" || Array.isArray(data) ||
+      !["allies", "hp_wallets", "board_positions", "move_events", "token_transfers"]
+        .every(key => Array.isArray(data[key]))) {
+    throw new Error("Estado seguro do tabuleiro 3x3 inválido.");
+  }
+  return data;
+}
+
+// Move a living 3x3 training creature through a server-authorized transition.
+// The RPC checks current player/turn, adjacent hexes, ally occupancy, and
+// at most one move per turn. No official match or reward is modified.
+export async function moveDrome3x3TrainingUnit(lobbyId, expectedTurn, formationSlot, targetHex) {
+  assertDromeLobbyId(lobbyId);
+  if (!Number.isInteger(expectedTurn) || expectedTurn < 1 || expectedTurn > 120)
+    throw new RangeError("Turno 3x3 inválido.");
+  if (!Number.isInteger(formationSlot) || formationSlot < 4 || formationSlot > 6)
+    throw new RangeError("Posição da criatura 3x3 inválida.");
+  if (!Number.isInteger(targetHex) || targetHex < 1 || targetHex > 6)
+    throw new RangeError("Hexágono de destino inválido.");
+  const { data, error } = await client.rpc("chaotic_move_preview_3x3_unit", {
+    p_lobby_id: lobbyId,
+    p_expected_turn: expectedTurn,
+    p_formation_slot: formationSlot,
+    p_target_hex: targetHex
+  });
+  if (error) { report(error); throw error; }
+  if (!data || data.lobby_id !== lobbyId || data.actor_id !== ownerId ||
+      data.turn_no !== expectedTurn || data.formation_slot !== formationSlot ||
+      data.to_hex !== targetHex || !Number.isInteger(data.from_hex) ||
+      data.from_hex < 1 || data.from_hex > 6 || data.from_hex === targetHex) {
+    throw new Error("Movimento 3x3 inconsistente com o servidor.");
+  }
+  return data;
+}
