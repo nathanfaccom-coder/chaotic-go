@@ -652,3 +652,33 @@ export async function moveDrome3x3TrainingUnit(lobbyId, expectedTurn, formationS
   }
   return data;
 }
+
+
+// Open a bilateral 3x3 training contact using the authenticated server state.
+// The RPC locks the current turn, checks both original boards, adjacent contact
+// hexes (4/5), living creatures and duplicate confrontations. This creates a
+// training intent only; it does not resolve official damage or rewards.
+export async function openDrome3x3TrainingContact(lobbyId, expectedTurn, attackerSlot, defenderSlot) {
+  assertDromeLobbyId(lobbyId);
+  if (!Number.isInteger(expectedTurn) || expectedTurn < 1 || expectedTurn > 120)
+    throw new RangeError("Turno 3x3 inválido.");
+  if (![4, 5, 6].includes(attackerSlot) || ![4, 5, 6].includes(defenderSlot))
+    throw new RangeError("Posição de contato 3x3 inválida.");
+  const { data, error } = await client.rpc("chaotic_open_preview_3x3_contact", {
+    p_lobby_id: lobbyId,
+    p_expected_turn: expectedTurn,
+    p_attacker_slot: attackerSlot,
+    p_defender_slot: defenderSlot
+  });
+  if (error) { report(error); throw error; }
+  if (!data || data.lobby_id !== lobbyId || data.turn_no !== expectedTurn ||
+      data.attacker_id !== ownerId || data.defender_id === ownerId ||
+      !data.defender_id || data.attacker_slot !== attackerSlot ||
+      data.defender_slot !== defenderSlot ||
+      ![4, 5].includes(data.attacker_hex) || ![4, 5].includes(data.defender_hex) ||
+      !Number.isInteger(data.attacker_hp_at_contact) || data.attacker_hp_at_contact <= 0 ||
+      !Number.isInteger(data.defender_hp_at_contact) || data.defender_hp_at_contact <= 0) {
+    throw new Error("Contato 3x3 inconsistente com o servidor.");
+  }
+  return { ...data, training_only: true };
+}
