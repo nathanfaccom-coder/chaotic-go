@@ -290,7 +290,7 @@ export function consumeDromeEvents(lobbyId, onEvents, limit = 100) {
     const events = state.events;
     // A missing sequence must not be ACKed: doing so could permanently skip
     // an attack, knockout or turn transition on the reconnecting device.
-    const savedCursor = state.last_seq ?? state.read_cursor?.last_seq ?? null;
+    const savedCursor = state.saved_cursor ?? null;
     let last = null;
     for (const event of events) {
       const seq = event?.seq;
