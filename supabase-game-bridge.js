@@ -407,3 +407,44 @@ export function watchDromeMatch(lobbyId, onEvents, options = {}) {
     timer = null;
   };
 }
+
+
+// Official match outcome and rewards are READ ONLY. Never derive a win or grant
+// currency from the local combat screen, replayed events, or a client assertion.
+// RLS restricts the result to its participants and ledger entries to their owner.
+export async function getOfficialDromeResult(matchId) {
+  assertDromeLobbyId(matchId);
+  const { data, error } = await client.from("chaotic_official_match_results")
+    .select("id,host_id,guest_id,mode,winner_id,result_state,verification_source,verified_at")
+    .eq("id", matchId).maybeSingle();
+  if (error) { report(error); throw error; }
+  if (!data) return null;
+  if (data.host_id !== ownerId && data.guest_id !== ownerId) {
+    throw new Error("Resultado não pertence à sessão.");
+  }
+  // An unverified result is never presented as an official victory.
+  if (!data.verified_at || !data.verification_source) return {
+    match_id: matchId, verified: false, mode: data.mode, result_state: data.result_state
+  };
+  return {
+    match_id: matchId, verified: true, mode: data.mode,
+    result_state: data.result_state, winner_id: data.winner_id,
+    verification_source: data.verification_source, verified_at: data.verified_at
+  };
+}
+
+export async function getMyOfficialDromeRewards(matchId) {
+  assertDromeLobbyId(matchId);
+  // Checking the authenticated result first prevents treating arbitrary local
+  // match identifiers as a source of earned XP or currency.
+  const result = await getOfficialDromeResult(matchId);
+  if (!result || !result.verified) return [];
+  const { data, error } = await client.from("chaotic_official_reward_ledger")
+    .select("id,source_match_id,award_kind,xp_awarded,coins_awarded,reward_scope,awarded_at")
+    .eq("source_match_id", matchId).eq("player_id", ownerId);
+  if (error) { report(error); throw error; }
+  return (data || []).map(entry => ({
+    ...entry, xp_awarded: entry.xp_awarded ?? 0,
+    coins_awarded: entry.coins_awarded ?? 0
+  }));
+}
