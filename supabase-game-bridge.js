@@ -492,3 +492,33 @@ export async function getDromeTrainingTimeline(lobbyId) {
   }
   return data;
 }
+
+
+// Advance a training turn only through the authenticated server transition.
+// The RPC checks current player, expected turn, lobby status and unresolved
+// 1x1 Burst / 3x3 combat obligations. This does not verify a victory or award XP.
+export async function passDromeTrainingTurn(lobbyId, expectedTurn) {
+  assertDromeLobbyId(lobbyId);
+  if (!Number.isInteger(expectedTurn) || expectedTurn < 1 || expectedTurn > 120) {
+    throw new RangeError("Turno de treinamento inválido.");
+  }
+  const { data, error } = await client.rpc("chaotic_pass_turn", {
+    p_lobby_id: lobbyId, p_expected_turn: expectedTurn
+  });
+  if (error) { report(error); throw error; }
+  if (!data || data.lobby_id !== lobbyId ||
+      data.last_player !== ownerId ||
+      data.turn_no !== expectedTurn + 1 ||
+      (data.current_player !== data.host_id && data.current_player !== data.guest_id) ||
+      data.current_player === ownerId ||
+      (data.status !== "active" && data.status !== "finished")) {
+    throw new Error("Transição de turno inconsistente com o servidor.");
+  }
+  return {
+    lobby_id: data.lobby_id,
+    turn_no: data.turn_no,
+    current_player: data.current_player,
+    status: data.status,
+    last_player: data.last_player
+  };
+}
