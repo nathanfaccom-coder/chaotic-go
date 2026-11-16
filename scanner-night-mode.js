@@ -22,20 +22,24 @@
     button.className = 'scanner-theme-toggle';
     button.setAttribute('aria-label','Alternar modo noturno do mapa');
     button.innerHTML = '<span class="theme-icon" aria-hidden="true">☾</span><span class="theme-label">Noite</span>';
+    const mapButton = document.getElementById("scanner-map-theme-toggle");
     const apply = (enabled) => {
       map.classList.toggle('scanner-map-night', enabled);
       button.setAttribute('aria-pressed', String(enabled));
       button.querySelector('.theme-label').textContent = enabled ? 'Dia' : 'Noite';
       button.title = enabled ? 'Ativar mapa claro' : 'Ativar mapa noturno';
+      if (mapButton) { mapButton.setAttribute('aria-pressed', String(enabled)); mapButton.textContent = enabled ? '☀️ Dia' : '🌙 Noite'; }
     };
     let enabled = false;
     try { enabled = localStorage.getItem(KEY) === 'true'; } catch (_) {}
     apply(enabled);
-    button.addEventListener('click', () => {
+    const toggle = () => {
       enabled = !enabled;
       apply(enabled);
       try { localStorage.setItem(KEY, String(enabled)); } catch (_) {}
-    });
+    };
+    button.addEventListener('click', toggle);
+    if (mapButton) mapButton.addEventListener('click', toggle);
     if (!button.isConnected) panel.appendChild(button);
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup, {once:true});
