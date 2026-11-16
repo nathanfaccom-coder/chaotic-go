@@ -772,3 +772,26 @@ export async function discardDrome3x3TrainingCard(lobbyId, expectedTurn, cardSlo
   }
   return { ...data, training_only: true };
 }
+
+
+// Cancel a 3x3 training contact before any attack cost, defense or damage.
+// The server owns the decision and deletes the unpaid intent atomically;
+// this operation never refunds currency, restores spent cards or hides reveals.
+export async function cancelDrome3x3UnpaidContact(lobbyId, expectedTurn) {
+  assertDromeLobbyId(lobbyId);
+  if (!Number.isInteger(expectedTurn) || expectedTurn < 1 || expectedTurn > 120)
+    throw new RangeError("Turno de cancelamento 3x3 inválido.");
+  const { data, error } = await client.rpc("chaotic_cancel_preview_3x3_unpaid_contact", {
+    p_lobby_id: lobbyId, p_expected_turn: expectedTurn
+  });
+  if (error) { report(error); throw error; }
+  if (!data || data.status !== "unpaid_contact_cancelled" ||
+      data.turn_no !== expectedTurn || data.points_refunded !== 0 ||
+      data.card_restored !== false || data.training_hp_changed !== false ||
+      data.official_match_modified !== false ||
+      data.revealed_champions_remain_revealed !== true ||
+      data.training_only !== true) {
+    throw new Error("Cancelamento de contato 3x3 inconsistente com o servidor.");
+  }
+  return data;
+}
