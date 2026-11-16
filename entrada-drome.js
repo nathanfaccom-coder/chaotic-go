@@ -33,20 +33,20 @@ function renderizarPassoTipoJogo() {
         <p class="titulo-tela" style="margin-top:20px;font-size:14px;letter-spacing:2px;">⚔️ DROME ⚔️</p>
         <p style="color:#4CAF50;font-size:10px;margin-bottom:30px;font-family:monospace;">SELECIONE O MODO DE BATALHA</p>
         <div style="display:flex;flex-direction:column;gap:15px;width:85%;">
-            <div class="btn-entrada-drome online" onclick="window.selecionarTipoJogo('online')">
+            <button type="button" class="btn-entrada-drome online" style="width:100%;text-align:left;font:inherit;cursor:pointer;" onclick="window.selecionarTipoJogo('online')">
                 <span style="font-size:28px;">🌐</span>
                 <div>
                     <div style="font-size:13px;font-weight:bold;color:#fff;">JOGAR ONLINE (LEGADO)</div>
                     <div style="font-size:9px;color:#aaa;margin-top:3px;">Fila aleatória antiga; pode exigir serviços ainda em migração</div>
                 </div>
-            </div>
-            <div class="btn-entrada-drome amigo" onclick="window.selecionarTipoJogo('amigo')">
+            </button>
+            <button type="button" class="btn-entrada-drome amigo" style="width:100%;text-align:left;font:inherit;cursor:pointer;" onclick="window.selecionarTipoJogo('amigo')">
                 <span style="font-size:28px;">🤝</span>
                 <div>
                     <div style="font-size:13px;font-weight:bold;color:#fff;">JOGAR COM AMIGO (LEGADO)</div>
                     <div style="font-size:9px;color:#aaa;margin-top:3px;">Modo de amigos antigo; sala por código é o caminho recomendado</div>
                 </div>
-            </div>
+            </button>
         </div>
         <button class="btn-entrada-drome modo" type="button" style="width:85%; margin:20px auto 0; padding:12px; border:2px solid #64cb83; border-radius:10px; background:#103321; color:white; cursor:pointer;"
           onclick="window.abrirSalaPrivadaDrome && window.abrirSalaPrivadaDrome()">🔐 TREINO 3x3 POR CÓDIGO</button>
@@ -66,18 +66,18 @@ function renderizarPassoModo() {
         <p style="color:#4CAF50;font-size:10px;margin-bottom:5px;font-family:monospace;">${labelTipo}</p>
         <p style="color:#fff;font-size:11px;margin-bottom:25px;">ESCOLHA O MODO DE JOGO</p>
         <div style="display:flex;flex-direction:column;gap:12px;width:85%;">
-            <div class="btn-entrada-drome modo" onclick="window.selecionarModo('6x6')">
+            <button type="button" class="btn-entrada-drome modo" style="width:100%;text-align:left;font:inherit;cursor:pointer;" onclick="window.selecionarModo('6x6')">
                 <span style="font-size:24px;">⚔️</span>
                 <div><div style="font-size:13px;font-weight:bold;color:#fff;">6x6 PRINCIPAL</div><div style="font-size:9px;color:#aaa;margin-top:2px;">6 Criaturas · 6 Mugics · 6 Equips · 20 Ataques · 10 Locais</div></div>
-            </div>
-            <div class="btn-entrada-drome modo" onclick="window.selecionarModo('3x3')">
+            </button>
+            <button type="button" class="btn-entrada-drome modo" style="width:100%;text-align:left;font:inherit;cursor:pointer;" onclick="window.selecionarModo('3x3')">
                 <span style="font-size:24px;">🗡️</span>
                 <div><div style="font-size:13px;font-weight:bold;color:#fff;">3x3 RÁPIDO</div><div style="font-size:9px;color:#aaa;margin-top:2px;">3 Criaturas · 3 Mugics · 3 Equips · 20 Ataques · 10 Locais</div></div>
-            </div>
-            <div class="btn-entrada-drome modo" onclick="window.selecionarModo('1x1')">
+            </button>
+            <button type="button" class="btn-entrada-drome modo" style="width:100%;text-align:left;font:inherit;cursor:pointer;" onclick="window.selecionarModo('1x1')">
                 <span style="font-size:24px;">🎯</span>
                 <div><div style="font-size:13px;font-weight:bold;color:#fff;">1x1 DUELO</div><div style="font-size:9px;color:#aaa;margin-top:2px;">1 Criatura · 1 Mugic · 1 Equip · 20 Ataques · 10 Locais</div></div>
-            </div>
+            </button>
         </div>
         <button class="btn-voltar-pequeno" style="margin-top:30px;" onclick="renderizarPassoTipoJogo()">← Voltar</button>
     `;
@@ -87,6 +87,11 @@ function renderizarPassoModo() {
 // PASSO 3: Escolher Deck
 // ==========================================
 window.renderizarPassoEscolhaDeck = function() {
+    // A previously selected deck belongs to the previous mode/screen.
+    // Never allow a hidden stale selection to launch a different mode.
+    window.estadoDrome.deckSelecionado = null;
+    window.estadoDrome.deckSelecionadoUid = null;
+    window.estadoDrome.deckSelecionadoModo = null;
     let tela = document.getElementById("tela-entrada-drome");
     let modo = window.estadoDrome.modo;
     tela.innerHTML = `
@@ -110,11 +115,24 @@ function carregarDecksParaEscolha(modo) {
     const lista = document.getElementById("lista-decks-drome");
     if (!lista) return;
     const uid = localStorage.getItem("chaoticUID");
+    if (!uid || uid === "null" || uid === "undefined") {
+        lista.textContent = "Entre na sua conta para carregar os Decks.";
+        return;
+    }
+
+    // A request can become stale even when the same list DOM node is reused.
+    // Bind its result to the current user, mode and request generation.
+    const requestId = (window._dromeDeckRequestId || 0) + 1;
+    window._dromeDeckRequestId = requestId;
+    const isCurrent = () => window._dromeDeckRequestId === requestId &&
+        document.getElementById("lista-decks-drome") === lista &&
+        window.estadoDrome.modo === modo &&
+        localStorage.getItem("chaoticUID") === uid;
 
     _dbGet('jogadores/' + uid + '/decks').then(snapshot => {
         // A delayed request from an older mode must NEVER overwrite the
         // list opened afterward (common on slow Android connections).
-        if (document.getElementById("lista-decks-drome") !== lista) return;
+        if (!isCurrent()) return;
         lista.innerHTML = "";
         let encontrouAlgum = false;
         const todosOsDecks = snapshot.exists() ? (snapshot.val() || {}) : {};
@@ -157,33 +175,66 @@ function carregarDecksParaEscolha(modo) {
             lista.textContent = "Nenhum deck " + modo + " encontrado. Crie um deck na Oficina primeiro!";
         }
     }).catch(err => {
-        if (document.getElementById("lista-decks-drome") !== lista) return;
+        // A failed request from a previous account or mode must not erase
+        // a newer successful Deck list (or disclose the old account state).
+        if (!isCurrent()) return;
         console.error("Erro na leitura da Nuvem:", err);
         lista.textContent = "Falha ao carregar decks! Verifique sua conexão.";
+        window.estadoDrome.deckSelecionado = null;
+        const btn = document.getElementById("btn-jogar-drome");
+        if (btn) btn.style.display = "none";
     });
 }
 
 function verificarIrregularidadeDeck(deck, modo) {
-    let p = [];
-    let qtdAtaques = deck.ataques ? (Array.isArray(deck.ataques) ? deck.ataques.length : Object.values(deck.ataques).length) : 0;
-    let qtdLocais = deck.locais ? (Array.isArray(deck.locais) ? deck.locais.length : Object.values(deck.locais).length) : 0;
-    if (qtdAtaques !== 20) p.push(`Ataques: ${qtdAtaques}/20`);
-    if (qtdLocais !== 10) p.push(`Locais: ${qtdLocais}/10`);
-    let criaturasVivas = 0;
-    if (deck.criaturas) {
-        let listaCrias = Array.isArray(deck.criaturas) ? deck.criaturas : Object.values(deck.criaturas);
-        criaturasVivas = listaCrias.filter(c => c !== null && c !== undefined && String(c).trim() !== "").length;
+    const required = {"1x1": 1, "3x3": 3, "6x6": 6}[modo];
+    if (!required || !deck || typeof deck !== "object" || Array.isArray(deck)) {
+        return "Deck ou modo inválido.";
     }
-    const criaturasNecessarias = {"1x1":1,"3x3":3,"6x6":6}[modo];
-    if (criaturasNecessarias && criaturasVivas !== criaturasNecessarias)
-        p.push(`Criaturas: ${criaturasVivas}/${criaturasNecessarias} para o modo ${modo}`);
-    return p.length > 0 ? p.join(' · ') : null;
+    const problems = [];
+    // Count only occupied slots. Arrays with nulls and sparse keyed objects
+    // must not pass validation simply because they have the expected length.
+    function occupied(value) {
+        if (!value || typeof value !== "object") return [];
+        return Object.values(value).filter(item =>
+            item !== null && item !== undefined &&
+            (typeof item !== "string" || item.trim() !== "") &&
+            (typeof item !== "object" || Object.keys(item).length > 0)
+        );
+    }
+    const attacks = occupied(deck.ataques).length;
+    const locations = occupied(deck.locais).length;
+    const creatures = occupied(deck.criaturas).length;
+    if (attacks !== 20) problems.push(`Ataques: ${attacks}/20`);
+    if (locations !== 10) problems.push(`Locais: ${locations}/10`);
+    if (creatures !== required) problems.push(`Criaturas: ${creatures}/${required}`);
+    // When these collections are present, enforce the selected mode's size.
+    // Older decks may omit the fields entirely: keep them readable and let
+    // the authoritative server reject incomplete competitive submissions.
+    const equipment = deck.equipamentos ?? deck.equips;
+    const mugics = deck.mugics ?? deck.mugic;
+    // A missing collection is not a legal competitive loadout. Keep legacy
+    // saved Decks intact, but require the player to complete them before entry.
+    // This is only a client-side precheck; server ownership validation remains required.
+    if (occupied(equipment).length !== required) {
+        problems.push(`Equipamentos: ${occupied(equipment).length}/${required}`);
+    }
+    if (occupied(mugics).length !== required) {
+        problems.push(`Mugics: ${occupied(mugics).length}/${required}`);
+    }
+    // This UI validation is not proof of ownership or official legality.
+    // The server must validate catalog entries and inventory before play.
+    if (deck.modo && deck.modo !== modo) problems.push("Modo do Deck incompatível");
+    return problems.length ? problems.join(" · ") : null;
 }
 
 function selecionarDeckDrome(deckData, numSlot, irreg, divEl) {
     document.querySelectorAll('.card-deck-drome').forEach(d => d.classList.remove('selecionado'));
     divEl.classList.add('selecionado');
     window.estadoDrome.deckSelecionado = Object.assign({}, deckData, { slot: numSlot });
+    // Bind the cached choice to the account and mode that loaded it.
+    window.estadoDrome.deckSelecionadoUid = localStorage.getItem('chaoticUID');
+    window.estadoDrome.deckSelecionadoModo = window.estadoDrome.modo;
     let aviso = document.getElementById("aviso-deck-irregular");
     let btn = document.getElementById("btn-jogar-drome");
     if (irreg) {
@@ -196,8 +247,37 @@ function selecionarDeckDrome(deckData, numSlot, irreg, divEl) {
     }
 }
 
-window.confirmarEntradaDrome = function() {
-    if (!window.estadoDrome.deckSelecionado) return;
+window.confirmarEntradaDrome = async function() {
+    const selected = window.estadoDrome.deckSelecionado;
+    if (!selected) return;
+    const currentUid = localStorage.getItem('chaoticUID');
+    if (!currentUid || currentUid === 'null' || currentUid === 'undefined' ||
+        currentUid !== window.estadoDrome.deckSelecionadoUid ||
+        window.estadoDrome.modo !== window.estadoDrome.deckSelecionadoModo) {
+        window.estadoDrome.deckSelecionado = null;
+        const btn = document.getElementById('btn-jogar-drome');
+        if (btn) btn.style.display = 'none';
+        const aviso = document.getElementById('aviso-deck-irregular');
+        const texto = document.getElementById('texto-irregularidade');
+        if (aviso && texto) { aviso.style.display = 'block'; texto.textContent = 'Conta ou modo alterado. Carregue e selecione novamente seu Deck.'; }
+        return;
+    }
+    // Revalidate on entry: a saved selection may become stale after navigation.
+    const mode = window.estadoDrome.modo;
+    if (!["1x1", "3x3", "6x6"].includes(mode) ||
+        (selected.modo && selected.modo !== mode) ||
+        verificarIrregularidadeDeck(selected, mode)) {
+        window.estadoDrome.deckSelecionado = null;
+        const aviso = document.getElementById("aviso-deck-irregular");
+        const texto = document.getElementById("texto-irregularidade");
+        if (aviso && texto) {
+            aviso.style.display = "block";
+            texto.textContent = "Deck incompatível ou incompleto para este modo. Selecione um Deck válido novamente.";
+        }
+        const btn = document.getElementById("btn-jogar-drome");
+        if (btn) btn.style.display = "none";
+        return;
+    }
     // Não iniciar matchmaking Firebase nesta prévia: o backend online
     // ainda não foi portado. Preservamos a lógica abaixo para reativá-la
     // quando salas, transações e presença estiverem protegidas no servidor.
@@ -213,23 +293,83 @@ window.confirmarEntradaDrome = function() {
         }
         return;
     }
-    if (window.estadoDrome.tipoJogo === 'online') {
-        window.mostrarMensagemScanner("Conectando aos servidores do Drome...");
-        renderizarFilaOnline(); 
-    } else {
-        renderizarPassoEscolhaAmigo();
+    // Cached Deck selection is not proof of an active login.
+    // The server must still authenticate every multiplayer action.
+    const activeUid = localStorage.getItem("chaoticUID");
+    if (!activeUid || activeUid === "null" || activeUid === "undefined") {
+        window.estadoDrome.deckSelecionado = null;
+        const aviso = document.getElementById("aviso-deck-irregular");
+        const texto = document.getElementById("texto-irregularidade");
+        if (aviso && texto) {
+            aviso.style.display = "block";
+            texto.textContent = "Sua sessão não está disponível. Entre novamente e escolha seu Deck.";
+        }
+        const btn = document.getElementById("btn-jogar-drome");
+        if (btn) btn.style.display = "none";
+        return;
+    }
+    // Re-read the actual saved Deck before entering the legacy matchmaking.
+    // A cached selection can have been edited/deleted in another tab or device.
+    if (window._dromeEntryPending) return;
+    window._dromeEntryPending = true;
+    const entryButton = document.getElementById('btn-jogar-drome');
+    if (entryButton) entryButton.disabled = true;
+    const entryMode = mode;
+    const entryType = window.estadoDrome.tipoJogo;
+    const entrySlot = selected.slot;
+    const entryUid = activeUid;
+    try {
+        if (![1, 2, 3].includes(entrySlot)) throw new Error('Seleção de Deck inválida.');
+        const snapshot = await _dbGet('jogadores/' + entryUid + '/decks');
+        const decks = snapshot.exists() ? (snapshot.val() || {}) : {};
+        const stored = decks[entryMode + '_slot_' + entrySlot] || decks[entryMode + '_' + entrySlot];
+        const original = Object.assign({}, selected);
+        delete original.slot;
+        const stillCurrent = localStorage.getItem('chaoticUID') === entryUid &&
+            window.estadoDrome.modo === entryMode &&
+            window.estadoDrome.tipoJogo === entryType &&
+            window.estadoDrome.deckSelecionado === selected &&
+            window.CHAOTIC_MULTIPLAYER_ENABLED === true;
+        if (!stillCurrent || !stored || JSON.stringify(stored) !== JSON.stringify(original) ||
+            verificarIrregularidadeDeck(stored, entryMode)) {
+            throw new Error('O Deck foi alterado, removido ou a sessão mudou. Selecione novamente.');
+        }
+        if (entryType === 'online') {
+            window.mostrarMensagemScanner("Conectando aos servidores do Drome...");
+            renderizarFilaOnline();
+        } else if (entryType === 'amigo') {
+            renderizarPassoEscolhaAmigo();
+        } else {
+            throw new Error('Tipo de partida inválido.');
+        }
+    } catch (error) {
+        console.warn('Entrada no Drome interrompida:', error);
+        window.estadoDrome.deckSelecionado = null;
+        const aviso = document.getElementById('aviso-deck-irregular');
+        const texto = document.getElementById('texto-irregularidade');
+        if (aviso && texto) {
+            aviso.style.display = 'block';
+            texto.textContent = error && error.message ? error.message : 'Não foi possível validar o Deck salvo.';
+        }
+        if (entryButton) entryButton.style.display = 'none';
+    } finally {
+        window._dromeEntryPending = false;
+        if (entryButton) entryButton.disabled = false;
     }
 };
 
 window.ajustarTabuleiroBatalha = function(modo) {
     let opZona = document.querySelector('.lado-oponente .zona-central');
     let jogZona = document.querySelector('.lado-jogador .zona-central');
-    let opLinha3 = document.getElementById('op-c1').parentElement; 
-    let opLinha2 = document.getElementById('op-c4').parentElement; 
-    let opLinha1 = document.getElementById('op-c6').parentElement; 
-    let jogLinha3 = document.getElementById('jog-c1').parentElement; 
-    let jogLinha2 = document.getElementById('jog-c4').parentElement; 
-    let jogLinha1 = document.getElementById('jog-c6').parentElement; 
+    // Some mobile/legacy layouts omit slots while their view is mounting.
+    // Do not crash the battle entry flow when a slot is absent.
+    const parentOf = id => document.getElementById(id)?.parentElement || null;
+    let opLinha3 = parentOf('op-c1');
+    let opLinha2 = parentOf('op-c4');
+    let opLinha1 = parentOf('op-c6');
+    let jogLinha3 = parentOf('jog-c1');
+    let jogLinha2 = parentOf('jog-c4');
+    let jogLinha1 = parentOf('jog-c6');
     let opMugics = document.querySelectorAll('.lado-oponente .hex-mugic');
     let jogMugics = document.querySelectorAll('.lado-jogador .hex-mugic');
     [opZona, jogZona].forEach(zona => {
@@ -242,18 +382,18 @@ window.ajustarTabuleiroBatalha = function(modo) {
         if(linha) { linha.style.marginTop = "0"; linha.style.marginBottom = "0"; }
     });
     if (modo === "6x6") {
-        opLinha3.style.display = "flex"; opLinha2.style.display = "flex"; opLinha1.style.display = "flex";
-        jogLinha3.style.display = "flex"; jogLinha2.style.display = "flex"; jogLinha1.style.display = "flex";
+        if (opLinha3) opLinha3.style.display = "flex"; if (opLinha2) opLinha2.style.display = "flex"; if (opLinha1) opLinha1.style.display = "flex";
+        if (jogLinha3) jogLinha3.style.display = "flex"; if (jogLinha2) jogLinha2.style.display = "flex"; if (jogLinha1) jogLinha1.style.display = "flex";
         opMugics.forEach(m => m.style.display = "block"); jogMugics.forEach(m => m.style.display = "block");
     } else if (modo === "3x3") {
-        opLinha3.style.display = "none"; opLinha2.style.display = "flex"; opLinha1.style.display = "flex";
-        jogLinha3.style.display = "none"; jogLinha2.style.display = "flex"; jogLinha1.style.display = "flex";
+        if (opLinha3) opLinha3.style.display = "none"; if (opLinha2) opLinha2.style.display = "flex"; if (opLinha1) opLinha1.style.display = "flex";
+        if (jogLinha3) jogLinha3.style.display = "none"; if (jogLinha2) jogLinha2.style.display = "flex"; if (jogLinha1) jogLinha1.style.display = "flex";
         if(jogLinha2) jogLinha2.style.marginTop = "10px"; if(opLinha2) opLinha2.style.marginTop = "10px";
         opMugics.forEach((m, i) => m.style.display = i >= 3 ? "none" : "block");
         jogMugics.forEach((m, i) => m.style.display = i >= 3 ? "none" : "block");
     } else if (modo.includes("1x1")) {
-        opLinha3.style.display = "none"; opLinha2.style.display = "none"; opLinha1.style.display = "flex";
-        jogLinha3.style.display = "none"; jogLinha2.style.display = "none"; jogLinha1.style.display = "flex";
+        if (opLinha3) opLinha3.style.display = "none"; if (opLinha2) opLinha2.style.display = "none"; if (opLinha1) opLinha1.style.display = "flex";
+        if (jogLinha3) jogLinha3.style.display = "none"; if (jogLinha2) jogLinha2.style.display = "none"; if (jogLinha1) jogLinha1.style.display = "flex";
         if(jogLinha1) jogLinha1.style.marginTop = "2px"; if(opLinha1) opLinha1.style.marginTop = "2px";
         opMugics.forEach((m, i) => m.style.display = i >= 1 ? "none" : "block");
         jogMugics.forEach((m, i) => m.style.display = i >= 1 ? "none" : "block");
@@ -293,6 +433,14 @@ function iniciarPartidaDrome(salaId, souP1) {
 }
 
 function renderizarFilaOnline() {
+    // A fila legada usa gravações diretas do cliente e não comprova vitória no servidor.
+    // Não permitir que entre na fila nem que inicie partidas enquanto não houver autorização.
+    if (window.CHAOTIC_MULTIPLAYER_ENABLED !== true) {
+        window.estadoDrome.naFila = false;
+        window.mostrarMensagemScanner?.("Fila online legada indisponível até validação autoritativa do servidor.");
+        renderizarPassoTipoJogo();
+        return;
+    }
     let tela = document.getElementById("tela-entrada-drome");
     window.estadoDrome.naFila = true;
     let modo = window.estadoDrome.modo;
@@ -300,7 +448,7 @@ function renderizarFilaOnline() {
     let filaPath = 'fila_drome/' + modo; 
     tela.innerHTML = `
         <p class="titulo-tela" style="margin-top:30px;font-size:14px;letter-spacing:2px;">⚔️ DROME ONLINE ⚔️</p>
-        <p style="color:#4CAF50;font-size:10px;margin-bottom:40px;font-family:monospace;">MODO ${modo.toUpperCase()} · ${window.estadoDrome.deckSelecionado.nome}</p>
+        <p style="color:#4CAF50;font-size:10px;margin-bottom:40px;font-family:monospace;">MODO ${modo.toUpperCase()} · <span id="nome-deck-fila"></span></p>
         <div style="display:flex;flex-direction:column;align-items:center;gap:20px;">
             <div style="width:80px;height:80px;border:4px solid #4CAF50;border-top-color:transparent;border-radius:50%;animation:girar 1s linear infinite;"></div>
             <p class="texto-carregando" style="font-size:13px;">Procurando adversário...</p>
@@ -309,6 +457,9 @@ function renderizarFilaOnline() {
         <button class="btn-voltar-pequeno" style="margin-top:40px;border-color:#e53935;color:#e53935;" onclick="window.cancelarFila()">Cancelar e Voltar</button>
         <style>@keyframes girar{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}</style>
     `;
+    // Saved Deck names are user-controlled and must never be parsed as HTML.
+    const nomeDeckFila = document.getElementById("nome-deck-fila");
+    if (nomeDeckFila) nomeDeckFila.textContent = String(window.estadoDrome.deckSelecionado?.nome || "Deck Sem Nome");
     let s = 0;
     window._timerFila = setInterval(() => {
         s++;
@@ -317,7 +468,7 @@ function renderizarFilaOnline() {
     }, 1000);
     let deckPronto = window.expandirDeckParaOnline(window.estadoDrome.deckSelecionado);
     window._dbOn('jogadores/' + uid + '/match_drome', snap => {
-        if (!snap.exists() || !window.estadoDrome.naFila) return;
+        if (!snap.exists() || !window.estadoDrome.naFila || window.CHAOTIC_MULTIPLAYER_ENABLED !== true) return;
         let match = snap.val();
         window.cancelarFila(); 
         window._dbRemove('jogadores/' + uid + '/match_drome'); 
@@ -325,7 +476,7 @@ function renderizarFilaOnline() {
     });
     window._dbSet(filaPath + '/' + uid, { uid, nome: window.perfilJogador.nome, deck: deckPronto, timestamp: Date.now() });
     window._dbOn(filaPath, snapshot => {
-        if (!snapshot.exists() || !window.estadoDrome.naFila) return;
+        if (!snapshot.exists() || !window.estadoDrome.naFila || window.CHAOTIC_MULTIPLAYER_ENABLED !== true) return;
         let lista = Object.entries(snapshot.val()).sort((a,b) => a[1].timestamp - b[1].timestamp);
         if (lista.length >= 2) {
             let p1 = lista[0], p2 = lista[1];
@@ -353,63 +504,195 @@ function renderizarPassoEscolhaAmigo() {
     let amigos = window.amigos || [];
     tela.innerHTML = `
         <p class="titulo-tela" style="margin-top:20px;font-size:14px;letter-spacing:2px;">⚔️ DESAFIAR AMIGO ⚔️</p>
-        <p style="color:#4CAF50;font-size:10px;margin-bottom:20px;font-family:monospace;">MODO ${window.estadoDrome.modo.toUpperCase()} · ${window.estadoDrome.deckSelecionado.nome}</p>
+        <p style="color:#4CAF50;font-size:10px;margin-bottom:20px;font-family:monospace;">MODO <span id="modo-amigo-drome"></span> · <span id="deck-amigo-drome"></span></p>
         <div id="lista-amigos-drome" style="display:flex;flex-direction:column;gap:10px;width:85%;margin-bottom:10px;">
             ${amigos.length === 0 ? '<p style="color:#555;font-size:10px;text-align:center;">Nenhum amigo na lista.</p>' : ''}
         </div>
         <button class="btn-voltar-pequeno" style="margin-top:20px;" onclick="window.renderizarPassoEscolhaDeck()">← Voltar</button>
     `;
+    // The selected deck name comes from player storage and must never be parsed as markup.
+    const modoAmigo = document.getElementById("modo-amigo-drome");
+    const deckAmigo = document.getElementById("deck-amigo-drome");
+    if (modoAmigo) modoAmigo.textContent = String(window.estadoDrome.modo || "").toUpperCase();
+    if (deckAmigo) deckAmigo.textContent = String(window.estadoDrome.deckSelecionado?.nome || "Deck Sem Nome");
     let lista = document.getElementById("lista-amigos-drome");
     amigos.forEach((amigo, i) => {
-        let av = (amigo.avatar.startsWith("http") || amigo.avatar.startsWith("data:"))
-            ? `<div style="width:35px;height:35px;background-image:url('${amigo.avatar}');background-size:cover;border-radius:50%;border:2px solid #4CAF50;flex-shrink:0;"></div>`
-            : `<div style="width:35px;height:35px;background:#000;border-radius:50%;border:2px solid #4CAF50;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">${amigo.avatar}</div>`;
-        let div = document.createElement("div");
-        div.style = "background:#112211;border:1px solid #4CAF50;border-radius:8px;padding:10px;display:flex;justify-content:space-between;align-items:center;";
-        div.innerHTML = `<div style="display:flex;align-items:center;gap:10px;">${av}<div style="text-align:left;"><div style="color:#fff;font-size:11px;font-weight:bold;">${amigo.nome}</div><div style="color:#4CAF50;font-size:9px;">🟢 Online</div></div></div><button style="background:#e53935;color:white;border:none;padding:8px 12px;border-radius:5px;font-weight:bold;cursor:pointer;font-size:10px;" onclick="window.desafiarAmigoDrome(${i})">DESAFIAR</button>`;
+        // Friend profiles are remote data: never interpolate names or avatars
+        // into innerHTML (including CSS url() and inline onclick attributes).
+        const div = document.createElement("div");
+        div.style.cssText = "background:#112211;border:1px solid #4CAF50;border-radius:8px;padding:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;";
+        const identity = document.createElement("div");
+        identity.style.cssText = "display:flex;align-items:center;gap:10px;min-width:0;";
+        const avatar = document.createElement("div");
+        avatar.style.cssText = "width:35px;height:35px;background:#000;border-radius:50%;border:2px solid #4CAF50;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;overflow:hidden;";
+        const avatarValue = typeof amigo.avatar === "string" ? amigo.avatar : "";
+        if (/^https:\/\//i.test(avatarValue)) {
+            const img = document.createElement("img");
+            img.alt = "";
+            img.loading = "lazy";
+            img.referrerPolicy = "no-referrer";
+            img.style.cssText = "width:100%;height:100%;object-fit:cover;";
+            img.src = avatarValue;
+            avatar.appendChild(img);
+        } else {
+            avatar.textContent = avatarValue.slice(0, 2) || "👤";
+        }
+        const info = document.createElement("div");
+        info.style.cssText = "text-align:left;min-width:0;";
+        const name = document.createElement("div");
+        name.style.cssText = "color:#fff;font-size:11px;font-weight:bold;overflow-wrap:anywhere;";
+        name.textContent = String(amigo.nome || "Jogador");
+        const status = document.createElement("div");
+        status.style.cssText = "color:#4CAF50;font-size:9px;";
+        status.textContent = "Amigo";
+        info.append(name, status);
+        identity.append(avatar, info);
+        const challenge = document.createElement("button");
+        challenge.type = "button";
+        challenge.style.cssText = "background:#e53935;color:white;border:none;padding:8px 12px;border-radius:5px;font-weight:bold;cursor:pointer;font-size:10px;flex-shrink:0;";
+        challenge.textContent = "DESAFIAR";
+        challenge.addEventListener("click", () => window.desafiarAmigoDrome(i));
+        div.append(identity, challenge);
         lista.appendChild(div);
     });
 }
 
-window.desafiarAmigoDrome = function(index) {
-    let amigo = window.amigos[index];
-    let uid = localStorage.getItem("chaoticUID");
-    let salaId = "drome_" + uid + "_" + amigo.uid;
-    let deckPronto = window.expandirDeckParaOnline(window.estadoDrome.deckSelecionado);
-    _dbSet('salas_drome/' + salaId, { p1:{uid,nome:window.perfilJogador.nome,deck:deckPronto}, p2:{uid:amigo.uid,nome:amigo.nome,deck:null}, modo:window.estadoDrome.modo, status:"aguardando" });
-    _dbSet('jogadores/' + amigo.uid + '/desafio_drome', { de:uid, nome:window.perfilJogador.nome, salaId, modo:window.estadoDrome.modo });
-    renderizarAguardandoAmigo(salaId, amigo.nome);
+// Do not announce a challenge before both remote writes have succeeded.
+// The legacy Firebase flow remains gated; this is not server authorization.
+window.desafiarAmigoDrome = async function(index) {
+    if (window.CHAOTIC_MULTIPLAYER_ENABLED !== true) {
+        window.mostrarMensagemScanner?.("Desafios legados indisponíveis até validação do servidor.");
+        return;
+    }
+    if (window._dromeEnviandoDesafio) return;
+    const amigo = Array.isArray(window.amigos) ? window.amigos[index] : null;
+    const uid = localStorage.getItem("chaoticUID");
+    const modo = window.estadoDrome.modo;
+    const deck = window.estadoDrome.deckSelecionado;
+    if (!amigo || !/^[A-Za-z0-9_-]{1,128}$/.test(String(uid || "")) ||
+        !/^[A-Za-z0-9_-]{1,128}$/.test(String(amigo.uid || "")) ||
+        uid === amigo.uid || !["1x1", "3x3", "6x6"].includes(modo) ||
+        !deck || verificarIrregularidadeDeck(deck, modo)) {
+        window.mostrarMensagemScanner?.("Desafio inválido. Confira a sessão, o amigo e o Deck.");
+        return;
+    }
+    const salaId = "drome_" + uid + "_" + amigo.uid;
+    const salaPath = 'salas_drome/' + salaId;
+    const desafioPath = 'jogadores/' + amigo.uid + '/desafio_drome';
+    window._dromeEnviandoDesafio = true;
+    try {
+        const deckPronto = window.expandirDeckParaOnline(deck);
+        await _dbSet(salaPath, {
+            p1: {uid, nome: String(window.perfilJogador?.nome || "Jogador"), deck: deckPronto},
+            p2: {uid: amigo.uid, nome: String(amigo.nome || "Jogador"), deck: null},
+            modo, status: "aguardando"
+        });
+        try {
+            await _dbSet(desafioPath, {
+                de: uid, nome: String(window.perfilJogador?.nome || "Jogador"), salaId, modo
+            });
+        } catch (erroConvite) {
+            // The room belongs to this attempt, so clean it up if delivery fails.
+            try { await _dbRemove(salaPath); }
+            catch (erroLimpeza) { console.error("Falha ao limpar sala não enviada", erroLimpeza); }
+            throw erroConvite;
+        }
+        renderizarAguardandoAmigo(salaId, String(amigo.nome || "Jogador"));
+    } catch (erro) {
+        console.error("Falha ao enviar desafio Drome", erro);
+        window.mostrarMensagemScanner?.("Não foi possível enviar o desafio. Tente novamente.");
+    } finally {
+        window._dromeEnviandoDesafio = false;
+    }
 };
 
 function renderizarAguardandoAmigo(salaId, nomeAmigo) {
     let tela = document.getElementById("tela-entrada-drome");
     tela.innerHTML = `
         <p class="titulo-tela" style="margin-top:30px;font-size:14px;letter-spacing:2px;">⚔️ AGUARDANDO ⚔️</p>
-        <p style="color:#4CAF50;font-size:10px;margin-bottom:40px;font-family:monospace;">DESAFIO ENVIADO PARA ${nomeAmigo.toUpperCase()}</p>
+        <p id="drome-nome-amigo-aguardando" style="color:#4CAF50;font-size:10px;margin-bottom:40px;font-family:monospace;"></p>
         <div style="display:flex;flex-direction:column;align-items:center;gap:20px;"><div style="font-size:50px;">⚔️</div><p class="texto-carregando" style="font-size:12px;">Aguardando resposta...</p></div>
-        <button class="btn-voltar-pequeno" style="margin-top:50px;border-color:#e53935;color:#e53935;" onclick="window.cancelarDesafioDrome('${salaId}')">Cancelar Desafio</button>
+        <button id="drome-cancelar-desafio" type="button" class="btn-voltar-pequeno" style="margin-top:50px;border-color:#e53935;color:#e53935;">Cancelar Desafio</button>
     `;
+    document.getElementById("drome-nome-amigo-aguardando").textContent = "DESAFIO ENVIADO PARA " + String(nomeAmigo || "Jogador").toUpperCase();
+    document.getElementById("drome-cancelar-desafio").addEventListener("click", () => window.cancelarDesafioDrome(salaId));
+    // Process a terminal room state once; repeated realtime snapshots must not
+    // start duplicate battles or overwrite the screen after cancellation.
+    let estadoTerminalProcessado = false;
     _dbOn('salas_drome/' + salaId, snapshot => {
-        if (!snapshot.exists()) return;
-        let sala = snapshot.val();
-        if (sala.status === "pronta") iniciarPartidaDrome(salaId, true);
-        else if (sala.status === "recusado") { window.mostrarMensagemScanner(nomeAmigo.toUpperCase() + " RECUSOU!"); window.renderizarPassoEscolhaDeck(); }
+        if (estadoTerminalProcessado || !snapshot.exists()) return;
+        const sala = snapshot.val();
+        if (!sala || !["pronta", "recusado", "cancelado"].includes(sala.status)) return;
+        estadoTerminalProcessado = true;
+        if (sala.status === "pronta") {
+            // Legacy matchmaking remains gated until server-authoritative validation.
+            if (window.CHAOTIC_MULTIPLAYER_ENABLED === true) iniciarPartidaDrome(salaId, true);
+            else window.mostrarMensagemScanner?.("Partida legada indisponível sem validação do servidor.");
+        } else {
+            window.mostrarMensagemScanner?.(sala.status === "recusado"
+                ? String(nomeAmigo || "Jogador").toUpperCase() + " RECUSOU!"
+                : "Desafio cancelado.");
+            window.renderizarPassoEscolhaDeck();
+        }
     });
 }
 
-window.cancelarDesafioDrome = function(salaId) {
-    _dbUpdate('salas_drome/' + salaId, { status:"cancelado" });
-    setTimeout(() => _dbRemove('salas_drome/' + salaId), 2000);
-    window.renderizarPassoEscolhaDeck();
+// Cancelamento legado: nunca apague a sala por temporizador. Uma confirmação
+// atrasada poderia sobrescrever o cancelamento ou perder o histórico da disputa.
+const _cancelamentosDromePendentes = new Set();
+window.cancelarDesafioDrome = async function(salaId) {
+    if (window.CHAOTIC_MULTIPLAYER_ENABLED !== true ||
+        typeof salaId !== "string" ||
+        !/^drome_[A-Za-z0-9_-]{1,128}_[A-Za-z0-9_-]{1,128}$/.test(salaId)) {
+        window.mostrarMensagemScanner?.("Não foi possível cancelar: sala inválida ou modo indisponível.");
+        return;
+    }
+    if (_cancelamentosDromePendentes.has(salaId)) return;
+    _cancelamentosDromePendentes.add(salaId);
+    try {
+        await _dbUpdate('salas_drome/' + salaId, { status:"cancelado" });
+        window.renderizarPassoEscolhaDeck();
+    } catch (erro) {
+        console.error("Falha ao cancelar desafio Drome", erro);
+        window.mostrarMensagemScanner?.("Cancelamento não confirmado. Tente novamente.");
+    } finally {
+        _cancelamentosDromePendentes.delete(salaId);
+    }
 };
 
 window.escutarDesafiosDrome = function() {
-    let uid = localStorage.getItem("chaoticUID");
-    _dbOn('jogadores/' + uid + '/desafio_drome', snapshot => {
-        if (!snapshot.exists()) return;
-        let desafio = snapshot.val();
-        _dbRemove('jogadores/' + uid + '/desafio_drome');
-        mostrarModalDesafioDrome(desafio);
+    // Do not subscribe to an invalid user path or consume invitations while
+    // the legacy multiplayer is disabled. A local UID is not authentication.
+    const uid = localStorage.getItem("chaoticUID");
+    if (window.CHAOTIC_MULTIPLAYER_ENABLED !== true ||
+        !/^[A-Za-z0-9_-]{1,128}$/.test(String(uid || ""))) return;
+    const path = 'jogadores/' + uid + '/desafio_drome';
+    const processing = new Set();
+    _dbOn(path, async snapshot => {
+        if (!snapshot.exists() ||
+            window.CHAOTIC_MULTIPLAYER_ENABLED !== true ||
+            localStorage.getItem("chaoticUID") !== uid ||
+            processing.has(path)) return;
+        const desafio = snapshot.val();
+        if (!desafio || !_desafioDromeValido(desafio.salaId, desafio.modo) ||
+            !/^[A-Za-z0-9_-]{1,128}$/.test(String(desafio.de || ""))) {
+            console.warn("Convite Drome inválido ignorado.");
+            return;
+        }
+        processing.add(path);
+        try {
+            // Only acknowledge the invitation after the remote delete succeeds.
+            // Otherwise a transient write failure would hide a pending invitation.
+            await _dbRemove(path);
+            if (window.CHAOTIC_MULTIPLAYER_ENABLED === true &&
+                localStorage.getItem("chaoticUID") === uid) {
+                mostrarModalDesafioDrome(desafio);
+            }
+        } catch (erro) {
+            console.error("Não foi possível confirmar leitura do convite Drome", erro);
+        } finally {
+            processing.delete(path);
+        }
     });
 };
 
@@ -421,39 +704,121 @@ function mostrarModalDesafioDrome(desafio) {
         document.getElementById("tela-jogo").appendChild(m);
     }
     let m = document.getElementById("modal-desafio-drome");
-    m.innerHTML = `
-        <p style="color:#e53935;font-weight:bold;font-size:16px;margin-bottom:5px;text-align:center;">⚔️ DESAFIO RECEBIDO!</p>
-        <p style="color:#fff;font-size:12px;margin-bottom:5px;text-align:center;">${desafio.nome.toUpperCase()} te desafiou!</p>
-        <p style="color:#4CAF50;font-size:10px;margin-bottom:25px;text-align:center;">Modo: ${desafio.modo.toUpperCase()}</p>
-        <div style="display:flex;gap:10px;">
-            <button onclick="window.responderDesafioDrome('recusar','${desafio.salaId}')" style="background:#e53935;color:white;font-weight:bold;padding:10px 15px;border-radius:5px;cursor:pointer;border:none;font-size:11px;">RECUSAR</button>
-            <button onclick="window.responderDesafioDrome('aceitar','${desafio.salaId}','${desafio.modo}')" style="background:#4CAF50;color:black;font-weight:bold;padding:10px 15px;border-radius:5px;cursor:pointer;border:none;font-size:11px;">ACEITAR</button>
-        </div>
-    `;
+    // Challenge fields originate from another player's profile/database.
+    // Render them as text and bind actions without interpolating into HTML.
+    const nome = String(desafio?.nome ?? "Jogador");
+    const modo = String(desafio?.modo ?? "");
+    const salaId = String(desafio?.salaId ?? "");
+    m.replaceChildren();
+    const titulo = document.createElement("p");
+    titulo.style.cssText = "color:#e53935;font-weight:bold;font-size:16px;margin-bottom:5px;text-align:center;";
+    titulo.textContent = "⚔️ DESAFIO RECEBIDO!";
+    const remetente = document.createElement("p");
+    remetente.style.cssText = "color:#fff;font-size:12px;margin-bottom:5px;text-align:center;";
+    remetente.textContent = nome.toUpperCase() + " te desafiou!";
+    const descricao = document.createElement("p");
+    descricao.style.cssText = "color:#4CAF50;font-size:10px;margin-bottom:25px;text-align:center;";
+    descricao.textContent = "Modo: " + modo.toUpperCase();
+    const acoes = document.createElement("div");
+    acoes.style.cssText = "display:flex;gap:10px;";
+    for (const [resposta, rotulo, cor, texto] of [
+        ["recusar", "RECUSAR", "#e53935", "white"],
+        ["aceitar", "ACEITAR", "#4CAF50", "black"]
+    ]) {
+        const botao = document.createElement("button");
+        botao.type = "button";
+        botao.textContent = rotulo;
+        botao.style.cssText = "background:" + cor + ";color:" + texto + ";font-weight:bold;padding:10px 15px;border-radius:5px;cursor:pointer;border:none;font-size:11px;";
+        botao.addEventListener("click", () => window.responderDesafioDrome(resposta, salaId, modo));
+        acoes.appendChild(botao);
+    }
+    m.append(titulo, remetente, descricao, acoes);
     m.style.display = "flex";
     if (navigator.vibrate) navigator.vibrate([100,50,100]);
 }
 
-window.responderDesafioDrome = function(resposta, salaId, modo) {
-    document.getElementById("modal-desafio-drome").style.display = "none";
-    if (resposta === 'recusar') {
-        _dbUpdate('salas_drome/' + salaId, { status:"recusado" });
-    } else {
-        window.estadoDrome.tipoJogo = 'amigo';
-        window.estadoDrome.modo = modo;
-        document.getElementById("tela-menu").style.display = "none";
-        document.getElementById("tela-entrada-drome").style.display = "flex";
-        window.modoMenu = false;
-        window.renderizarPassoEscolhaDeck();
-        setTimeout(() => {
-            let btn = document.getElementById("btn-jogar-drome");
-            if (btn) btn.onclick = () => { 
-                let deckPronto = window.expandirDeckParaOnline(window.estadoDrome.deckSelecionado);
-                _dbUpdate('salas_drome/' + salaId, { status: "pronta", "p2/deck": deckPronto }); 
-                iniciarPartidaDrome(salaId, false); 
-            };
-        }, 1500);
+// Legacy Firebase challenge paths must never be built from untrusted room identifiers.
+function _desafioDromeValido(salaId, modo) {
+    return typeof salaId === "string" &&
+        /^drome_[A-Za-z0-9_-]{1,128}_[A-Za-z0-9_-]{1,128}$/.test(salaId) &&
+        ["1x1", "3x3", "6x6"].includes(modo);
+}
+
+// Prevent duplicate writes when a player taps the same challenge action repeatedly.
+const _desafiosDromeEmProcessamento = new Set();
+
+window.responderDesafioDrome = async function(resposta, salaId, modo) {
+    // Incoming invitations must not bypass the same multiplayer rollout gate
+    // enforced when the challenger initiates a match.
+    if (window.CHAOTIC_MULTIPLAYER_ENABLED !== true) {
+        window.mostrarMensagemScanner?.("Desafios legados indisponíveis até validação do servidor.");
+        const blockedModal = document.getElementById("modal-desafio-drome");
+        if (blockedModal) blockedModal.style.display = "none";
+        return;
     }
+    if (!_desafioDromeValido(salaId, modo) || !["aceitar", "recusar"].includes(resposta)) {
+        window.mostrarMensagemScanner?.("Desafio inválido. Solicite um novo convite.");
+        return;
+    }
+    if (_desafiosDromeEmProcessamento.has(salaId)) return;
+    const modal = document.getElementById("modal-desafio-drome");
+    if (resposta === "recusar") {
+        _desafiosDromeEmProcessamento.add(salaId);
+        try {
+            await _dbUpdate("salas_drome/" + salaId, { status: "recusado" });
+            if (modal) modal.style.display = "none";
+        } catch (erro) {
+            console.error("Falha ao recusar desafio Drome", erro);
+            window.mostrarMensagemScanner?.("Não foi possível recusar o desafio. Tente novamente.");
+        } finally {
+            _desafiosDromeEmProcessamento.delete(salaId);
+        }
+        return;
+    }
+    if (modal) modal.style.display = "none";
+    window.estadoDrome.tipoJogo = "amigo";
+    window.estadoDrome.modo = modo;
+    document.getElementById("tela-menu").style.display = "none";
+    document.getElementById("tela-entrada-drome").style.display = "flex";
+    window.modoMenu = false;
+    window.renderizarPassoEscolhaDeck();
+    setTimeout(() => {
+        const btn = document.getElementById("btn-jogar-drome");
+        if (!btn || window.estadoDrome.modo !== modo || window.estadoDrome.tipoJogo !== "amigo") return;
+        btn.onclick = async () => {
+            if (_desafiosDromeEmProcessamento.has(salaId)) return;
+            const deck = window.estadoDrome.deckSelecionado;
+            if (window.CHAOTIC_MULTIPLAYER_ENABLED !== true ||
+                window.estadoDrome.modo !== modo || !deck ||
+                verificarIrregularidadeDeck(deck, modo) ||
+                (typeof window.validarDeckParaModo === "function" && !window.validarDeckParaModo(deck, modo))) {
+                window.mostrarMensagemScanner?.("Escolha um Deck válido para este modo.");
+                return;
+            }
+            _desafiosDromeEmProcessamento.add(salaId);
+            btn.disabled = true;
+            try {
+                // Recheck the authoritative room snapshot before attempting a legacy write.
+                // This is defense in depth, NOT an atomic server-side state transition.
+                const salaSnapshot = await _dbGet("salas_drome/" + salaId);
+                const salaAtual = salaSnapshot && typeof salaSnapshot.val === "function"
+                    ? salaSnapshot.val() : salaSnapshot;
+                if (!salaAtual || salaAtual.status !== "aguardando" || salaAtual.modo !== modo) {
+                    window.mostrarMensagemScanner?.("Este desafio expirou, foi cancelado ou mudou de estado.");
+                    return;
+                }
+                const deckPronto = window.expandirDeckParaOnline(deck);
+                await _dbUpdate("salas_drome/" + salaId, { status: "pronta", "p2/deck": deckPronto });
+                iniciarPartidaDrome(salaId, false);
+            } catch (erro) {
+                console.error("Falha ao confirmar desafio Drome", erro);
+                window.mostrarMensagemScanner?.("Não foi possível confirmar o desafio. Tente novamente.");
+            } finally {
+                _desafiosDromeEmProcessamento.delete(salaId);
+                if (btn.isConnected) btn.disabled = false;
+            }
+        };
+    }, 1500);
 };
 
 window.voltarMenuDrome = function() {

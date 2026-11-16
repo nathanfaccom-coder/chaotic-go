@@ -11,12 +11,17 @@ const client={from(name) {
   assert.ok(['chaotic_game_nodes','chaotic_player_state'].includes(name));
   const q={
     mode:'select',where:{},pattern:null,
-    select(){this.mode='select';return this;},
+    select(){if(this.mode!=='update')this.mode='select';return this;},
+    update(payload){this.mode='update';this.payload=payload;return this;},
+    insert(payload){this.mode='insert';this.payload=payload;return this;},
+    order(){return this;},
+    range(){return this;},
     eq(k,value){this.where[k]=value;return this;},
     like(k,value){this.pattern={k,value};return this;},
     maybeSingle:async function() {
       if(name==='chaotic_player_state')return {data:null,error:null};
-      return {data:[...records.values()].find(row=>Object.entries(this.where).every(([k,v])=>row[k]===v))||null,error:null};
+      const row=[...records.values()].find(row=>Object.entries(this.where).every(([k,v])=>row[k]===v));
+      return {data:row?{data:row.data}:null,error:null};
     },
     upsert(payload){
       assert.equal(payload.user_id,owner);
@@ -29,7 +34,13 @@ const client={from(name) {
         Object.entries(this.where).every(([k,v])=>row[k]===v) &&
         (!this.pattern||row[this.pattern.k].startsWith(this.pattern.value.slice(0,-1))));
       let result;
-      if(this.mode==='delete') {
+      if(this.mode==='update') {
+        matches.forEach(row=>Object.assign(row,this.payload));
+        result={data:matches.map(row=>({node_path:row.node_path})),error:null};
+      } else if(this.mode==='insert') {
+        records.set(key(this.payload.user_id,this.payload.node_path),structuredClone(this.payload));
+        result={data:null,error:null};
+      } else if(this.mode==='delete') {
         matches.forEach(row=>records.delete(key(row.user_id,row.node_path)));
         result={error:null};
       } else result={data:matches,error:null};
@@ -37,7 +48,14 @@ const client={from(name) {
     }
   };
   return q;
-}};
+},
+ rpc:async(name,args)=>{
+   assert.equal(name,'chaotic_patch_own_node');
+   const row=records.get(key(owner,args.p_node_path));
+   const merged={...(row?.data||{}),...args.p_patch};
+   records.set(key(owner,args.p_node_path),{user_id:owner,node_path:args.p_node_path,data:merged});
+   return {data:merged,error:null};
+ }};
 globalThis.window={
   ChaoticAuth:{getClient:()=>client},
   ChaoticAuthUser:{id:owner,email:'player@example.com'},

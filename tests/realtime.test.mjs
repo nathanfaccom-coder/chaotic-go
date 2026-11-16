@@ -26,6 +26,8 @@ const client={
     const q={
       filters:{},likeFilter:null,
       select(){return this;},
+      order(){return this;},
+      range(start,end){this.start=start;this.end=end;return this;},
       eq(field,value){this.filters[field]=value;return this;},
       like(field,value){this.likeFilter=[field,value];return this;},
       async maybeSingle(){
@@ -39,7 +41,7 @@ const client={
           return !this.likeFilter ||
             row[this.likeFilter[0]].startsWith(this.likeFilter[1].slice(0,-1));
         });
-        return Promise.resolve({data:selected,error:null}).then(resolve,reject);
+        return Promise.resolve({data:this.start===undefined?selected:selected.slice(this.start,this.end+1),error:null}).then(resolve,reject);
       }
     };
     return q;

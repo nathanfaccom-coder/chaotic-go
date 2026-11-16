@@ -30,25 +30,42 @@ function desenharMiniCarta(criaturaObj) {
     img = urlArteSegura(isOculta ? URL_FUNDO_CARTA : criaturaObj.cartaBlank); 
     
     // Snapshot parcial não significa criatura derrotada: distinguir HP ausente de zero real.
-    const hpMaxDisponivel = criaturaObj.hpMax != null || criaturaObj.statsMax?.energia != null;
-    let hpMax = criaturaObj.hpMax ?? criaturaObj.statsMax?.energia ?? 0;
-    hpAtual = criaturaObj.hpAtual != null ? criaturaObj.hpAtual : (hpMaxDisponivel ? hpMax : NaN);
+    // Strings vazias em snapshots parciais não representam zero HP.
+    // Aceitar apenas valores numéricos finitos, preservando o zero explícito.
+    const hpNumerico = valor => {
+        if (valor === null || valor === undefined || typeof valor === 'boolean' ||
+            (typeof valor === 'string' && !valor.trim())) return NaN;
+        const numero = Number(valor);
+        return Number.isFinite(numero) && numero >= 0 ? numero : NaN;
+    };
+    const hpMaxPrimario = hpNumerico(criaturaObj.hpMax);
+    const hpMaxCatalogo = hpNumerico(criaturaObj.statsMax?.energia);
+    let hpMax = Number.isFinite(hpMaxPrimario) ? hpMaxPrimario : hpMaxCatalogo;
+    const hpRecebido = typeof criaturaObj.hpAtual === 'number' && Number.isFinite(criaturaObj.hpAtual) && criaturaObj.hpAtual < 0
+        ? criaturaObj.hpAtual : hpNumerico(criaturaObj.hpAtual);
+    const hpFoiInformado = typeof criaturaObj.hpAtual === 'number' && !Number.isFinite(criaturaObj.hpAtual);
+    // Valor inválido recebido não deve virar vida cheia: só a ausência real permite fallback.
+    hpAtual = Number.isFinite(hpRecebido) ? hpRecebido : (hpFoiInformado ? NaN : hpMax);
     // Ausência de atributo durante sincronização não equivale a zero real.
     // O zero explícito e os valores originais do catálogo continuam preservados.
-    c = criaturaObj.coragem ?? criaturaObj.statsMax?.coragem ?? null;
-    p = criaturaObj.poder ?? criaturaObj.statsMax?.poder ?? null;
-    s = criaturaObj.sabedoria ?? criaturaObj.statsMax?.sabedoria ?? null;
-    v = criaturaObj.velocidade ?? criaturaObj.statsMax?.velocidade ?? null;
-    
-    // Um snapshot incompleto não deve exibir NaN ou Infinity nos atributos.
-    const atributoSeguro = valor => {
+    // Snapshots podem conter campos vazios ou malformados; nesses casos
+    // recuperar o atributo original conhecido, sem substituir zero legítimo.
+    const atributoNumerico = valor => {
+        if (valor === null || valor === undefined || typeof valor === 'boolean' ||
+            (typeof valor === 'string' && !valor.trim())) return NaN;
         const numero = Number(valor);
-        return valor !== null && valor !== '' && Number.isFinite(numero) ? numero : '?';
+        return Number.isFinite(numero) ? numero : NaN;
     };
-    c = atributoSeguro(c);
-    p = atributoSeguro(p);
-    s = atributoSeguro(s);
-    v = atributoSeguro(v);
+    const atributoVisivel = (atual, original) => {
+        const primario = atributoNumerico(atual);
+        if (Number.isFinite(primario)) return primario;
+        const catalogo = atributoNumerico(original);
+        return Number.isFinite(catalogo) ? catalogo : '?';
+    };
+    c = atributoVisivel(criaturaObj.coragem, criaturaObj.statsMax?.coragem);
+    p = atributoVisivel(criaturaObj.poder, criaturaObj.statsMax?.poder);
+    s = atributoVisivel(criaturaObj.sabedoria, criaturaObj.statsMax?.sabedoria);
+    v = atributoVisivel(criaturaObj.velocidade, criaturaObj.statsMax?.velocidade);
 
     let elemsBrutos = criaturaObj.elementos;
     if ((!elemsBrutos || elemsBrutos.length === 0) && typeof MONSTROS !== 'undefined' && Array.isArray(MONSTROS)) {

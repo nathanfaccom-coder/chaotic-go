@@ -50,6 +50,10 @@
           if(response?.error)return; // Keep the verified recent view.
           const raw=Array.isArray(response?.data)?response.data[0]:response?.data;
           if(!raw)return;
+          // Null/missing values must not be coerced into a fictitious zero balance.
+          if(!["total_xp","total_coins","settled_matches"].every(key =>
+            raw[key] !== null && raw[key] !== undefined &&
+            raw[key] !== "" && typeof raw[key] !== "boolean"))return;
           const xp=Number(raw.total_xp), coins=Number(raw.total_coins);
           const count=Number(raw.settled_matches);
           if(![xp,coins,count].every(n=>Number.isSafeInteger(n)&&n>=0))return;
@@ -69,9 +73,14 @@
           if(response?.error||!Array.isArray(response?.data))return;
           const expected=["1x1","3x3","6x6"];
           const rows=response.data;
-          if(rows.length!==3||!expected.every(mode=>rows.some(row=>row.mode===mode)))return;
-          if(!rows.every(row=>[row.victories,row.defeats,row.pending].every(
-            n=>Number.isSafeInteger(Number(n))&&Number(n)>=0)))return;
+          // Require exactly one complete, non-null server row per mode.
+          // Number(null) === 0 would otherwise invent clean career statistics.
+          if(rows.length!==3||!expected.every(mode=>
+            rows.filter(row=>row?.mode===mode).length===1))return;
+          if(!rows.every(row=>["victories","defeats","pending"].every(key=>
+            row[key]!==null && row[key]!==undefined && row[key]!=="" &&
+            typeof row[key]!=="boolean" &&
+            Number.isSafeInteger(Number(row[key])) && Number(row[key])>=0)))return;
           const previous=list.parentNode?.querySelector(
             'section[aria-label="Carreira oficial por modo"]');
           previous?.remove();

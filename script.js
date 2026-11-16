@@ -1020,7 +1020,10 @@ window.iniciarGPS = function() {
         if (!mapaScanner) {
             // Inicia o mapa
             mapaScanner = L.map('meu-mapa', { zoomControl: false }).setView([lat, lon], 17);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(mapaScanner);
+            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(mapaScanner);
             
             // 🛑 SISTEMA DE CÂMERA LIVRE: Se arrastar o mapa, solta a trava!
             mapaScanner.on('dragstart', () => {
@@ -2876,9 +2879,12 @@ if (btnSalvarDeck) {
 }
 
 // 📥 SISTEMA DE CARREGAR DA NUVEM
-window.carregarDeckDaNuvem = function(idFogo) { // Agora recebe o ID combinado
+let sequenciaCarregamentoDeck = 0;
+window.carregarDeckDaNuvem = function(idFogo) {
+    const sequenciaAtual = ++sequenciaCarregamentoDeck; // Agora recebe o ID combinado
     mostrarMensagemScanner("CARREGANDO DECK...");
     get(ref(db, 'jogadores/' + uid + '/decks/' + idFogo)).then((snapshot) => {
+        if (sequenciaAtual !== sequenciaCarregamentoDeck) return;
         window.limparTabuleiroDeck(); // 🔥 Sempre limpa a mesa antes! Se o slot for vazio, a mesa já fica pronta!
         
         if (snapshot.exists()) {
@@ -2906,6 +2912,7 @@ window.carregarDeckDaNuvem = function(idFogo) { // Agora recebe o ID combinado
 
             // 2. Restaura Imagens Individuais (Corrigido para driblar o Firebase!)
             setTimeout(() => {
+                if (sequenciaAtual !== sequenciaCarregamentoDeck) return;
                 let slotsCriatura = document.querySelectorAll('.slot-criatura');
                 slotsCriatura.forEach((slot, i) => {
                     // Pega pelo índice (funciona tanto se o Firebase devolver Lista quanto Objeto)
@@ -2960,7 +2967,9 @@ window.carregarDeckDaNuvem = function(idFogo) { // Agora recebe o ID combinado
         } else {
             mostrarMensagemScanner("SLOT VAZIO. CRIE SUA ESTRATÉGIA!");
         }
-    }).catch(err => { mostrarMensagemScanner("FALHA AO CONECTAR COM A NUVEM!"); });
+    }).catch(err => {
+        if (sequenciaAtual === sequenciaCarregamentoDeck) mostrarMensagemScanner("FALHA AO CONECTAR COM A NUVEM!");
+    });
 };
 
 // ==========================================
@@ -2995,6 +3004,7 @@ if (evtSeletorSlot) {
 let btnSairDrome = document.getElementById("btn-sair-drome");
 if (btnSairDrome) {
     btnSairDrome.onclick = () => {
+        ++dromePreparacaoId;
         document.getElementById("tela-batalha").style.display = "none";
         document.getElementById("tela-menu").style.display = "flex";
         window.modoMenu = true;
@@ -3011,14 +3021,128 @@ window.fecharEntradaDrome = function() {
     window.modoMenu = true;
 };
 
-// Função para, de fato, entrar no Tabuleiro de Batalha!
+// Formatos visuais do Drome. Não cria resultado oficial nem concede recompensas.
+const DROME_FORMATOS = Object.freeze({ '1x1': [6], '3x3': [4, 5, 6], '6x6': [1, 2, 3, 4, 5, 6] });
+// Identificador impede que uma resposta atrasada de outro formato sobrescreva a arena.
+let dromePreparacaoId = 0;
 window.iniciarBatalhaDrome = function(modoEscolhido) {
-    document.getElementById("tela-entrada-drome").style.display = "none";
-    document.getElementById("tela-batalha").style.display = "flex";
-    
-    // Mostra o aviso de qual modo foi selecionado
-    mostrarMensagemScanner("INICIANDO DROME: MODO " + modoEscolhido + "!");
-    
-    // Opcional: Aqui você pode colocar a lógica futura para esconder/mostrar 
-    // os slots do tabuleiro dependendo se o jogador escolheu 1x1 ou 6x6.
+    const ativos = DROME_FORMATOS[modoEscolhido];
+    const arena = document.getElementById("tela-batalha");
+    const entrada = document.getElementById("tela-entrada-drome");
+    if (!ativos || !arena || !entrada) {
+        mostrarMensagemScanner("FORMATO DE DROME INVÁLIDO OU ARENA INDISPONÍVEL.");
+        return;
+    }
+    // Atua somente na arena; os slots da oficina de Decks não são modificados.
+    for (const lado of ['op', 'jog']) {
+        for (let indice = 1; indice <= 6; indice++) {
+            const slot = arena.querySelector('#' + lado + '-c' + indice);
+            if (slot) slot.style.display = ativos.includes(indice) ? '' : 'none';
+        }
+        const metade = arena.querySelector(lado === 'op' ? '.lado-oponente' : '.lado-jogador');
+        if (metade) metade.querySelectorAll('.linha-formacao-batalha').forEach(linha => {
+            linha.style.display = Array.from(linha.querySelectorAll('.slot-carta-batalha'))
+                .some(slot => slot.style.display !== 'none') ? '' : 'none';
+        });
+    }
+    let aviso = arena.querySelector('#aviso-drome-nao-oficial');
+    if (!aviso) {
+        aviso = document.createElement('div');
+        aviso.id = 'aviso-drome-nao-oficial';
+        aviso.setAttribute('role', 'status');
+        aviso.style.cssText = 'position:absolute;top:6px;left:8px;z-index:199;color:#fff;background:#222;padding:5px 8px;border:1px solid #ffd54f;border-radius:4px;font-size:11px;max-width:calc(100% - 100px)';
+        arena.appendChild(aviso);
+    }
+    // Preparação visual vinculada ao Deck do próprio jogador; nunca resolve partidas.
+    const preparacaoAtual = ++dromePreparacaoId;
+    for (const lado of ['op', 'jog']) {
+        for (let i = 1; i <= 6; i++) {
+            const slot = arena.querySelector('#' + lado + '-c' + i);
+            if (slot) {
+                slot.style.backgroundImage = 'none';
+                delete slot.dataset.cartaId;
+            }
+        }
+    }
+    const slotDeck = document.querySelector('#tela-decks select') &&
+        Array.from(document.querySelectorAll('#tela-decks select')).find(el => el.innerHTML.includes('Slot'));
+    const identificadorSlot = slotDeck ? slotDeck.value.toLowerCase().replace(/salvar no /g, '').replace(/ /g, '_') : 'slot_1';
+    const caminhoDeck = 'jogadores/' + uid + '/decks/' + modoEscolhido + '_' + identificadorSlot;
+    get(ref(db, caminhoDeck)).then(snapshot => {
+        if (preparacaoAtual !== dromePreparacaoId || arena.style.display === 'none') return;
+        if (!snapshot.exists()) {
+            aviso.textContent = 'DROME ' + modoEscolhido + ' — Deck não encontrado; sem combate oficial';
+            return;
+        }
+        const deck = snapshot.val();
+        const ids = deck && deck.criaturas;
+        // Aceitar apenas listas ou mapas de índices inteiros (formato legado do bridge).
+        // Não permitir propriedades arbitrárias nem índices duplicados/negativos.
+        const listaDeck = valor => {
+            if (Array.isArray(valor)) return valor;
+            if (!valor || typeof valor !== 'object') return [];
+            const chaves = Object.keys(valor);
+            if (!chaves.every(k => /^(0|[1-9]\d*)$/.test(k) && Number.isSafeInteger(Number(k)))) return [];
+            return chaves.sort((a, b) => Number(a) - Number(b)).map(k => valor[k]);
+        };
+        const lista = listaDeck(ids);
+        const selecionadas = lista.filter(id => id !== null && id !== undefined && String(id).trim() !== '');
+        // Não confundir uma formação ilustrada com um Deck legal para uma partida.
+        // Conferir também ataques e locais, sem confiar no sinalizador salvo pelo cliente.
+        const ataques = listaDeck(deck.ataques);
+        const locais = listaDeck(deck.locais);
+        // Cartas opcionais equipadas também precisam pertencer ao jogador.
+        // Preservar posições vazias, mas nunca aceitar IDs desconhecidos.
+        const equipamentos = listaDeck(deck.equipamentos).filter(id => id != null && String(id).trim() !== '');
+        const mugics = listaDeck(deck.mugics).filter(id => id != null && String(id).trim() !== '');
+        const album = Array.isArray(window.inventario) ? window.inventario : [];
+        // Conferência de posse por quantidade: uma única cópia não pode ocupar
+        // várias posições. É uma proteção de preparação LOCAL, não autorização oficial.
+        const cartasDoAlbum = (ids, tipos) => {
+            const usadas = new Map();
+            return ids.map(id => {
+                const chave = String(id);
+                const carta = album.find(c => String(c.id) === chave && tipos.includes(c.tipoCarta));
+                if (!carta) return null;
+                const quantidade = Number(carta.quantidade);
+                if (!Number.isSafeInteger(quantidade) || quantidade < 1) return null;
+                const total = (usadas.get(chave) || 0) + 1;
+                usadas.set(chave, total);
+                return total <= quantidade ? carta : null;
+            });
+        };
+        const cartasAtaque = cartasDoAlbum(ataques, ['Ataque']);
+        const cartasLocais = cartasDoAlbum(locais, ['Local', 'Locação']);
+        const cartasEquipamentos = cartasDoAlbum(equipamentos, ['Equipamento']);
+        const cartasMugics = cartasDoAlbum(mugics, ['Mugic']);
+        const cartas = cartasDoAlbum(selecionadas, ['Criatura']);
+        const custoAtaques = cartasAtaque.reduce((total, carta) =>
+            total + (carta ? Number(carta.custo) : NaN), 0);
+        const ataquesValidos = ataques.length === 20 && cartasAtaque.every(Boolean) &&
+            cartasAtaque.every(c => Number.isSafeInteger(Number(c.custo)) && Number(c.custo) >= 0);
+        const locaisValidos = locais.length === 10 && cartasLocais.every(Boolean);
+        if (deck.modo !== modoEscolhido || selecionadas.length !== ativos.length ||
+            !ataquesValidos || !Number.isFinite(custoAtaques) || custoAtaques !== 20 ||
+            !locaisValidos || cartas.some(c => !c) ||
+            cartasEquipamentos.some(c => !c) || cartasMugics.some(c => !c)) {
+            aviso.textContent = 'DROME ' + modoEscolhido +
+                ' — Deck inválido: confira quantidade possuída, criaturas, 20 ataques/custo 20 e 10 locais';
+            return;
+        }
+        cartas.forEach((c, pos) => {
+            const slot = arena.querySelector('#jog-c' + ativos[pos]);
+            if (!slot) return;
+            slot.style.backgroundImage = 'url(' + JSON.stringify(String(c.img || '')) + ')';
+            slot.style.backgroundSize = 'cover';
+            slot.style.backgroundPosition = 'center';
+            slot.dataset.cartaId = String(c.id);
+        });
+        aviso.textContent = 'DROME ' + modoEscolhido + ' — Deck preparado; sem vitória ou recompensas oficiais';
+    }).catch(() => {
+        if (preparacaoAtual === dromePreparacaoId) aviso.textContent = 'DROME — falha ao carregar Deck; sem combate oficial';
+    });
+    aviso.textContent = 'DROME ' + modoEscolhido + ' — preparação local, sem vitória ou recompensas oficiais';
+    entrada.style.display = 'none';
+    arena.style.display = 'flex';
+    mostrarMensagemScanner("DROME " + modoEscolhido + ": FORMAÇÃO PREPARADA (SEM PREMIAÇÃO).");
 };
