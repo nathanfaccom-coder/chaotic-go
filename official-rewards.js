@@ -200,7 +200,7 @@
           more.remove();
           valid.forEach(appendReceipt);
           nextOffset+=page.length;
-          if(page.length===20)list.parentNode?.appendChild(more);
+          if(page.length===20)list.appendChild(more);
         }catch(_error){
           if(request===serial&&currentIdentity().playerId===playerId){
             more.textContent="Falha na consulta — tentar novamente";
@@ -217,7 +217,7 @@
           " · +"+format(entry.xp_awarded)+" XP · +"+format(entry.coins_awarded)+" moedas · "+when;
         list.appendChild(div);
       }
-      if(records.length===20)list.parentNode?.appendChild(more);
+      if(records.length===20)list.appendChild(more);
     }catch(_error){
       if(request!==serial||$("lobby-rewards-list")!==list||currentIdentity().playerId!==playerId)return;
       status.textContent="Não foi possível acessar o extrato. Confira sua conexão e tente novamente.";
