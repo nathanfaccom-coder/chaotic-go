@@ -43,7 +43,9 @@ function desenharMiniCarta(criaturaObj) {
     let hpMax = Number.isFinite(hpMaxPrimario) ? hpMaxPrimario : hpMaxCatalogo;
     const hpRecebido = typeof criaturaObj.hpAtual === 'number' && Number.isFinite(criaturaObj.hpAtual) && criaturaObj.hpAtual < 0
         ? criaturaObj.hpAtual : hpNumerico(criaturaObj.hpAtual);
-    hpAtual = Number.isFinite(hpRecebido) ? hpRecebido : hpMax;
+    const hpFoiInformado = Object.prototype.hasOwnProperty.call(criaturaObj, 'hpAtual') && criaturaObj.hpAtual !== null && criaturaObj.hpAtual !== undefined;
+    // Valor inválido recebido não deve virar vida cheia: só a ausência real permite fallback.
+    hpAtual = Number.isFinite(hpRecebido) ? hpRecebido : (hpFoiInformado ? NaN : hpMax);
     // Ausência de atributo durante sincronização não equivale a zero real.
     // O zero explícito e os valores originais do catálogo continuam preservados.
     // Snapshots podem conter campos vazios ou malformados; nesses casos
