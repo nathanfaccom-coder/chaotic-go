@@ -865,3 +865,54 @@ export async function getDrome3x3SafeElementInspections(lobbyId) {
   }
   return { ...data, training_only: true };
 }
+
+
+// UI-facing 3x3 training attack workflow. Every mutation is performed by a
+// separate authenticated RPC; no browser-calculated damage or rewards.
+// Deliberately stops at the defender's reaction window: only the opponent may
+// pass/defend, and only the server can subsequently apply training damage.
+// If a step fails, the caller can recover the authoritative checkpoint rather
+// than retrying the entire (non-idempotent) sequence.
+const dromeAttackWorkflows = new Map();
+export function beginDrome3x3TrainingAttack(lobbyId, expectedTurn, attackerSlot, defenderSlot, attackCardSlot) {
+  assertDromeLobbyId(lobbyId);
+  if (!Number.isInteger(expectedTurn) || expectedTurn < 1 || expectedTurn > 120)
+    return Promise.reject(new RangeError("Turno 3x3 inválido."));
+  if (![4,5,6].includes(attackerSlot) || ![4,5,6].includes(defenderSlot))
+    return Promise.reject(new RangeError("Posição 3x3 inválida."));
+  if (!Number.isInteger(attackCardSlot) || attackCardSlot < 1 || attackCardSlot > 20)
+    return Promise.reject(new RangeError("Slot de ataque inválido."));
+  // A second click must not double-spend a card or create duplicate contact.
+  if (dromeAttackWorkflows.has(lobbyId))
+    return Promise.reject(new Error("Já existe uma preparação de ataque em andamento."));
+  const task = (async () => {
+    let stage = "contact";
+    try {
+      const contact = await openDrome3x3TrainingContact(lobbyId, expectedTurn, attackerSlot, defenderSlot);
+      stage = "projection";
+      const projection = await prepareDrome3x3TrainingAttack(lobbyId, expectedTurn, attackCardSlot);
+      stage = "payment";
+      const payment = await spendDrome3x3TrainingAttack(lobbyId, expectedTurn);
+      stage = "defense_window";
+      const defenseWindow = await openDrome3x3TrainingDefenseWindow(lobbyId, expectedTurn);
+      return { contact, projection, payment, defense_window: defenseWindow,
+        awaiting_opponent: true, training_only: true, rewards_available: false };
+    } catch (cause) {
+      // Never silently replay a completed RPC after a timeout. Report the
+      // checkpoint so the screen can offer an explicit, server-based resume.
+      let checkpoint = null;
+      try { checkpoint = await getDrome3x3TrainingCheckpoint(lobbyId); }
+      catch (_) { /* preserve the original error */ }
+      const error = new Error("Preparação 3x3 interrompida em " + stage + ". Consulte o checkpoint antes de retomar.");
+      error.cause = cause;
+      error.stage = stage;
+      error.checkpoint = checkpoint;
+      throw error;
+    }
+  })();
+  dromeAttackWorkflows.set(lobbyId, task);
+  task.finally(() => {
+    if (dromeAttackWorkflows.get(lobbyId) === task) dromeAttackWorkflows.delete(lobbyId);
+  }).catch(() => {});
+  return task;
+}
