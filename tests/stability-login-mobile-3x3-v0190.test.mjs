@@ -14,10 +14,10 @@ const [index,login,loginV2,loginFull,authLogin,authClient,scanner,scannerFull,
  await Promise.all(paths.map(p=>readFile(new URL("../"+p,import.meta.url),"utf8")));
 
 test("stability v0.1.132: sign-in, scanner and private 3x3 routes remain reachable",()=>{
- for(const page of [login,loginV2,loginFull]){
+ for(const [page,release] of [[login,"132"],[loginV2,"132"],[loginFull,"133"]]){
   for(const script of ["supabase-config.js","auth-client.js","login-auth.js"])
-   assert.ok(page.includes(script+"?v=release-132"));
-  assert.match(page,/style\.css\?v=release-132/);
+   assert.ok(page.includes(script+"?v=release-"+release));
+  assert.ok(page.includes("style.css?v=release-"+release));
   assert.match(page,/id="btn-entrar"/);
   assert.match(page,/id="btn-cadastrar"/);
   assert.match(page,/id="btn-recuperar-senha"/);
@@ -114,17 +114,17 @@ test("stability v0.1.132: authenticated JS and all core loaders refresh together
   for(const script of [
    "cartas.js","efeitos.js","entrada-drome.js","supabase-config.js",
    "auth-client.js","full-game-bootstrap.js"
-  ])assert.ok(page.includes(script+"?v=release-132"),script);
+  ])assert.ok(page.includes(script+"?v=release-133"),script);
   assert.ok(page.includes('id="btn-alert-logout" type="button" hidden>Tentar conexão novamente'));
-  assert.ok(page.includes("style.css?v=release-132"));
+  assert.ok(page.includes("style.css?v=release-133"));
  }
  for(const module of [
   "legacy-import.js","player-backup.js","supabase-game-bridge.js",
   "script.js","batalha.js","chaotic-lobby.js"
- ])assert.ok(boot.includes("./"+module+"?v=release-132"),module);
- assert.ok(index.includes("VERSÃO 0.1.132"));
- assert.match(index,/sw\.js\?v=release-132/);
- assert.match(worker,/chaotic-go-release-20261111-132/);
+ ])assert.ok(boot.includes("./"+module+"?v=release-133"),module);
+ assert.ok(index.includes("VERSÃO 0.1.133"));
+ assert.match(index,/sw\.js\?v=release-133/);
+ assert.match(worker,/chaotic-go-release-20261116-133/);
  assert.match(worker,/request\.mode\s*===\s*'navigate'/);
  assert.match(worker,/offlineAssets\.includes\(url\.pathname\)/);
  assert.match(index,/login e as partidas precisam de internet|acesso rápido no celular/i);
