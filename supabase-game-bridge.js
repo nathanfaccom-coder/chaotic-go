@@ -873,6 +873,9 @@ export async function getDrome3x3SafeElementInspections(lobbyId) {
 // pass/defend, and only the server can subsequently apply training damage.
 // If a step fails, the caller can recover the authoritative checkpoint rather
 // than retrying the entire (non-idempotent) sequence.
+// One mutation workflow per lobby in this browser session. This protects
+// contact/payment/defense/cancellation from racing across different UI controls.
+const dromeTrainingMutations = new Map();
 const dromeAttackWorkflows = new Map();
 export function beginDrome3x3TrainingAttack(lobbyId, expectedTurn, attackerSlot, defenderSlot, attackCardSlot) {
   assertDromeLobbyId(lobbyId);
@@ -883,7 +886,7 @@ export function beginDrome3x3TrainingAttack(lobbyId, expectedTurn, attackerSlot,
   if (!Number.isInteger(attackCardSlot) || attackCardSlot < 1 || attackCardSlot > 20)
     return Promise.reject(new RangeError("Slot de ataque inválido."));
   // A second click must not double-spend a card or create duplicate contact.
-  if (dromeAttackWorkflows.has(lobbyId))
+  if (dromeTrainingMutations.has(lobbyId))
     return Promise.reject(new Error("Já existe uma preparação de ataque em andamento."));
   const task = (async () => {
     let stage = "contact";
@@ -911,8 +914,10 @@ export function beginDrome3x3TrainingAttack(lobbyId, expectedTurn, attackerSlot,
     }
   })();
   dromeAttackWorkflows.set(lobbyId, task);
+  dromeTrainingMutations.set(lobbyId, task);
   task.finally(() => {
     if (dromeAttackWorkflows.get(lobbyId) === task) dromeAttackWorkflows.delete(lobbyId);
+    if (dromeTrainingMutations.get(lobbyId) === task) dromeTrainingMutations.delete(lobbyId);
   }).catch(() => {});
   return task;
 }
@@ -927,7 +932,7 @@ export function declineDrome3x3TrainingDefense(lobbyId, expectedTurn) {
   assertDromeLobbyId(lobbyId);
   if (!Number.isInteger(expectedTurn) || expectedTurn < 1 || expectedTurn > 120)
     return Promise.reject(new RangeError("Turno de defesa 3x3 inválido."));
-  if (dromeDefenseWorkflows.has(lobbyId))
+  if (dromeTrainingMutations.has(lobbyId))
     return Promise.reject(new Error("Já existe uma reação defensiva em andamento."));
   const task = (async () => {
     const before = await getDrome3x3TrainingCheckpoint(lobbyId);
@@ -952,8 +957,10 @@ export function declineDrome3x3TrainingDefense(lobbyId, expectedTurn) {
     }
   })();
   dromeDefenseWorkflows.set(lobbyId, task);
+  dromeTrainingMutations.set(lobbyId, task);
   task.finally(() => {
     if (dromeDefenseWorkflows.get(lobbyId) === task) dromeDefenseWorkflows.delete(lobbyId);
+    if (dromeTrainingMutations.get(lobbyId) === task) dromeTrainingMutations.delete(lobbyId);
   }).catch(() => {});
   return task;
 }
@@ -967,7 +974,7 @@ export function withdrawDrome3x3UnpaidContact(lobbyId, expectedTurn) {
   assertDromeLobbyId(lobbyId);
   if (!Number.isInteger(expectedTurn) || expectedTurn < 1 || expectedTurn > 120)
     return Promise.reject(new RangeError("Turno de cancelamento 3x3 inválido."));
-  if (dromeCancelWorkflows.has(lobbyId) || dromeAttackWorkflows.has(lobbyId))
+  if (dromeTrainingMutations.has(lobbyId))
     return Promise.reject(new Error("Existe uma operação de contato em andamento."));
   const task = (async () => {
     const before = await getDrome3x3TrainingCheckpoint(lobbyId);
@@ -989,8 +996,10 @@ export function withdrawDrome3x3UnpaidContact(lobbyId, expectedTurn) {
     }
   })();
   dromeCancelWorkflows.set(lobbyId, task);
+  dromeTrainingMutations.set(lobbyId, task);
   task.finally(() => {
     if (dromeCancelWorkflows.get(lobbyId) === task) dromeCancelWorkflows.delete(lobbyId);
+    if (dromeTrainingMutations.get(lobbyId) === task) dromeTrainingMutations.delete(lobbyId);
   }).catch(() => {});
   return task;
 }
