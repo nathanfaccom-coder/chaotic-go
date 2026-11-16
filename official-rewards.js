@@ -16,6 +16,8 @@
     const request=++serial;
     const {playerId,api}=currentIdentity();
     summary.textContent="";
+    let recentSummary="", totalSummary="";
+    const renderSummary=()=>{ summary.textContent=[totalSummary,recentSummary].filter(Boolean).join(" "); };
     list.replaceChildren();
     // Remove any provenance section from a prior refresh.
     if(list.parentNode?.querySelectorAll){
@@ -57,11 +59,10 @@
           const xp=Number(raw.total_xp), coins=Number(raw.total_coins);
           const count=Number(raw.settled_matches);
           if(![xp,coins,count].every(n=>Number.isSafeInteger(n)&&n>=0))return;
-          const recent=summary.textContent;
-          summary.textContent="Total oficial registrado no servidor: "+
+          totalSummary="Total oficial registrado no servidor: "+
             format(xp)+" XP e "+format(coins)+" moedas em "+
-            format(count)+" lançamento(s)."+
-            (recent?" "+recent:"");
+            format(count)+" lançamento(s).";
+          renderSummary();
         }).catch(()=>{ /* Offline: do not invent a total or clear recent receipts. */ });
       }
       // Career counters are computed by an authenticated, RLS-scoped server RPC.
@@ -156,8 +157,9 @@
       status.textContent="Lançamentos oficiais registrados no servidor (não representam o saldo total legado).";
       const xp=records.reduce((sum,x)=>sum+x.xp_awarded,0);
       const coins=records.reduce((sum,x)=>sum+x.coins_awarded,0);
-      summary.textContent="Somente os últimos "+records.length+" lançamentos: "+
+      recentSummary="Somente os últimos "+records.length+" lançamentos: "+
         format(xp)+" XP e "+format(coins)+" moedas. Limite: 20 lançamentos.";
+      renderSummary();
       for(const entry of records){
         const div=document.createElement("div");
         div.className="lobby-reward-entry";
