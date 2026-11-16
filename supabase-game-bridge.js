@@ -749,3 +749,26 @@ export async function spendDrome3x3TrainingAttack(lobbyId, expectedTurn) {
   }
   return { ...data, training_only: true };
 }
+
+
+// Voluntarily discard one private 3x3 TRAINING attack card. The server
+// enforces turn ownership, synced hand, one discard per turn, and forbids
+// discarding after a confrontation/attack has been declared. It atomically
+// marks the owned hand instance spent and records the discard; no rewards.
+export async function discardDrome3x3TrainingCard(lobbyId, expectedTurn, cardSlot) {
+  assertDromeLobbyId(lobbyId);
+  if (!Number.isInteger(expectedTurn) || expectedTurn < 1 || expectedTurn > 120)
+    throw new RangeError("Turno de descarte 3x3 inválido.");
+  if (!Number.isInteger(cardSlot) || cardSlot < 1 || cardSlot > 20)
+    throw new RangeError("Slot de descarte 3x3 inválido.");
+  const { data, error } = await client.rpc("chaotic_discard_preview_3x3_hand", {
+    p_lobby_id: lobbyId, p_expected_turn: expectedTurn, p_card_slot: cardSlot
+  });
+  if (error) { report(error); throw error; }
+  if (!data || data.lobby_id !== lobbyId || data.actor_id !== ownerId ||
+      data.turn_no !== expectedTurn || data.card_slot !== cardSlot ||
+      !data.attack_instance_id) {
+    throw new Error("Descarte 3x3 inconsistente com o servidor.");
+  }
+  return { ...data, training_only: true };
+}
