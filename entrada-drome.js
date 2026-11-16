@@ -191,6 +191,20 @@ function carregarDecksParaEscolha(modo) {
         if (!isCurrent()) return;
         console.error("Erro na leitura da Nuvem:", err);
         lista.textContent = "Falha ao carregar decks! Verifique sua conexão.";
+        // Permite recuperar a lista sem sair da tela ou perder a sessão no celular.
+        // Não reutiliza a resposta antiga: uma nova tentativa recebe outra geração.
+        const retry = document.createElement("button");
+        retry.type = "button";
+        retry.className = "btn-entrada-drome modo";
+        retry.textContent = "↻ Tentar carregar novamente";
+        retry.style.cssText = "display:block;width:100%;min-height:44px;margin-top:12px;cursor:pointer;";
+        retry.onclick = () => {
+            if (!isCurrent()) return;
+            retry.disabled = true;
+            lista.textContent = "Carregando decks...";
+            carregarDecksParaEscolha(modo);
+        };
+        lista.appendChild(retry);
         window.estadoDrome.deckSelecionado = null;
         const btn = document.getElementById("btn-jogar-drome");
         if (btn) btn.style.display = "none";
