@@ -110,13 +110,23 @@ export async function get(reference) {
   // O editor salva "decks/6x6_1", "decks/1x1_2" etc. separadamente.
   // A seleção do DROME consulta "decks" e espera um objeto indexado por slot.
   if (node === "decks") {
-    const { data, error } = await client.from("chaotic_game_nodes")
-      .select("node_path,data").eq("user_id", ownerId).like("node_path", "decks/%");
-    if (error) { report(error); throw error; }
+    // Paginate explicitly: PostgREST limits rows per request. A partial deck
+    // collection must never silently hide saved slots from the Drome.
     const decks = Object.create(null);
-    for (const row of data || []) {
-      const slot = row.node_path.slice("decks/".length);
-      if (/^(?:6x6|3x3|1x1)_(?:slot_)?[123]$/.test(slot)) decks[slot] = row.data;
+    const pageSize = 200;
+    let offset = 0;
+    while (true) {
+      const { data, error } = await client.from("chaotic_game_nodes")
+        .select("node_path,data").eq("user_id", ownerId)
+        .like("node_path", "decks/%").order("node_path", { ascending: true })
+        .range(offset, offset + pageSize - 1);
+      if (error) { report(error); throw error; }
+      for (const row of data || []) {
+        const slot = row.node_path.slice("decks/".length);
+        if (/^(?:6x6|3x3|1x1)_(?:slot_)?[123]$/.test(slot)) decks[slot] = row.data;
+      }
+      if (!data || data.length < pageSize) break;
+      offset += pageSize;
     }
     return snapshot(Object.keys(decks).length ? decks : null);
   }
