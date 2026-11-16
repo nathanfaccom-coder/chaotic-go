@@ -957,3 +957,40 @@ export function declineDrome3x3TrainingDefense(lobbyId, expectedTurn) {
   }).catch(() => {});
   return task;
 }
+
+
+// UI-facing cancellation of an unpaid 3x3 training contact. A fresh server
+// checkpoint is required so stale mobile controls cannot cancel a paid attack.
+// Never retry a possibly committed cancellation after a network timeout.
+const dromeCancelWorkflows = new Map();
+export function withdrawDrome3x3UnpaidContact(lobbyId, expectedTurn) {
+  assertDromeLobbyId(lobbyId);
+  if (!Number.isInteger(expectedTurn) || expectedTurn < 1 || expectedTurn > 120)
+    return Promise.reject(new RangeError("Turno de cancelamento 3x3 inválido."));
+  if (dromeCancelWorkflows.has(lobbyId) || dromeAttackWorkflows.has(lobbyId))
+    return Promise.reject(new Error("Existe uma operação de contato em andamento."));
+  const task = (async () => {
+    const before = await getDrome3x3TrainingCheckpoint(lobbyId);
+    if (before.turn_no !== expectedTurn || before.phase !== "contact_open" ||
+        !before.your_turn || !before.your_action_required || before.training_finished) {
+      throw new Error("O contato não está disponível para cancelamento neste checkpoint.");
+    }
+    try {
+      const cancellation = await cancelDrome3x3UnpaidContact(lobbyId, expectedTurn);
+      return { cancellation, training_only: true, rewards_available: false };
+    } catch (cause) {
+      let checkpoint = null;
+      try { checkpoint = await getDrome3x3TrainingCheckpoint(lobbyId); }
+      catch (_) { /* preserve original error */ }
+      const error = new Error("Cancelamento incerto; consulte o checkpoint antes de repetir.");
+      error.cause = cause;
+      error.checkpoint = checkpoint;
+      throw error;
+    }
+  })();
+  dromeCancelWorkflows.set(lobbyId, task);
+  task.finally(() => {
+    if (dromeCancelWorkflows.get(lobbyId) === task) dromeCancelWorkflows.delete(lobbyId);
+  }).catch(() => {});
+  return task;
+}
