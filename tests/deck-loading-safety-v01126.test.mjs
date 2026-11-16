@@ -12,7 +12,7 @@ function isolate(start,end,ctx){
 }
 const validator=isolate("function verificarIrregularidadeDeck(","\nfunction selecionarDeckDrome(",{});
 const base=(n)=>({ataques:Array(20).fill(1),locais:Array(10).fill(1),
- criaturas:Array(n).fill("id")});
+ criaturas:Array(n).fill("id"),equipamentos:Array(n).fill("equip"),mugics:Array(n).fill("mugic")});
 test("v0.1.126: one creature is valid only in 1x1",()=>{
  assert.equal(validator(base(1),"1x1"),null);
  assert.match(validator(base(1),"3x3"),/Criaturas: 1\/3/);
@@ -41,7 +41,7 @@ function fixture(){
    querySelector(key){if(!labels.has(key))labels.set(key,{textContent:""});return labels.get(key)}
   }}
  };
- const ctx={document,window:{},localStorage:{getItem:()=>"player"},
+ const ctx={document,window:{estadoDrome:{modo:"3x3"}},localStorage:{getItem:()=>"player"},
   _dbGet:()=>pending,verificarIrregularidadeDeck:validator,
   selecionarDeckDrome:()=>{},console};
  const load=isolate("function carregarDecksParaEscolha(modo) {","\nfunction verificarIrregularidadeDeck(",ctx);
