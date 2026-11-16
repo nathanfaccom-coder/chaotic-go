@@ -1020,7 +1020,10 @@ window.iniciarGPS = function() {
         if (!mapaScanner) {
             // Inicia o mapa
             mapaScanner = L.map('meu-mapa', { zoomControl: false }).setView([lat, lon], 17);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(mapaScanner);
+            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(mapaScanner);
             
             // 🛑 SISTEMA DE CÂMERA LIVRE: Se arrastar o mapa, solta a trava!
             mapaScanner.on('dragstart', () => {
