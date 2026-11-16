@@ -15,8 +15,8 @@
   const setup = () => {
     const panel = document.getElementById('painel-botoes-fisicos');
     const map = document.getElementById('meu-mapa');
-    if (!panel || !map || document.getElementById('scanner-theme-toggle')) return;
-    const button = document.createElement('button');
+    if (!panel || !map) return;
+    const button = document.getElementById('scanner-theme-toggle') || document.createElement('button');
     button.type = 'button';
     button.id = 'scanner-theme-toggle';
     button.className = 'scanner-theme-toggle';
@@ -36,7 +36,7 @@
       apply(enabled);
       try { localStorage.setItem(KEY, String(enabled)); } catch (_) {}
     });
-    panel.appendChild(button);
+    if (!button.isConnected) panel.appendChild(button);
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup, {once:true});
   else setup();
