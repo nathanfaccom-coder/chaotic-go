@@ -889,8 +889,19 @@ export function beginDrome3x3TrainingAttack(lobbyId, expectedTurn, attackerSlot,
   if (dromeTrainingMutations.has(lobbyId))
     return Promise.reject(new Error("Já existe uma preparação de ataque em andamento."));
   const task = (async () => {
-    let stage = "contact";
+    let stage = "preflight";
     try {
+      // Refuse stale/replayed mobile actions before creating contact. The RPC
+      // remains authoritative and must independently enforce these checks.
+      const before = await getDrome3x3TrainingCheckpoint(lobbyId);
+      if (before.turn_no !== expectedTurn || before.phase !== "ready" ||
+          !before.your_turn || !before.your_action_required ||
+          before.training_finished) {
+        const stale = new Error("O turno ou a fase mudou. Atualize o Drome antes de atacar.");
+        stale.checkpoint = before;
+        throw stale;
+      }
+      stage = "contact";
       const contact = await openDrome3x3TrainingContact(lobbyId, expectedTurn, attackerSlot, defenderSlot);
       stage = "projection";
       const projection = await prepareDrome3x3TrainingAttack(lobbyId, expectedTurn, attackCardSlot);
