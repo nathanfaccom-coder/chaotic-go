@@ -91,3 +91,32 @@
     transform: translateY(5px);
     box-shadow: 0 0 0 #1b5e20 !important;
 }
+
+/* DROME touch and keyboard usability: no horizontal clipping on narrow phones. */
+#tela-entrada-drome {
+    box-sizing: border-box;
+    max-width: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    padding-bottom: max(24px, env(safe-area-inset-bottom, 0px));
+}
+#tela-entrada-drome .btn-entrada-drome,
+#tela-entrada-drome .card-deck-drome {
+    min-width: 0;
+    min-height: 44px;
+    overflow-wrap: anywhere;
+    touch-action: manipulation;
+}
+#tela-entrada-drome .btn-entrada-drome > div,
+#tela-entrada-drome .card-deck-drome > div { min-width: 0; }
+#tela-entrada-drome .card-deck-drome[role="button"]:focus-visible,
+#tela-entrada-drome .btn-entrada-drome:focus-visible,
+#btn-jogar-drome:focus-visible {
+    outline: 3px solid #ffe070;
+    outline-offset: 3px;
+}
+@media (max-width: 380px) {
+    #tela-entrada-drome .btn-entrada-drome { gap: 9px; padding: 11px; }
+    #tela-entrada-drome .card-deck-drome { padding: 10px; }
+}
