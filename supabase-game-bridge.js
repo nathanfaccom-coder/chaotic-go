@@ -795,3 +795,50 @@ export async function cancelDrome3x3UnpaidContact(lobbyId, expectedTurn) {
   }
   return data;
 }
+
+
+// Restore a server-owned 3x3 training checkpoint after a refresh.
+// This endpoint intentionally exposes only the viewer's turn/action flags,
+// never private opponent cards or an official victory/reward.
+export async function getDrome3x3TrainingCheckpoint(lobbyId) {
+  assertDromeLobbyId(lobbyId);
+  const { data, error } = await client.rpc("chaotic_get_preview_3x3_resume_status", {
+    p_lobby_id: lobbyId
+  });
+  if (error) { report(error); throw error; }
+  const phases = ["training_finished", "session_closed", "awaiting_defender",
+    "awaiting_damage", "awaiting_optional_reveal", "awaiting_sonar_search",
+    "damage_settled", "awaiting_payment", "contact_open", "ready"];
+  if (!data || !phases.includes(data.phase) ||
+      !Number.isInteger(data.turn_no) || data.turn_no < 1 ||
+      typeof data.your_turn !== "boolean" ||
+      typeof data.your_action_required !== "boolean" ||
+      typeof data.training_finished !== "boolean" ||
+      data.training_only !== true || data.checkpoint_only !== true ||
+      (data.you_won_training !== null && typeof data.you_won_training !== "boolean")) {
+    throw new Error("Checkpoint de treino 3x3 inconsistente com o servidor.");
+  }
+  return { ...data, official_result: false, rewards_available: false };
+}
+
+// Shuffle the player's validated saved 3x3 Deck into a private training hand.
+// The RPC checks the authenticated player, frozen formation, original catalog,
+// owned album instances and prevents a second shuffle in the same lobby.
+// It is intentionally NOT an official battle or an economy transaction.
+export async function prepareDrome3x3TrainingHand(lobbyId, expectedTurn) {
+  assertDromeLobbyId(lobbyId);
+  if (!Number.isInteger(expectedTurn) || expectedTurn < 1 || expectedTurn > 120)
+    throw new RangeError("Turno de preparação da mão 3x3 inválido.");
+  const { data, error } = await client.rpc("chaotic_prepare_preview_3x3_hand", {
+    p_lobby_id: lobbyId, p_expected_turn: expectedTurn
+  });
+  if (error) { report(error); throw error; }
+  if (!data || data.state !== "3x3_private_shuffled_training_hand" ||
+      data.cards_in_hand !== 3 ||
+      !Number.isInteger(data.cards_in_deck) || data.cards_in_deck < 0 ||
+      data.cards_in_deck > 17 || data.points_available !== 3 ||
+      data.official_match_modified !== false) {
+    throw new Error("Mão privada 3x3 inconsistente com o servidor.");
+  }
+  return { ...data, training_only: true };
+}
