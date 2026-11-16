@@ -49,12 +49,13 @@
       };
     } // legado: compatibilidade com entrada-drome
     const bridge=await import("./supabase-game-bridge.js?v=release-133");
-    // A migração de dados legados não pode bloquear os controles do menu.
-    Promise.resolve().then(() => bridge.migratePreviousTest())
-      .catch(e => console.warn("Importação automática não concluída; dados anteriores preservados:", e));
     // O jogo completo utiliza rotinas que dependem do antigo Firebase para multiplayer;
     // apenas os dados privados do jogador e decks são migrados nesta etapa.
     await import("./script.js?v=release-133");
+    // A migração de dados legados não pode bloquear os controles do menu.
+    Promise.resolve().then(() => bridge.migratePreviousTest())
+      .catch(e => console.warn("Importação automática não concluída; dados anteriores preservados:", e));
+
     await import("./batalha.js?v=release-133");
     await import("./training-history.js?v=release-133");
     await import("./official-rewards.js?v=release-133");
