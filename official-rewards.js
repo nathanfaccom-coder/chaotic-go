@@ -13,6 +13,19 @@
     const summary=$("lobby-rewards-summary");
     const list=$("lobby-rewards-list");
     if(!status||!summary||!list)return;
+    // Mobile players can retry an offline/expired read without leaving DROME.
+    // This action only re-reads RLS-protected records; it never settles a match.
+    let retry=$("lobby-rewards-retry");
+    if(!retry){
+      retry=document.createElement("button");
+      retry.id="lobby-rewards-retry";
+      retry.type="button";
+      retry.className="lobby-outline";
+      retry.textContent="Atualizar extrato";
+      retry.style.cssText="margin:8px 0;min-height:44px";
+      retry.addEventListener("click",()=>refresh());
+      status.insertAdjacentElement("afterend",retry);
+    }
     const request=++serial;
     const {playerId,api}=currentIdentity();
     summary.textContent="";
