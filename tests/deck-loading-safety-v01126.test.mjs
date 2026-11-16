@@ -37,7 +37,7 @@ function fixture(){
  const document={
   getElementById(id){return id==="lista-decks-drome"?active:null},
   createElement(){const labels=new Map();return {
-   className:"",style:{},innerHTML:"",onclick:null,
+   className:"",style:{},innerHTML:"",onclick:null,attributes:{},\n   setAttribute(key,value){this.attributes[key]=String(value)},
    querySelector(key){if(!labels.has(key))labels.set(key,{textContent:""});return labels.get(key)}
   }}
  };
