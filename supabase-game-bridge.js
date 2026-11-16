@@ -1003,3 +1003,42 @@ export function withdrawDrome3x3UnpaidContact(lobbyId, expectedTurn) {
   }).catch(() => {});
   return task;
 }
+
+
+// Resolve a paid 3x3 training attack only after the server confirms that the
+// defender's reaction is complete. Damage and effects are computed by the RPC,
+// never by this client. This does not establish an official win or grant rewards.
+export function resolveDrome3x3TrainingDamage(lobbyId, expectedTurn) {
+  assertDromeLobbyId(lobbyId);
+  if (!Number.isInteger(expectedTurn) || expectedTurn < 1 || expectedTurn > 120)
+    return Promise.reject(new RangeError("Turno de resolução 3x3 inválido."));
+  if (dromeTrainingMutations.has(lobbyId))
+    return Promise.reject(new Error("Já existe uma operação 3x3 em andamento."));
+  const task = (async () => {
+    const before = await getDrome3x3TrainingCheckpoint(lobbyId);
+    if (before.turn_no !== expectedTurn || before.phase !== "awaiting_damage" ||
+        !before.your_turn || !before.your_action_required || before.training_finished) {
+      throw new Error("O servidor ainda não autorizou a resolução deste ataque.");
+    }
+    try {
+      const damage = await applyDrome3x3TrainingAttackLock(lobbyId, expectedTurn);
+      const checkpoint = await getDrome3x3TrainingCheckpoint(lobbyId);
+      return { damage, checkpoint, training_only: true, official_result: false,
+        rewards_available: false };
+    } catch (cause) {
+      let checkpoint = null;
+      try { checkpoint = await getDrome3x3TrainingCheckpoint(lobbyId); }
+      catch (_) { /* retain the original failure */ }
+      const error = new Error("Resolução 3x3 incerta; consulte o checkpoint antes de repetir.");
+      error.cause = cause;
+      error.checkpoint = checkpoint;
+      throw error;
+    }
+  })();
+  dromeTrainingMutations.set(lobbyId, task);
+  task.finally(() => {
+    if (dromeTrainingMutations.get(lobbyId) === task)
+      dromeTrainingMutations.delete(lobbyId);
+  }).catch(() => {});
+  return task;
+}
