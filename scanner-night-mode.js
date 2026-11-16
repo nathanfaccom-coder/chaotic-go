@@ -4,8 +4,8 @@
   const KEY = 'chaotic-go-scanner-night-mode';
   const style = document.createElement('style');
   style.textContent = `
-    #painel-botoes-fisicos { position: relative; width: 194px; max-width: calc(100vw - 56px); box-sizing: border-box; padding-right: 45px; }
-    .scanner-theme-toggle { position:absolute; right:5px; top:50%; transform:translateY(-50%); display:flex; align-items:center; justify-content:center; width:40px; height:44px; min-width:40px; min-height:44px; padding:0; border:1px solid #55bc62; border-radius:12px; background:#190b0b; color:white; cursor:pointer; z-index:3; }
+    #painel-botoes-fisicos { position: relative; width: 140px; max-width: calc(100vw - 90px); box-sizing: border-box; padding-right: 8px; overflow: visible; }
+    .scanner-theme-toggle { position:absolute; right:-54px; top:50%; transform:translateY(-50%); display:flex; align-items:center; justify-content:center; width:44px; height:44px; min-width:44px; min-height:44px; padding:0; border:1px solid #55bc62; border-radius:12px; background:#190b0b; color:white; cursor:pointer; z-index:3; }
     .scanner-theme-toggle[aria-pressed="true"] { box-shadow:0 0 8px #53c961; }
     .scanner-theme-toggle .theme-icon { font-size:25px; line-height:1; }
     .scanner-theme-toggle .theme-label { display:none; }
