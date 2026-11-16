@@ -842,3 +842,26 @@ export async function prepareDrome3x3TrainingHand(lobbyId, expectedTurn) {
   }
   return { ...data, training_only: true };
 }
+
+
+// Read the server-redacted elemental combat inspections for the authenticated
+// 3x3 training participant. Never query the underlying inspection tables:
+// concealed opponent names, elements and Guru support must stay hidden.
+export async function getDrome3x3SafeElementInspections(lobbyId) {
+  assertDromeLobbyId(lobbyId);
+  const { data, error } = await client.rpc("chaotic_get_preview_3x3_safe_inspections", {
+    p_lobby_id: lobbyId
+  });
+  if (error) { report(error); throw error; }
+  if (!data || typeof data !== "object" || Array.isArray(data) ||
+      !Array.isArray(data.creature_checks) ||
+      !Array.isArray(data.dynamic_checks) ||
+      data.creature_checks.length > 40 || data.dynamic_checks.length > 40 ||
+      [...data.creature_checks, ...data.dynamic_checks].some(row =>
+        !row || typeof row !== "object" || Array.isArray(row) ||
+        !Number.isInteger(row.turn_no) ||
+        row.official_match_modified !== false)) {
+    throw new Error("Inspeções elementais 3x3 inconsistentes com o servidor.");
+  }
+  return { ...data, training_only: true };
+}
