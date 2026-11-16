@@ -160,6 +160,53 @@
       recentSummary="Somente os últimos "+records.length+" lançamentos: "+
         format(xp)+" XP e "+format(coins)+" moedas. Limite: 20 lançamentos.";
       renderSummary();
+      // Mobile receipt history: paginate older RLS-protected records on demand.
+      // The all-time balance remains the server RPC, never the visible page sum.
+      let nextOffset=20;
+      const more=document.createElement("button");
+      more.type="button";
+      more.className="lobby-outline";
+      more.textContent="Carregar lançamentos anteriores";
+      const appendReceipt=entry=>{
+        const div=document.createElement("div");
+        div.className="lobby-reward-entry";
+        div.style.cssText="border:1px solid #587390;border-radius:8px;padding:9px;margin:6px 0;color:#dbeaff;font-size:12px;overflow-wrap:anywhere";
+        const date=new Date(entry.awarded_at);
+        const when=Number.isFinite(date.getTime())?date.toLocaleString("pt-BR"):"Data indisponível";
+        div.textContent=(entry.award_kind==="official_victory"?"Vitória oficial":"Participação oficial")+
+          " · +"+format(entry.xp_awarded)+" XP · +"+format(entry.coins_awarded)+" moedas · "+when;
+        list.appendChild(div);
+      };
+      more.onclick=async()=>{
+        if(more.disabled)return;
+        more.disabled=true;
+        more.textContent="Consultando histórico...";
+        try{
+          const response=await api.from("chaotic_official_reward_ledger")
+            .select("player_id,award_kind,xp_awarded,coins_awarded,awarded_at,reward_scope")
+            .eq("player_id",playerId)
+            .order("awarded_at",{ascending:false})
+            .range(nextOffset,nextOffset+19);
+          if(request!==serial||currentIdentity().playerId!==playerId
+            ||currentIdentity().api!==api||$("lobby-rewards-list")!==list)return;
+          if(response.error)throw response.error;
+          const page=Array.isArray(response.data)?response.data:[];
+          const valid=page.filter(entry=>entry&&entry.player_id===playerId
+            &&entry.reward_scope==="official_verified_only"
+            &&["official_victory","official_participation"].includes(entry.award_kind)
+            &&[entry.xp_awarded,entry.coins_awarded].every(n=>
+              Number.isSafeInteger(n)&&n>=0&&n<=10000)
+            &&(entry.xp_awarded>0||entry.coins_awarded>0));
+          more.remove();
+          valid.forEach(appendReceipt);
+          nextOffset+=page.length;
+          if(page.length===20)list.appendChild(more);
+        }catch(_error){
+          if(request===serial&&currentIdentity().playerId===playerId){
+            more.textContent="Falha na consulta — tentar novamente";
+          }
+        }finally{more.disabled=false;}
+      };
       for(const entry of records){
         const div=document.createElement("div");
         div.className="lobby-reward-entry";
@@ -170,6 +217,7 @@
           " · +"+format(entry.xp_awarded)+" XP · +"+format(entry.coins_awarded)+" moedas · "+when;
         list.appendChild(div);
       }
+      if(records.length===20)list.appendChild(more);
     }catch(_error){
       if(request!==serial||$("lobby-rewards-list")!==list||currentIdentity().playerId!==playerId)return;
       status.textContent="Não foi possível acessar o extrato. Confira sua conexão e tente novamente.";
