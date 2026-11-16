@@ -4,12 +4,12 @@
   const KEY = 'chaotic-go-scanner-night-mode';
   const style = document.createElement('style');
   style.textContent = `
-    #painel-botoes-fisicos { position: relative; }
-    .scanner-theme-toggle { position:absolute; right:8px; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; min-width:64px; min-height:58px; padding:5px; border:1px solid #55bc62; border-radius:10px; background:#190b0b; color:white; font:600 10px system-ui,sans-serif; cursor:pointer; z-index:3; }
+    #painel-botoes-fisicos { position: relative; width: 235px; max-width: calc(100vw - 56px); box-sizing: border-box; padding-right: 78px; }
+    .scanner-theme-toggle { position:absolute; right:7px; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; min-width:64px; min-height:58px; padding:5px; border:1px solid #55bc62; border-radius:10px; background:#190b0b; color:white; font:600 10px system-ui,sans-serif; cursor:pointer; z-index:3; }
     .scanner-theme-toggle[aria-pressed="true"] { box-shadow:0 0 8px #53c961; }
     .scanner-theme-toggle .theme-icon { font-size:20px; }
     #meu-mapa.scanner-map-night .leaflet-tile-pane { filter:invert(1) hue-rotate(180deg) brightness(.78) contrast(1.1) saturate(.65); }
-    @media(max-width:420px) { .scanner-theme-toggle { right:3px; min-width:49px; width:49px; font-size:9px; } }
+    @media(max-width:420px) { #painel-botoes-fisicos { width: 218px; padding-right: 65px; } .scanner-theme-toggle { right:5px; min-width:53px; width:53px; font-size:9px; } }
   `;
   document.head.appendChild(style);
   const setup = () => {
