@@ -52,6 +52,7 @@
     // O jogo completo utiliza rotinas que dependem do antigo Firebase para multiplayer;
     // apenas os dados privados do jogador e decks são migrados nesta etapa.
     await import("./script.js?v=release-133");
+    window.ChaoticMenuReady = true;
     // A migração de dados legados não pode bloquear os controles do menu.
     Promise.resolve().then(() => bridge.migratePreviousTest())
       .catch(e => console.warn("Importação automática não concluída; dados anteriores preservados:", e));
@@ -61,5 +62,9 @@
     await import("./official-rewards.js?v=release-133");
     await import("./chaotic-lobby.js?v=release-133");
     inform("Conta conectada. Decks e progresso carregados. Treino 3x3 disponível por sala privada; outros modos em desenvolvimento.");
-  }catch(e){console.error(e);inform("Falha na inicialização: "+e.message,true);}
+  }catch(e){
+    console.error(e);
+    inform("Falha na inicialização: "+(e?.message || String(e))+". Os comandos podem ficar indisponíveis; tente reconectar.",true);
+    window.dispatchEvent(new CustomEvent("chaotic-menu-failed", {detail: String(e?.message || e)}));
+  }
 })();
