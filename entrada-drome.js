@@ -163,7 +163,18 @@ function carregarDecksParaEscolha(modo) {
                 div.querySelector(".drome-saved-deck-name").textContent = String(deckData.nome || "Deck Sem Nome");
                 div.querySelector(".drome-saved-deck-detail").textContent =
                     "Slot " + numSlot + " · Modo " + String(deckData.modo || modo);
-                div.onclick = () => selecionarDeckDrome(deckData, numSlot, irreg, div);
+                div.setAttribute("role", "button");
+                div.setAttribute("tabindex", "0");
+                div.setAttribute("aria-label", "Selecionar " + String(deckData.nome || "Deck Sem Nome") + ", slot " + numSlot + (irreg ? ", irregular" : ", pronto"));
+                div.setAttribute("aria-pressed", "false");
+                const ativarDeck = () => selecionarDeckDrome(deckData, numSlot, irreg, div);
+                div.onclick = ativarDeck;
+                div.onkeydown = event => {
+                    if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        ativarDeck();
+                    }
+                };
             } else {
                 div.className = "card-deck-drome vazio";
                 div.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;width:100%;opacity:0.4;"><div><div style="font-size:12px;font-weight:bold;color:#777;">Slot ${numSlot} — Vazio</div><div style="font-size:9px;color:#555;margin-top:3px;">Nenhum deck ${modo} salvo aqui</div></div><div style="font-size:20px;">🔒</div></div>`;
@@ -231,6 +242,8 @@ function verificarIrregularidadeDeck(deck, modo) {
 function selecionarDeckDrome(deckData, numSlot, irreg, divEl) {
     document.querySelectorAll('.card-deck-drome').forEach(d => d.classList.remove('selecionado'));
     divEl.classList.add('selecionado');
+    document.querySelectorAll('.card-deck-drome[role="button"]').forEach(d =>
+        d.setAttribute('aria-pressed', d === divEl ? 'true' : 'false'));
     window.estadoDrome.deckSelecionado = Object.assign({}, deckData, { slot: numSlot });
     // Bind the cached choice to the account and mode that loaded it.
     window.estadoDrome.deckSelecionadoUid = localStorage.getItem('chaoticUID');
