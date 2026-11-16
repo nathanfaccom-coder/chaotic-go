@@ -916,3 +916,44 @@ export function beginDrome3x3TrainingAttack(lobbyId, expectedTurn, attackerSlot,
   }).catch(() => {});
   return task;
 }
+
+
+// UI-facing defender action for a 3x3 training attack. The server is the
+// authority for whose reaction window is open. Read a fresh checkpoint before
+// mutating, so a stale mobile screen cannot knowingly submit an old reaction.
+// Never auto-retry a defense RPC after a timeout: the server may have committed.
+const dromeDefenseWorkflows = new Map();
+export function declineDrome3x3TrainingDefense(lobbyId, expectedTurn) {
+  assertDromeLobbyId(lobbyId);
+  if (!Number.isInteger(expectedTurn) || expectedTurn < 1 || expectedTurn > 120)
+    return Promise.reject(new RangeError("Turno de defesa 3x3 inválido."));
+  if (dromeDefenseWorkflows.has(lobbyId))
+    return Promise.reject(new Error("Já existe uma reação defensiva em andamento."));
+  const task = (async () => {
+    const before = await getDrome3x3TrainingCheckpoint(lobbyId);
+    if (before.turn_no !== expectedTurn || before.phase !== "awaiting_defender" ||
+        !before.your_action_required) {
+      throw new Error("A janela de defesa não está disponível neste checkpoint.");
+    }
+    try {
+      const defense = await passDrome3x3TrainingDefense(lobbyId, expectedTurn);
+      // Do not apply damage from the defender's client. The authenticated
+      // attacker must resolve it through the server after this reaction.
+      return { defense, awaiting_attacker_resolution: true,
+        training_only: true, rewards_available: false };
+    } catch (cause) {
+      let checkpoint = null;
+      try { checkpoint = await getDrome3x3TrainingCheckpoint(lobbyId); }
+      catch (_) { /* keep the original RPC error */ }
+      const error = new Error("Reação defensiva incerta; consulte o checkpoint antes de tentar novamente.");
+      error.cause = cause;
+      error.checkpoint = checkpoint;
+      throw error;
+    }
+  })();
+  dromeDefenseWorkflows.set(lobbyId, task);
+  task.finally(() => {
+    if (dromeDefenseWorkflows.get(lobbyId) === task) dromeDefenseWorkflows.delete(lobbyId);
+  }).catch(() => {});
+  return task;
+}
