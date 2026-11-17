@@ -115,7 +115,17 @@ function carregarDecksParaEscolha(modo) {
     const lista = document.getElementById("lista-decks-drome");
     if (!lista) return;
     const uid = localStorage.getItem("chaoticUID");
-    if (!uid || uid === "null" || uid === "undefined") {
+    // Uma recarga invalida imediatamente o Deck selecionado anteriormente.
+    // Nunca permitir entrada enquanto a nova lista ainda está em trânsito.
+    window.estadoDrome.deckSelecionado = null;
+    window.estadoDrome.deckSelecionadoUid = null;
+    window.estadoDrome.deckSelecionadoModo = null;
+    const enterButton = document.getElementById("btn-jogar-drome");
+    if (enterButton) enterButton.style.display = "none";
+    const warning = document.getElementById("aviso-deck-irregular");
+    if (warning) warning.style.display = "none";
+    if (!uid || uid === "null" || uid === "undefined" ||
+        (window.ChaoticAuthUser?.id && window.ChaoticAuthUser.id !== uid)) {
         lista.textContent = "Entre na sua conta para carregar os Decks.";
         return;
     }
@@ -279,6 +289,7 @@ window.confirmarEntradaDrome = async function() {
     if (!selected) return;
     const currentUid = localStorage.getItem('chaoticUID');
     if (!currentUid || currentUid === 'null' || currentUid === 'undefined' ||
+        (window.ChaoticAuthUser?.id && window.ChaoticAuthUser.id !== currentUid) ||
         currentUid !== window.estadoDrome.deckSelecionadoUid ||
         window.estadoDrome.modo !== window.estadoDrome.deckSelecionadoModo) {
         window.estadoDrome.deckSelecionado = null;
