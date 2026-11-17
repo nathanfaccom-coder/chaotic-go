@@ -25,9 +25,12 @@
     try{
       // The table's SELECT-only RLS allows only the winner or defeated player.
       // Display a recent WINDOW, never claim it is an all-time ranking.
-      const {data,error}=await api.from("chaotic_training_match_history")
-        .select("winner_id,defeated_id,decided_turn,recorded_at,outcome_scope")
-        .order("recorded_at",{ascending:false}).limit(30);
+      const query=api.from("chaotic_training_match_history")
+        .select("winner_id,defeated_id,decided_turn,recorded_at,outcome_scope");
+      // Supabase PostgREST supports OR filters; legacy offline adapters may not.
+      const scoped=typeof query.or==="function"
+        ?query.or("winner_id.eq."+playerId+",defeated_id.eq."+playerId):query;
+      const {data,error}=await scoped.order("recorded_at",{ascending:false}).limit(30);
       if(!isCurrent())return;
       if(error)throw error;
       const records=(Array.isArray(data)?data:[]).filter(row=>
