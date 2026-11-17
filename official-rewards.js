@@ -219,32 +219,34 @@
             &&[entry.xp_awarded,entry.coins_awarded].every(n=>
               Number.isSafeInteger(n)&&n>=0&&n<=10000)
             &&(entry.xp_awarded>0||entry.coins_awarded>0));
-          // A repeated row must never be rendered twice, even when the server
-          // returns an overlapping page during a mobile reconnect.
-          for(const entry of valid){
-            if(!entry.id||seenReceiptIds.has(entry.id))continue;
-            seenReceiptIds.add(entry.id);
-            appendReceipt(entry);
-          }
-          if(page.length){
-            const next=page[page.length-1];
-            // An invalid or non-decreasing cursor must not loop forever or
-            // duplicate receipts if an adapter ignores the server cursor.
-            const older=next && cursor &&
-              (next.awarded_at < cursor.awarded_at ||
-                (next.awarded_at === cursor.awarded_at && next.id < cursor.id));
-            if(typeof next?.id==="string" && next.id.length>0 &&
-              typeof next.awarded_at==="string" && next.awarded_at.length>0 && older){
-              cursor=next;
+          // Validate the entire raw page before displaying any receipts.
+          // A stale adapter can ignore the cursor and return a mixed page;
+          // never present those records as older verified history.
+          const isOlder=(entry,previous)=>entry && previous &&
+            typeof entry.id==="string" && entry.id.length>0 &&
+            typeof entry.awarded_at==="string" && entry.awarded_at.length>0 &&
+            (entry.awarded_at < previous.awarded_at ||
+              (entry.awarded_at === previous.awarded_at && entry.id < previous.id));
+          const ordered=page.every((entry,index)=>
+            isOlder(entry,index===0?cursor:page[index-1]));
+          if(page.length && !ordered){
+            more.remove();
+            status.textContent="Histórico interrompido: o servidor retornou lançamentos repetidos ou fora de ordem. Atualize o extrato para tentar novamente.";
+          }else{
+            // Deduplicate even if the same receipt was already shown in a prior page.
+            for(const entry of valid){
+              if(!entry.id||seenReceiptIds.has(entry.id))continue;
+              seenReceiptIds.add(entry.id);
+              appendReceipt(entry);
+            }
+            if(page.length){
+              cursor=page[page.length-1];
               if(page.length===20){
                 more.textContent="Carregar lançamentos anteriores";
                 if(!more.isConnected)list.appendChild(more);
               }else more.remove();
-            }else{
-              more.remove();
-              status.textContent="Paginação interrompida: o servidor repetiu um cursor. Atualize o extrato para tentar novamente.";
-            }
-          }else more.remove();
+            }else more.remove();
+          }
         }catch(_error){
           if(request===serial&&currentIdentity().playerId===playerId&&currentIdentity().api===api){
             more.textContent="Falha na consulta — tentar novamente";
