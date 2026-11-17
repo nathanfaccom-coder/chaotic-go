@@ -30,9 +30,14 @@
     if (mapButton && mapButton.parentElement !== map) map.appendChild(mapButton);
     if (mapButton) {
       mapButton.style.cssText = 'position:absolute;top:12px;right:12px;z-index:2000;display:flex;align-items:center;justify-content:center;background:#151515;color:#fff;border:2px solid #4caf50;border-radius:10px;min-height:44px;min-width:82px;padding:7px;font-weight:bold;cursor:pointer;pointer-events:auto';
-      if (window.L) {
-        L.DomEvent.disableClickPropagation(mapButton);
-        L.DomEvent.disableScrollPropagation(mapButton);
+      // The map can initialize after this module; native event guards work
+      // regardless of when Leaflet becomes available.
+      if (!mapButton.__chaoticMapEventGuards) {
+        const stop = (event) => event.stopPropagation();
+        for (const type of ['click', 'dblclick', 'mousedown', 'touchstart', 'pointerdown', 'wheel']) {
+          mapButton.addEventListener(type, stop, { passive: true });
+        }
+        mapButton.__chaoticMapEventGuards = true;
       }
     }
     const apply = (enabled) => {
