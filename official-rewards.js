@@ -199,7 +199,7 @@
         more.textContent="Consultando histórico...";
         try{
           const response=await api.from("chaotic_official_reward_ledger")
-            .select("player_id,award_kind,xp_awarded,coins_awarded,awarded_at,reward_scope")
+            .select("id,player_id,award_kind,xp_awarded,coins_awarded,awarded_at,reward_scope")
             .eq("player_id",playerId)
             .order("awarded_at",{ascending:false}).order("id",{ascending:false})
             .or("awarded_at.lt."+cursor.awarded_at+",and(awarded_at.eq."+cursor.awarded_at+",id.lt."+cursor.id+")")
@@ -216,8 +216,14 @@
             &&(entry.xp_awarded>0||entry.coins_awarded>0));
           more.remove();
           valid.forEach(appendReceipt);
-          if(page.length)cursor=page[page.length-1];
-          if(page.length===20)list.appendChild(more);
+          if(page.length){
+            const next=page[page.length-1];
+            if(typeof next.id==="string" && next.id.length>0 &&
+              typeof next.awarded_at==="string" && next.awarded_at.length>0){
+              cursor=next;
+              if(page.length===20)list.appendChild(more);
+            }
+          }
         }catch(_error){
           if(request===serial&&currentIdentity().playerId===playerId&&currentIdentity().api===api){
             more.textContent="Falha na consulta — tentar novamente";
