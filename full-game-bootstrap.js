@@ -59,7 +59,7 @@
 
     await import("./batalha.js?v=release-133");
     await import("./training-history.js?v=player-window-135");
-    await import("./official-rewards.js?v=release-133");
+    await import("./official-rewards.js?v=ledger-page-136");
     await import("./chaotic-lobby.js?v=release-133");
     inform("Conta conectada. Decks e progresso carregados. Treino 3x3 disponível por sala privada; outros modos em desenvolvimento.");
   }catch(e){
