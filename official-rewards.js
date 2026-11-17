@@ -52,7 +52,22 @@
         .order("awarded_at",{ascending:false}).order("id",{ascending:false}).limit(20);
       if(request!==serial||$("lobby-rewards-list")!==list||(currentIdentity().playerId!==playerId||currentIdentity().api!==api))return;
       if(error)throw error;
-      const records=(Array.isArray(data)?data:[]).filter(entry=>
+      // Reject a malformed or out-of-order first page before displaying official receipts.
+      // Otherwise the initial cursor can skip or duplicate older receipts.
+      const rawPage=Array.isArray(data)?data:[];
+      const validCursorRow=entry=>entry && typeof entry.id==="string" &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(entry.id) &&
+        typeof entry.awarded_at==="string" &&
+        Number.isFinite(Date.parse(entry.awarded_at)) && entry.player_id===playerId;
+      const orderedFirstPage=rawPage.every((entry,index)=>
+        validCursorRow(entry) && (index===0 ||
+          entry.awarded_at < rawPage[index-1].awarded_at ||
+          (entry.awarded_at===rawPage[index-1].awarded_at && entry.id < rawPage[index-1].id)));
+      if(!orderedFirstPage){
+        status.textContent="O servidor retornou um extrato fora de ordem ou inválido. Atualize para tentar novamente.";
+        return;
+      }
+      const records=rawPage.filter(entry=>
         entry&&entry.player_id===playerId
         &&entry.reward_scope==="official_verified_only"
         &&["official_victory","official_participation"].includes(entry.award_kind)
