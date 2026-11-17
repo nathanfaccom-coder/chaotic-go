@@ -23,8 +23,10 @@
       retry.className="lobby-outline";
       retry.textContent="Atualizar extrato";
       retry.style.cssText="margin:8px 0;min-height:44px";
-      retry.addEventListener("click",()=>refresh());
-      status.insertAdjacentElement("afterend",retry);
+      if(typeof retry.addEventListener==="function") retry.addEventListener("click",()=>refresh());
+      else retry.onclick=()=>refresh();
+      if(typeof status.insertAdjacentElement==="function") status.insertAdjacentElement("afterend",retry);
+      else if(status.parentNode?.insertBefore) status.parentNode.insertBefore(retry,status.nextSibling);
     }
     const request=++serial;
     const {playerId,api}=currentIdentity();
