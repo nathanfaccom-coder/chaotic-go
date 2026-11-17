@@ -27,6 +27,7 @@
       // Display a recent WINDOW, never claim it is an all-time ranking.
       const {data,error}=await api.from("chaotic_training_match_history")
         .select("winner_id,defeated_id,decided_turn,recorded_at,outcome_scope")
+        .or("winner_id.eq."+playerId+",defeated_id.eq."+playerId)
         .order("recorded_at",{ascending:false}).limit(30);
       if(!isCurrent())return;
       if(error)throw error;
