@@ -168,14 +168,14 @@
       }
       }
       if(!records.length){
-        status.textContent="Nenhuma recompensa oficial lançada neste extrato. Treinos 3×3 não geram XP nem moedas oficiais.";
-        return;
+        status.textContent="Nenhuma recompensa oficial válida nesta página. Consulte lançamentos anteriores, se disponíveis. Treinos 3×3 não geram XP nem moedas oficiais.";
+      }else{
+        status.textContent="Lançamentos oficiais registrados no servidor (não representam o saldo total legado).";
       }
-      status.textContent="Lançamentos oficiais registrados no servidor (não representam o saldo total legado).";
       const xp=records.reduce((sum,x)=>sum+x.xp_awarded,0);
       const coins=records.reduce((sum,x)=>sum+x.coins_awarded,0);
       recentSummary="Somente os últimos "+records.length+" lançamentos: "+
-        format(xp)+" XP e "+format(coins)+" moedas. Limite: 20 lançamentos.";
+        format(xp)+" XP e "+format(coins)+" moedas. Limite: 20 lançamentos." : "";
       renderSummary();
       // Mobile receipt history: paginate older RLS-protected records on demand.
       // The all-time balance remains the server RPC, never the visible page sum.
@@ -255,7 +255,8 @@
           " · +"+format(entry.xp_awarded)+" XP · +"+format(entry.coins_awarded)+" moedas · "+when;
         list.appendChild(div);
       }
-      if(records.length===20)list.appendChild(more);
+      // Page availability depends on raw server rows, not only display-valid rows.
+      if(Array.isArray(data)&&data.length===20&&cursor?.id&&cursor?.awarded_at)list.appendChild(more);
     }catch(_error){
       if(request!==serial||$("lobby-rewards-list")!==list||(currentIdentity().playerId!==playerId||currentIdentity().api!==api))return;
       status.textContent="Não foi possível acessar o extrato. Confira sua conexão e tente novamente.";
