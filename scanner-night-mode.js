@@ -12,6 +12,10 @@
       `;
   document.head.appendChild(style);
   let boundMap = null;
+  let applyCurrentTheme = null;
+  const readPreference = () => {
+    try { return localStorage.getItem(KEY) === 'true'; } catch (_) { return false; }
+  };
   const setup = () => {
     const map = document.getElementById('meu-mapa');
     if (!map) return;
@@ -47,9 +51,10 @@
       map.closest('#tela-mapa')?.classList.toggle('scanner-map-night', enabled);
       if (mapButton) { mapButton.setAttribute('aria-pressed', String(enabled)); mapButton.textContent = enabled ? '☀️ Dia' : '🌙 Noite'; }
     };
-    let enabled = false;
-    try { enabled = localStorage.getItem(KEY) === 'true'; } catch (_) {}
+    let enabled = readPreference();
     apply(enabled);
+    // A single active callback always targets the current map after navigation.
+    applyCurrentTheme = (next) => { enabled = next; apply(enabled); };
     const toggle = () => {
       enabled = !enabled;
       apply(enabled);
@@ -65,6 +70,10 @@
   };
   const start = () => {
     setup();
+    // Keep the installed app in sync if the preference changes in another tab.
+    window.addEventListener('storage', (event) => {
+      if (event.key === KEY && applyCurrentTheme) applyCurrentTheme(readPreference());
+    });
     // Some mobile scanner flows replace the map node after initialization.
     // Rebind only when the node/control changes; never reset on tile updates.
     if (typeof MutationObserver !== 'undefined' && document.body) {
