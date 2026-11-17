@@ -3,8 +3,8 @@
 // No XP, money, official wins, inventory or wallet mutation is possible here.
 (function(){
   "use strict";
-  const currentPlayer=window.ChaoticAuthUser?.id;
-  const api=window.ChaoticAuth?.getClient?.();
+  // Resolve session on every refresh; users can switch accounts without reloading.
+  const identity=()=>({playerId:window.ChaoticAuthUser?.id,api:window.ChaoticAuth?.getClient?.()});
   let requestSerial=0;
   const $=id=>document.getElementById(id);
   async function refresh(){
@@ -13,9 +13,11 @@
     const list=$("lobby-history-list");
     if(!status||!stats||!list)return;
     const request=++requestSerial;
+    const {playerId,api}=identity();
+    const isCurrent=()=>request===requestSerial && $("lobby-history-list")===list && identity().playerId===playerId && identity().api===api;
     stats.textContent="";
     list.replaceChildren();
-    if(!api||!currentPlayer){
+    if(!api||!playerId){
       status.textContent="Entre na sua conta para consultar o histórico.";
       return;
     }
@@ -26,23 +28,23 @@
       const {data,error}=await api.from("chaotic_training_match_history")
         .select("winner_id,defeated_id,decided_turn,recorded_at,outcome_scope")
         .order("recorded_at",{ascending:false}).limit(30);
-      if(request!==requestSerial||$("lobby-history-list")!==list)return;
+      if(!isCurrent())return;
       if(error)throw error;
       const records=(Array.isArray(data)?data:[]).filter(row=>
         row&&row.outcome_scope==="training_only_no_official_victory"
-        &&(row.winner_id===currentPlayer||row.defeated_id===currentPlayer)
+        &&(row.winner_id===playerId||row.defeated_id===playerId)
         &&Number.isInteger(row.decided_turn)
         &&row.decided_turn>=1&&row.decided_turn<=120
       );
-      const wins=records.filter(x=>x.winner_id===currentPlayer).length;
+      const wins=records.filter(x=>x.winner_id===playerId).length;
       const losses=records.length-wins;
       stats.textContent="Últimos "+records.length+" resultados: "+wins+
         " vitória(s) de treino e "+losses+" derrota(s) de treino. Limite: 30 registros.";
       if(typeof api.rpc==="function"){
         // A slow lifetime RPC must not repaint a new DROME screen or a newer read.
-        const currentList=list,currentRequest=request;
-        api.rpc("chaotic_my_training_stats").then(response=>{
-          if(currentRequest!==requestSerial||$("lobby-history-list")!==currentList)return;
+        const currentList=list;
+        Promise.resolve().then(()=>api.rpc("chaotic_my_training_stats")).then(response=>{
+          if(!isCurrent() || $("lobby-history-list")!==currentList)return;
           if(response?.error)return;
           const raw=Array.isArray(response?.data)?response.data[0]:response?.data;
           if(!raw)return;
@@ -63,14 +65,14 @@
         const row=document.createElement("div");
         row.className="lobby-training-history-entry";
         row.style.cssText="border:1px solid #47694b;border-radius:8px;padding:8px;margin:6px 0;color:#def5e2;font-size:12px;overflow-wrap:anywhere";
-        const outcome=entry.winner_id===currentPlayer?"🏆 Vitória de treino":"• Derrota de treino";
+        const outcome=entry.winner_id===playerId?"🏆 Vitória de treino":"• Derrota de treino";
         const date=new Date(entry.recorded_at);
         const when=Number.isFinite(date.getTime())?date.toLocaleString("pt-BR"):"Data indisponível";
         row.textContent=outcome+" · Turno "+entry.decided_turn+" · "+when;
         list.appendChild(row);
       }
     }catch(_error){
-      if(request!==requestSerial||$("lobby-history-list")!==list)return;
+      if(!isCurrent())return;
       status.textContent="Não foi possível consultar o histórico. Confira sua conexão e tente novamente.";
       stats.textContent="";
       list.replaceChildren();
