@@ -163,7 +163,7 @@
           provenance.appendChild(p);
         }
       }catch(_err){
-        if(request===serial&&currentIdentity().playerId===playerId)
+        if(request===serial&&currentIdentity().playerId===playerId&&currentIdentity().api===api)
           provenanceStatus.textContent="Não foi possível consultar os resultados oficiais.";
       }
       }
@@ -219,7 +219,6 @@
             &&[entry.xp_awarded,entry.coins_awarded].every(n=>
               Number.isSafeInteger(n)&&n>=0&&n<=10000)
             &&(entry.xp_awarded>0||entry.coins_awarded>0));
-          more.remove();
           // A repeated row must never be rendered twice, even when the server
           // returns an overlapping page during a mobile reconnect.
           for(const entry of valid){
@@ -232,9 +231,14 @@
             if(typeof next.id==="string" && next.id.length>0 &&
               typeof next.awarded_at==="string" && next.awarded_at.length>0){
               cursor=next;
-              if(page.length===20)list.appendChild(more);
+              if(page.length===20){
+                more.textContent="Carregar lançamentos anteriores";
+                if(!more.isConnected)list.appendChild(more);
+              }else more.remove();
+            }else{
+              more.textContent="Cursor inválido — tentar novamente";
             }
-          }
+          }else more.remove();
         }catch(_error){
           if(request===serial&&currentIdentity().playerId===playerId&&currentIdentity().api===api){
             more.textContent="Falha na consulta — tentar novamente";
