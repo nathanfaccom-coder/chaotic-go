@@ -241,8 +241,8 @@
                 if(!more.isConnected)list.appendChild(more);
               }else more.remove();
             }else{
-              more.textContent="Histórico inconsistente — atualize o extrato";
-              more.disabled=true;
+              more.remove();
+              status.textContent="Paginação interrompida: o servidor repetiu um cursor. Atualize o extrato para tentar novamente.";
             }
           }else more.remove();
         }catch(_error){
