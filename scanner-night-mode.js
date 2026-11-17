@@ -18,7 +18,7 @@
     if (!map) return;
     const button = document.getElementById('scanner-theme-toggle');
     const mapButton = document.getElementById("scanner-map-theme-toggle");
-    const apply = (enabled) => {
+    // Keep the sole theme control inside the Leaflet map, above its panes.\n    if (mapButton && mapButton.parentElement !== map) map.appendChild(mapButton);\n    if (mapButton) {\n      mapButton.style.cssText = 'position:absolute;top:12px;right:12px;z-index:2000;display:flex;align-items:center;justify-content:center;background:#151515;color:#fff;border:2px solid #4caf50;border-radius:10px;min-height:44px;min-width:82px;padding:7px;font-weight:bold;cursor:pointer;pointer-events:auto';\n      if (window.L) {\n        L.DomEvent.disableClickPropagation(mapButton);\n        L.DomEvent.disableScrollPropagation(mapButton);\n      }\n    }\n    const apply = (enabled) => {
       map.classList.toggle('scanner-map-night', enabled);
       map.closest('#tela-mapa')?.classList.toggle('scanner-map-night', enabled);
       if (mapButton) { mapButton.setAttribute('aria-pressed', String(enabled)); mapButton.textContent = enabled ? '☀️ Dia' : '🌙 Noite'; }
