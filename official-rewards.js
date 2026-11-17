@@ -228,15 +228,21 @@
           }
           if(page.length){
             const next=page[page.length-1];
-            if(typeof next.id==="string" && next.id.length>0 &&
-              typeof next.awarded_at==="string" && next.awarded_at.length>0){
+            // An invalid or non-decreasing cursor must not loop forever or
+            // duplicate receipts if an adapter ignores the server cursor.
+            const older=next && cursor &&
+              (next.awarded_at < cursor.awarded_at ||
+                (next.awarded_at === cursor.awarded_at && next.id < cursor.id));
+            if(typeof next?.id==="string" && next.id.length>0 &&
+              typeof next.awarded_at==="string" && next.awarded_at.length>0 && older){
               cursor=next;
               if(page.length===20){
                 more.textContent="Carregar lançamentos anteriores";
                 if(!more.isConnected)list.appendChild(more);
               }else more.remove();
             }else{
-              more.textContent="Cursor inválido — tentar novamente";
+              more.textContent="Histórico inconsistente — atualize o extrato";
+              more.disabled=true;
             }
           }else more.remove();
         }catch(_error){
