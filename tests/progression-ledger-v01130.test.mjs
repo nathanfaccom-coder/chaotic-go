@@ -23,7 +23,7 @@ function createHarness(rows=[],failure=null){
   return {
    select(cols){assert.match(cols,/xp_awarded/);return this;},
    eq(column,value){assert.equal(column,"player_id");assert.equal(value,who);return this;},
-   order(column,arg){assert.equal(column,"awarded_at");assert.equal(arg.ascending,false);return this;},
+   order(column,arg){assert.ok(["awarded_at","id"].includes(column));assert.equal(arg.ascending,false);return this;},
    limit(n){assert.equal(n,20);return Promise.resolve({data:rows,error:failure});}
   };
  }};
