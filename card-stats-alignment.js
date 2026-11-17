@@ -12,14 +12,27 @@
     function sync() {
       pending = false;
       if (!image.getClientRects().length || !container.getClientRects().length) return;
-      const img = image.getBoundingClientRect();
-      const box = container.getBoundingClientRect();
-      if (img.width <= 0 || img.height <= 0) return;
-      // getBoundingClientRect inclui bordas e respeita object-fit/limites responsivos.
-      layer.style.left = (img.left - box.left) + 'px';
-      layer.style.top = (img.top - box.top) + 'px';
-      layer.style.width = img.width + 'px';
-      layer.style.height = img.height + 'px';
+      // As coordenadas precisam estar no MESMO espaço CSS do overlay.
+      // getBoundingClientRect mede pixels após zoom/transform e causava
+      // deslocamento duplo em navegadores e WebViews com escala diferente.
+      if (image.offsetParent === container) {
+        if (image.offsetWidth <= 0 || image.offsetHeight <= 0) return;
+        layer.style.left = image.offsetLeft + 'px';
+        layer.style.top = image.offsetTop + 'px';
+        layer.style.width = image.offsetWidth + 'px';
+        layer.style.height = image.offsetHeight + 'px';
+      } else {
+        // Fallback para alterações futuras no layout do scanner.
+        const img = image.getBoundingClientRect();
+        const box = container.getBoundingClientRect();
+        if (img.width <= 0 || img.height <= 0) return;
+        const scaleX = box.width / (container.offsetWidth || box.width);
+        const scaleY = box.height / (container.offsetHeight || box.height);
+        layer.style.left = ((img.left - box.left) / (scaleX || 1)) + 'px';
+        layer.style.top = ((img.top - box.top) / (scaleY || 1)) + 'px';
+        layer.style.width = (img.width / (scaleX || 1)) + 'px';
+        layer.style.height = (img.height / (scaleY || 1)) + 'px';
+      }
     }
     function schedule() {
       if (pending) return;
