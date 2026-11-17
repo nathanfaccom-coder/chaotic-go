@@ -45,10 +45,10 @@
     try{
       // RLS exposes only this player's receipts. Authenticated SELECT only.
       const {data,error}=await api.from("chaotic_official_reward_ledger")
-        .select("player_id,award_kind,xp_awarded,coins_awarded,awarded_at,reward_scope")
+        .select("id,player_id,award_kind,xp_awarded,coins_awarded,awarded_at,reward_scope")
         .eq("player_id",playerId)
-        .order("awarded_at",{ascending:false}).limit(20);
-      if(request!==serial||$("lobby-rewards-list")!==list||currentIdentity().playerId!==playerId)return;
+        .order("awarded_at",{ascending:false}).order("id",{ascending:false}).limit(20);
+      if(request!==serial||$("lobby-rewards-list")!==list||(currentIdentity().playerId!==playerId||currentIdentity().api!==api))return;
       if(error)throw error;
       const records=(Array.isArray(data)?data:[]).filter(entry=>
         entry&&entry.player_id===playerId
@@ -61,7 +61,7 @@
       // 20 receipts. A stale RPC can never repaint a newer DROME screen.
       if(typeof api.rpc==="function"){
         api.rpc("chaotic_my_official_reward_totals").then(response=>{
-          if(request!==serial||$("lobby-rewards-list")!==list||currentIdentity().playerId!==playerId)return;
+          if(request!==serial||$("lobby-rewards-list")!==list||(currentIdentity().playerId!==playerId||currentIdentity().api!==api))return;
           if(response?.error)return; // Keep the verified recent view.
           const raw=Array.isArray(response?.data)?response.data[0]:response?.data;
           if(!raw)return;
@@ -83,7 +83,7 @@
       if(typeof api.rpc==="function"){
         try { Promise.resolve(api.rpc("chaotic_my_official_career_by_mode")).then(response=>{
           if(request!==serial||$("lobby-rewards-list")!==list
-            ||currentIdentity().playerId!==playerId)return;
+            ||(currentIdentity().playerId!==playerId||currentIdentity().api!==api))return;
           if(response?.error||!Array.isArray(response?.data))return;
           const expected=["1x1","3x3","6x6"];
           const rows=response.data;
@@ -136,7 +136,7 @@
           .select("id,host_id,guest_id,mode,winner_id,result_state,verification_source,created_at,verified_at")
           .or("host_id.eq."+playerId+",guest_id.eq."+playerId)
           .order("created_at",{ascending:false}).limit(10);
-        if(request!==serial||currentIdentity().playerId!==playerId){
+        if(request!==serial||(currentIdentity().playerId!==playerId||currentIdentity().api!==api)){
           provenance.remove();return;
         }
         if(matchesError)throw matchesError;
@@ -175,7 +175,8 @@
       renderSummary();
       // Mobile receipt history: paginate older RLS-protected records on demand.
       // The all-time balance remains the server RPC, never the visible page sum.
-      let nextOffset=20;
+      // Use a stable (timestamp, UUID) cursor: new rewards cannot shift old pages.
+      let cursor=records.length ? records[records.length-1] : null;
       const more=document.createElement("button");
       more.type="button";
       more.className="lobby-outline";
@@ -198,9 +199,10 @@
           const response=await api.from("chaotic_official_reward_ledger")
             .select("player_id,award_kind,xp_awarded,coins_awarded,awarded_at,reward_scope")
             .eq("player_id",playerId)
-            .order("awarded_at",{ascending:false})
-            .range(nextOffset,nextOffset+19);
-          if(request!==serial||currentIdentity().playerId!==playerId
+            .order("awarded_at",{ascending:false}).order("id",{ascending:false})
+            .or("awarded_at.lt."+cursor.awarded_at+",and(awarded_at.eq."+cursor.awarded_at+",id.lt."+cursor.id+")")
+            .limit(20);
+          if(request!==serial||(currentIdentity().playerId!==playerId||currentIdentity().api!==api)
             ||currentIdentity().api!==api||$("lobby-rewards-list")!==list)return;
           if(response.error)throw response.error;
           const page=Array.isArray(response.data)?response.data:[];
@@ -212,10 +214,10 @@
             &&(entry.xp_awarded>0||entry.coins_awarded>0));
           more.remove();
           valid.forEach(appendReceipt);
-          nextOffset+=page.length;
+          if(page.length)cursor=page[page.length-1];
           if(page.length===20)list.appendChild(more);
         }catch(_error){
-          if(request===serial&&currentIdentity().playerId===playerId){
+          if(request===serial&&currentIdentity().playerId===playerId&&currentIdentity().api===api){
             more.textContent="Falha na consulta — tentar novamente";
           }
         }finally{more.disabled=false;}
@@ -232,7 +234,7 @@
       }
       if(records.length===20)list.appendChild(more);
     }catch(_error){
-      if(request!==serial||$("lobby-rewards-list")!==list||currentIdentity().playerId!==playerId)return;
+      if(request!==serial||$("lobby-rewards-list")!==list||(currentIdentity().playerId!==playerId||currentIdentity().api!==api))return;
       status.textContent="Não foi possível acessar o extrato. Confira sua conexão e tente novamente.";
       summary.textContent="";
       list.replaceChildren();
