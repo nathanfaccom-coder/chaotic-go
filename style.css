@@ -1925,3 +1925,31 @@ html, body {
         box-sizing: border-box;
     }
 }
+
+/* Card attributes: use one image-relative calibration for browser and installed PWA.
+   The alignment module sizes #camada-stats to the displayed card image. */
+#tela-detalhe-carta .camada-stats {
+  box-sizing: border-box;
+  overflow: visible;
+}
+#tela-detalhe-carta .camada-stats .stat {
+  box-sizing: border-box;
+  width: 16%;
+  transform: translateX(-50%);
+  font-size: clamp(8px, 3.5cqw, 19px);
+  line-height: 1;
+  white-space: nowrap;
+}
+#tela-detalhe-carta .container-carta-inspecao {
+  container-type: inline-size;
+}
+#tela-detalhe-carta #stat-coragem { top: 63.2%; left: 15.3%; }
+#tela-detalhe-carta #stat-poder { top: 69.1%; left: 15.3%; }
+#tela-detalhe-carta #stat-sabedoria { top: 74.7%; left: 15.3%; }
+#tela-detalhe-carta #stat-velocidade { top: 81%; left: 15.3%; }
+#tela-detalhe-carta #stat-energia {
+  top: 86.5%;
+  left: 85%;
+  width: 24%;
+  font-size: clamp(12px, 5cqw, 30px);
+}
