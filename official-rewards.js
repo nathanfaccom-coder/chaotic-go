@@ -62,7 +62,8 @@
       // Read the authoritative ALL-TIME balance independently of the last
       // 20 receipts. A stale RPC can never repaint a newer DROME screen.
       if(typeof api.rpc==="function"){
-        api.rpc("chaotic_my_official_reward_totals").then(response=>{
+        // An optional totals RPC must not hide verified receipts if it throws.
+        try { Promise.resolve(api.rpc("chaotic_my_official_reward_totals")).then(response=>{
           if(request!==serial||$("lobby-rewards-list")!==list||(currentIdentity().playerId!==playerId||currentIdentity().api!==api))return;
           if(response?.error)return; // Keep the verified recent view.
           const raw=Array.isArray(response?.data)?response.data[0]:response?.data;
@@ -79,6 +80,7 @@
             format(count)+" lançamento(s).";
           renderSummary();
         }).catch(()=>{ /* Offline: do not invent a total or clear recent receipts. */ });
+        } catch (_totalsError) { /* Keep the read-only receipts visible. */ }
       }
       // Career counters are computed by an authenticated, RLS-scoped server RPC.
       // Never infer a win from a pending result or from a local training match.
