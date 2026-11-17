@@ -1952,3 +1952,19 @@ html, body {
   width: 24%;
   font-size: clamp(12px, 5cqw, 30px);
 }
+
+/* Ajuste fino dos valores na carta: separar texto dos pictogramas à esquerda.
+   Mantém a referência na imagem, sem depender da largura da tela. */
+#tela-detalhe-carta .camada-stats .stat:not(#stat-energia) {
+  left: 18.5%;
+  width: 12%;
+  font-size: clamp(11px, 2.8cqw, 16px);
+  line-height: 1;
+  transform: translate(-50%, -50%);
+  text-shadow: 0 1px 0 #fff;
+}
+#tela-detalhe-carta #stat-coragem { top: 65.1%; }
+#tela-detalhe-carta #stat-poder { top: 70.6%; }
+#tela-detalhe-carta #stat-sabedoria { top: 76.1%; }
+#tela-detalhe-carta #stat-velocidade { top: 81.6%; }
+#tela-detalhe-carta #stat-energia { transform: translate(-50%, -50%); top: 89.1%; }
