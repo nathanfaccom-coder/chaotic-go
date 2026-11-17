@@ -1931,6 +1931,8 @@ html, body {
 #tela-detalhe-carta .camada-stats {
   box-sizing: border-box;
   overflow: visible;
+  /* cqw dos atributos deve medir a carta, não a largura do scanner. */
+  container-type: inline-size;
 }
 #tela-detalhe-carta .camada-stats .stat {
   box-sizing: border-box;
@@ -1939,9 +1941,6 @@ html, body {
   font-size: clamp(8px, 3.5cqw, 19px);
   line-height: 1;
   white-space: nowrap;
-}
-#tela-detalhe-carta .container-carta-inspecao {
-  container-type: inline-size;
 }
 #tela-detalhe-carta #stat-coragem { top: 63.2%; left: 15.3%; }
 #tela-detalhe-carta #stat-poder { top: 69.1%; left: 15.3%; }
