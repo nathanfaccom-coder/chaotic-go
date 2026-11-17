@@ -175,7 +175,7 @@
       const xp=records.reduce((sum,x)=>sum+x.xp_awarded,0);
       const coins=records.reduce((sum,x)=>sum+x.coins_awarded,0);
       recentSummary="Somente os últimos "+records.length+" lançamentos: "+
-        format(xp)+" XP e "+format(coins)+" moedas. Limite: 20 lançamentos." : "";
+        format(xp)+" XP e "+format(coins)+" moedas. Limite: 20 lançamentos.";
       renderSummary();
       // Mobile receipt history: paginate older RLS-protected records on demand.
       // The all-time balance remains the server RPC, never the visible page sum.
