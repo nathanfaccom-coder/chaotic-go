@@ -178,7 +178,10 @@
       // Mobile receipt history: paginate older RLS-protected records on demand.
       // The all-time balance remains the server RPC, never the visible page sum.
       // Use a stable (timestamp, UUID) cursor: new rewards cannot shift old pages.
-      let cursor=records.length ? records[records.length-1] : null;
+      // Cursor follows the last raw server row, including any row rejected by
+      // display validation. This avoids repeating earlier receipts on page 2.
+      let cursor=Array.isArray(data)&&data.length ? data[data.length-1] : null;
+      const seenReceiptIds=new Set(records.map(entry=>entry.id).filter(Boolean));
       const more=document.createElement("button");
       more.type="button";
       more.className="lobby-outline";
@@ -215,7 +218,13 @@
               Number.isSafeInteger(n)&&n>=0&&n<=10000)
             &&(entry.xp_awarded>0||entry.coins_awarded>0));
           more.remove();
-          valid.forEach(appendReceipt);
+          // A repeated row must never be rendered twice, even when the server
+          // returns an overlapping page during a mobile reconnect.
+          for(const entry of valid){
+            if(!entry.id||seenReceiptIds.has(entry.id))continue;
+            seenReceiptIds.add(entry.id);
+            appendReceipt(entry);
+          }
           if(page.length){
             const next=page[page.length-1];
             if(typeof next.id==="string" && next.id.length>0 &&
