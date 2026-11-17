@@ -120,6 +120,7 @@
       if(!data || typeof data.id!=="string" || data.id.length>128
         || typeof data.expires_at!=="string"
         || !Number.isFinite(new Date(data.expires_at).getTime())
+        || new Date(data.expires_at).getTime()<=Date.now()
         ){
         forgetLastRoom();return null;
       }
