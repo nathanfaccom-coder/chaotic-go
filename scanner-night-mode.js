@@ -13,10 +13,10 @@
       `;
   document.head.appendChild(style);
   const setup = () => {
-    const panel = document.getElementById('painel-botoes-fisicos');
     const map = document.getElementById('meu-mapa');
     if (!map) return;
-    const button = document.getElementById('scanner-theme-toggle');
+    // Remove the obsolete control next to the directional pad, if present.
+    document.getElementById('scanner-theme-toggle')?.remove();
     const mapButton = document.getElementById("scanner-map-theme-toggle");
     // Keep the sole theme control inside the Leaflet map, above its panes.\n    if (mapButton && mapButton.parentElement !== map) map.appendChild(mapButton);\n    if (mapButton) {\n      mapButton.style.cssText = 'position:absolute;top:12px;right:12px;z-index:2000;display:flex;align-items:center;justify-content:center;background:#151515;color:#fff;border:2px solid #4caf50;border-radius:10px;min-height:44px;min-width:82px;padding:7px;font-weight:bold;cursor:pointer;pointer-events:auto';\n      if (window.L) {\n        L.DomEvent.disableClickPropagation(mapButton);\n        L.DomEvent.disableScrollPropagation(mapButton);\n      }\n    }\n    const apply = (enabled) => {
       map.classList.toggle('scanner-map-night', enabled);
@@ -31,7 +31,6 @@
       apply(enabled);
       try { localStorage.setItem(KEY, String(enabled)); } catch (_) {}
     };
-    if (button) button.addEventListener('click', toggle);
     if (mapButton) mapButton.addEventListener('click', toggle);
 
   };
