@@ -11,9 +11,11 @@
     #meu-mapa.scanner-map-night .leaflet-tile-pane { filter:invert(1) hue-rotate(180deg) brightness(.78) contrast(1.1) saturate(.65); }
       `;
   document.head.appendChild(style);
+  let boundMap = null;
   const setup = () => {
     const map = document.getElementById('meu-mapa');
     if (!map) return;
+    boundMap = map;
     // Remove the obsolete control next to the directional pad, if present.
     document.getElementById('scanner-theme-toggle')?.remove();
     let mapButton = document.getElementById("scanner-map-theme-toggle");
@@ -61,6 +63,19 @@
     }
 
   };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup, {once:true});
-  else setup();
+  const start = () => {
+    setup();
+    // Some mobile scanner flows replace the map node after initialization.
+    // Rebind only when the node/control changes; never reset on tile updates.
+    if (typeof MutationObserver !== 'undefined' && document.body) {
+      const observer = new MutationObserver(() => {
+        const map = document.getElementById('meu-mapa');
+        if (map && (map !== boundMap ||
+          !map.contains(document.getElementById('scanner-map-theme-toggle')))) setup();
+      });
+      observer.observe(document.body, {childList:true,subtree:true});
+    }
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, {once:true});
+  else start();
 })();
