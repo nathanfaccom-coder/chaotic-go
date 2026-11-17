@@ -16,7 +16,16 @@
     if (!map) return;
     // Remove the obsolete control next to the directional pad, if present.
     document.getElementById('scanner-theme-toggle')?.remove();
-    const mapButton = document.getElementById("scanner-map-theme-toggle");
+    let mapButton = document.getElementById("scanner-map-theme-toggle");
+    // Some legacy scanner layouts omit the map control: create it inside the map.
+    if (!mapButton) {
+      mapButton = document.createElement("button");
+      mapButton.id = "scanner-map-theme-toggle";
+      mapButton.type = "button";
+      mapButton.className = "scanner-theme-toggle";
+      mapButton.setAttribute("aria-label", "Alternar modo dia e noite do mapa");
+      map.appendChild(mapButton);
+    }
     // Keep the sole theme control inside the Leaflet map, above its panes.
     if (mapButton && mapButton.parentElement !== map) map.appendChild(mapButton);
     if (mapButton) {
