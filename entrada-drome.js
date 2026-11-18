@@ -465,12 +465,32 @@ window.expandirDeckParaOnline = function(deckIds) {
     
     // 🔥 TRADUTOR FLEXÍVEL: Ele não descarta o array se encontrar um null, ele mantém a posição!
     let expandirArray = (arr) => {
-        if (!arr) return [];
-        // Converte o objeto/array do Firebase em um array real mantendo os índices
-        let lista = Array.isArray(arr) ? arr : Object.values(arr);
-        return lista.map(id => id ? window.inventario.find(c => String(c.id) === String(id)) || null : null);
+        if (!arr || (typeof arr !== "object" && !Array.isArray(arr))) return [];
+        // Firebase may serialize sparse arrays as objects. Rebuild numeric slots
+        // explicitly: Object.values() collapses gaps and can shift battle positions.
+        let lista;
+        if (Array.isArray(arr)) {
+            lista = arr;
+        } else {
+            const keys = Object.keys(arr);
+            if (!keys.every(key => /^(0|[1-9]\\d*)$/.test(key))) return [];
+            const indices = keys.map(Number);
+            const max = indices.length ? Math.max(...indices) : -1;
+            // Reject pathological/malformed payloads before allocating memory.
+            if (!Number.isSafeInteger(max) || max > 255) return [];
+            lista = Array.from({ length: max + 1 }, (_, i) =>
+                Object.prototype.hasOwnProperty.call(arr, String(i)) ? arr[String(i)] : null
+            );
+        }
+        const inventario = Array.isArray(window.inventario) ? window.inventario : [];
+        return lista.map(id => {
+            if (id === null || id === undefined || id === "") return null;
+            const carta = inventario.find(c => c && String(c.id) === String(id));
+            // Missing cards stay empty; never shift subsequent creature positions.
+            return carta || null;
+        });
     };
-    
+
     deckExpandido.criaturas_objs = expandirArray(deckIds.criaturas);
     deckExpandido.equipamentos_objs = expandirArray(deckIds.equipamentos);
     deckExpandido.ataques_objs = expandirArray(deckIds.ataques);
