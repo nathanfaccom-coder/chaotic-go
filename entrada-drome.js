@@ -177,7 +177,25 @@ function carregarDecksParaEscolha(modo) {
                 div.setAttribute("tabindex", "0");
                 div.setAttribute("aria-label", "Selecionar " + String(deckData.nome || "Deck Sem Nome") + ", slot " + numSlot + (irreg ? ", irregular" : ", pronto"));
                 div.setAttribute("aria-pressed", "false");
-                const ativarDeck = () => selecionarDeckDrome(deckData, numSlot, irreg, div);
+                const ativarDeck = () => {
+                    // Uma lista renderizada para a conta anterior não pode ser
+                    // selecionada após logout/troca de usuário ou modo.
+                    if (!isCurrent() ||
+                        (window.ChaoticAuthUser?.id && window.ChaoticAuthUser.id !== uid)) {
+                        window.estadoDrome.deckSelecionado = null;
+                        const btn = document.getElementById("btn-jogar-drome");
+                        if (btn) btn.style.display = "none";
+                        lista.textContent = "A conta ou o modo mudou. Recarregue seus Decks.";
+                        const retry = document.createElement("button");
+                        retry.type = "button";
+                        retry.textContent = "↻ Recarregar Decks";
+                        retry.style.cssText = "display:block;min-height:44px;width:100%;margin-top:12px;";
+                        retry.onclick = () => carregarDecksParaEscolha(window.estadoDrome.modo);
+                        lista.appendChild(retry);
+                        return;
+                    }
+                    selecionarDeckDrome(deckData, numSlot, irreg, div);
+                };
                 div.onclick = ativarDeck;
                 div.onkeydown = event => {
                     if (event.key === "Enter" || event.key === " ") {
