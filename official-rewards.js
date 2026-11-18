@@ -54,7 +54,10 @@
       if(error)throw error;
       // Reject a malformed or out-of-order first page before displaying official receipts.
       // Otherwise the initial cursor can skip or duplicate older receipts.
-      const rawPage=Array.isArray(data)?data:[];
+      // A malformed response is not evidence that the player has no rewards.
+      // Fail closed instead of showing a fictitious empty official ledger.
+      if(!Array.isArray(data))throw new Error("Invalid official ledger response");
+      const rawPage=data;
       const validCursorRow=entry=>entry && typeof entry.id==="string" &&
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(entry.id) &&
         typeof entry.awarded_at==="string" &&
@@ -227,7 +230,10 @@
           if(request!==serial||(currentIdentity().playerId!==playerId||currentIdentity().api!==api)
             ||currentIdentity().api!==api||$("lobby-rewards-list")!==list)return;
           if(response.error)throw response.error;
-          const page=Array.isArray(response.data)?response.data:[];
+          // Never silently treat a malformed server response as an empty page.
+          // Preserve the current cursor and let the player retry safely.
+          if(!Array.isArray(response.data))throw new Error("Invalid ledger page");
+          const page=response.data;
           const valid=page.filter(entry=>entry&&entry.player_id===playerId
             &&entry.reward_scope==="official_verified_only"
             &&["official_victory","official_participation"].includes(entry.award_kind)
