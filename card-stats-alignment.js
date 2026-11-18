@@ -18,39 +18,43 @@
       // As coordenadas precisam estar no MESMO espaço CSS do overlay.
       // getBoundingClientRect mede pixels após zoom/transform e causava
       // deslocamento duplo em navegadores e WebViews com escala diferente.
-      if (image.offsetParent === container) {
-        if (image.offsetWidth <= 0 || image.offsetHeight <= 0) return;
-        // Align to the *painted card*, excluding borders and object-fit letterboxing.
-        // offsetWidth/Height include borders; using them directly drifts every stat.
-        const computed = getComputedStyle(image);
-        const bl = parseFloat(computed.borderLeftWidth) || 0;
-        const br = parseFloat(computed.borderRightWidth) || 0;
-        const bt = parseFloat(computed.borderTopWidth) || 0;
-        const bb = parseFloat(computed.borderBottomWidth) || 0;
-        const innerW = image.offsetWidth - bl - br;
-        const innerH = image.offsetHeight - bt - bb;
-        if (innerW <= 0 || innerH <= 0) return;
-        const naturalW = image.naturalWidth || innerW;
-        const naturalH = image.naturalHeight || innerH;
-        const fit = Math.min(innerW / naturalW, innerH / naturalH);
-        const paintedW = naturalW * fit;
-        const paintedH = naturalH * fit;
-        layer.style.left = (image.offsetLeft + bl + (innerW - paintedW) / 2) + 'px';
-        layer.style.top = (image.offsetTop + bt + (innerH - paintedH) / 2) + 'px';
-        layer.style.width = paintedW + 'px';
-        layer.style.height = paintedH + 'px';
-      } else {
-        // Fallback para alterações futuras no layout do scanner.
-        const img = image.getBoundingClientRect();
-        const box = container.getBoundingClientRect();
-        if (img.width <= 0 || img.height <= 0) return;
-        const scaleX = box.width / (container.offsetWidth || box.width);
-        const scaleY = box.height / (container.offsetHeight || box.height);
-        layer.style.left = ((img.left - box.left) / (scaleX || 1)) + 'px';
-        layer.style.top = ((img.top - box.top) / (scaleY || 1)) + 'px';
-        layer.style.width = (img.width / (scaleX || 1)) + 'px';
-        layer.style.height = (img.height / (scaleY || 1)) + 'px';
+      // Use viewport rectangles for BOTH elements, then convert to the
+      // container's untransformed CSS coordinate system. This also works
+      // when offsetParent differs in installed PWAs and desktop browsers.
+      const img = image.getBoundingClientRect();
+      const box = container.getBoundingClientRect();
+      const sx = box.width / (container.clientWidth || box.width);
+      const sy = box.height / (container.clientHeight || box.height);
+      if (!img.width || !img.height || !box.width || !box.height || !sx || !sy) {
+        layer.style.visibility = 'hidden';
+        return;
       }
+      const computed = getComputedStyle(image);
+      const bl = parseFloat(computed.borderLeftWidth) || 0;
+      const br = parseFloat(computed.borderRightWidth) || 0;
+      const bt = parseFloat(computed.borderTopWidth) || 0;
+      const bb = parseFloat(computed.borderBottomWidth) || 0;
+      const innerW = img.width / sx - bl - br;
+      const innerH = img.height / sy - bt - bb;
+      if (innerW <= 0 || innerH <= 0) {
+        layer.style.visibility = 'hidden';
+        return;
+      }
+      const fitMode = computed.objectFit;
+      const ratio = fitMode === 'cover'
+        ? Math.max(innerW / image.naturalWidth, innerH / image.naturalHeight)
+        : fitMode === 'fill'
+          ? null
+          : Math.min(innerW / image.naturalWidth, innerH / image.naturalHeight);
+      const paintedW = ratio === null ? innerW : image.naturalWidth * ratio;
+      const paintedH = ratio === null ? innerH : image.naturalHeight * ratio;
+      // object-position defaults to 50% 50%, matching the card CSS.
+      const x = (img.left - box.left) / sx + bl + (innerW - paintedW) / 2;
+      const y = (img.top - box.top) / sy + bt + (innerH - paintedH) / 2;
+      layer.style.left = x + 'px';
+      layer.style.top = y + 'px';
+      layer.style.width = paintedW + 'px';
+      layer.style.height = paintedH + 'px';
       layer.style.visibility = 'visible';
     }
     function schedule() {
