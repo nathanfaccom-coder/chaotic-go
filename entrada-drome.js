@@ -137,7 +137,8 @@ function carregarDecksParaEscolha(modo) {
     const isCurrent = () => window._dromeDeckRequestId === requestId &&
         document.getElementById("lista-decks-drome") === lista &&
         window.estadoDrome.modo === modo &&
-        localStorage.getItem("chaoticUID") === uid;
+        localStorage.getItem("chaoticUID") === uid &&
+        (!window.ChaoticAuthUser?.id || window.ChaoticAuthUser.id === uid);
 
     _dbGet('jogadores/' + uid + '/decks').then(snapshot => {
         // A delayed request from an older mode must NEVER overwrite the
