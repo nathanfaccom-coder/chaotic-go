@@ -338,21 +338,8 @@ window.confirmarEntradaDrome = async function() {
         if (btn) btn.style.display = "none";
         return;
     }
-    // Não iniciar matchmaking Firebase nesta prévia: o backend online
-    // ainda não foi portado. Preservamos a lógica abaixo para reativá-la
-    // quando salas, transações e presença estiverem protegidas no servidor.
-    if (window.CHAOTIC_MULTIPLAYER_ENABLED !== true) {
-        const aviso = document.getElementById("aviso-deck-irregular");
-        const texto = document.getElementById("texto-irregularidade");
-        if (aviso && texto) {
-            aviso.style.display = "block";
-            texto.textContent = "Seu deck está salvo. As batalhas online serão ativadas após a migração segura do multiplayer.";
-        }
-        if (typeof window.mostrarMensagemScanner === "function") {
-            window.mostrarMensagemScanner("DECK PRONTO! BATALHAS ONLINE AINDA EM MIGRAÇÃO.");
-        }
-        return;
-    }
+    // Even in preview mode, verify the saved Deck before claiming it is ready.
+    // No matchmaking or rewards are enabled by this check.
     // Cached Deck selection is not proof of an active login.
     // The server must still authenticate every multiplayer action.
     const activeUid = localStorage.getItem("chaoticUID");
@@ -389,10 +376,22 @@ window.confirmarEntradaDrome = async function() {
             window.estadoDrome.modo === entryMode &&
             window.estadoDrome.tipoJogo === entryType &&
             window.estadoDrome.deckSelecionado === selected &&
-            window.CHAOTIC_MULTIPLAYER_ENABLED === true;
+            (!window.ChaoticAuthUser?.id || window.ChaoticAuthUser.id === entryUid);
         if (!stillCurrent || !stored || JSON.stringify(stored) !== JSON.stringify(original) ||
             verificarIrregularidadeDeck(stored, entryMode)) {
             throw new Error('O Deck foi alterado, removido ou a sessão mudou. Selecione novamente.');
+        }
+        if (window.CHAOTIC_MULTIPLAYER_ENABLED !== true) {
+            const aviso = document.getElementById('aviso-deck-irregular');
+            const texto = document.getElementById('texto-irregularidade');
+            if (aviso && texto) {
+                aviso.style.display = 'block';
+                texto.textContent = 'Deck salvo e conferido. Batalhas online ainda em migração; nenhuma recompensa será concedida.';
+            }
+            if (typeof window.mostrarMensagemScanner === 'function') {
+                window.mostrarMensagemScanner('DECK CONFERIDO! BATALHAS ONLINE AINDA EM MIGRAÇÃO.');
+            }
+            return;
         }
         if (entryType === 'online') {
             window.mostrarMensagemScanner("Conectando aos servidores do Drome...");
