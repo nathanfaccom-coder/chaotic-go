@@ -237,9 +237,7 @@
           // Validate the entire raw page before displaying any receipts.
           // A stale adapter can ignore the cursor and return a mixed page;
           // never present those records as older verified history.
-          const isOlder=(entry,previous)=>entry && previous &&
-            typeof entry.id==="string" && entry.id.length>0 &&
-            typeof entry.awarded_at==="string" && entry.awarded_at.length>0 &&
+          const isOlder=(entry,previous)=>validCursorRow(entry) && validCursorRow(previous) &&
             (entry.awarded_at < previous.awarded_at ||
               (entry.awarded_at === previous.awarded_at && entry.id < previous.id));
           const ordered=page.every((entry,index)=>
