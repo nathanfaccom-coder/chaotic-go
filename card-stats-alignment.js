@@ -17,10 +17,25 @@
       // deslocamento duplo em navegadores e WebViews com escala diferente.
       if (image.offsetParent === container) {
         if (image.offsetWidth <= 0 || image.offsetHeight <= 0) return;
-        layer.style.left = image.offsetLeft + 'px';
-        layer.style.top = image.offsetTop + 'px';
-        layer.style.width = image.offsetWidth + 'px';
-        layer.style.height = image.offsetHeight + 'px';
+        // Align to the *painted card*, excluding borders and object-fit letterboxing.
+        // offsetWidth/Height include borders; using them directly drifts every stat.
+        const computed = getComputedStyle(image);
+        const bl = parseFloat(computed.borderLeftWidth) || 0;
+        const br = parseFloat(computed.borderRightWidth) || 0;
+        const bt = parseFloat(computed.borderTopWidth) || 0;
+        const bb = parseFloat(computed.borderBottomWidth) || 0;
+        const innerW = image.offsetWidth - bl - br;
+        const innerH = image.offsetHeight - bt - bb;
+        if (innerW <= 0 || innerH <= 0) return;
+        const naturalW = image.naturalWidth || innerW;
+        const naturalH = image.naturalHeight || innerH;
+        const fit = Math.min(innerW / naturalW, innerH / naturalH);
+        const paintedW = naturalW * fit;
+        const paintedH = naturalH * fit;
+        layer.style.left = (image.offsetLeft + bl + (innerW - paintedW) / 2) + 'px';
+        layer.style.top = (image.offsetTop + bt + (innerH - paintedH) / 2) + 'px';
+        layer.style.width = paintedW + 'px';
+        layer.style.height = paintedH + 'px';
       } else {
         // Fallback para alterações futuras no layout do scanner.
         const img = image.getBoundingClientRect();
