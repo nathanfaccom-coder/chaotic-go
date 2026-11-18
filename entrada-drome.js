@@ -115,6 +115,10 @@ function carregarDecksParaEscolha(modo) {
     const lista = document.getElementById("lista-decks-drome");
     if (!lista) return;
     const uid = localStorage.getItem("chaoticUID");
+    // Invalidate pending responses even when authentication is missing.
+    const requestId = (window._dromeDeckRequestId || 0) + 1;
+    window._dromeDeckRequestId = requestId;
+    lista.textContent = "Carregando decks...";
     // Uma recarga invalida imediatamente o Deck selecionado anteriormente.
     // Nunca permitir entrada enquanto a nova lista ainda está em trânsito.
     window.estadoDrome.deckSelecionado = null;
@@ -132,8 +136,7 @@ function carregarDecksParaEscolha(modo) {
 
     // A request can become stale even when the same list DOM node is reused.
     // Bind its result to the current user, mode and request generation.
-    const requestId = (window._dromeDeckRequestId || 0) + 1;
-    window._dromeDeckRequestId = requestId;
+
     const isCurrent = () => window._dromeDeckRequestId === requestId &&
         document.getElementById("lista-decks-drome") === lista &&
         window.estadoDrome.modo === modo &&
