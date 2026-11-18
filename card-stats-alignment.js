@@ -23,8 +23,8 @@
       // when offsetParent differs in installed PWAs and desktop browsers.
       const img = image.getBoundingClientRect();
       const box = container.getBoundingClientRect();
-      const sx = box.width / (container.clientWidth || box.width);
-      const sy = box.height / (container.clientHeight || box.height);
+      const sx = box.width / (container.offsetWidth || box.width);
+      const sy = box.height / (container.offsetHeight || box.height);
       if (!img.width || !img.height || !box.width || !box.height || !sx || !sy) {
         layer.style.visibility = 'hidden';
         return;
@@ -49,8 +49,11 @@
       const paintedW = ratio === null ? innerW : image.naturalWidth * ratio;
       const paintedH = ratio === null ? innerH : image.naturalHeight * ratio;
       // object-position defaults to 50% 50%, matching the card CSS.
-      const x = (img.left - box.left) / sx + bl + (innerW - paintedW) / 2;
-      const y = (img.top - box.top) / sy + bt + (innerH - paintedH) / 2;
+      const containerStyle = getComputedStyle(container);
+      const borderX = parseFloat(containerStyle.borderLeftWidth) || 0;
+      const borderY = parseFloat(containerStyle.borderTopWidth) || 0;
+      const x = (img.left - box.left) / sx - borderX + bl + (innerW - paintedW) / 2;
+      const y = (img.top - box.top) / sy - borderY + bt + (innerH - paintedH) / 2;
       layer.style.left = x + 'px';
       layer.style.top = y + 'px';
       layer.style.width = paintedW + 'px';
