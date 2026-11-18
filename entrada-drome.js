@@ -473,7 +473,7 @@ window.expandirDeckParaOnline = function(deckIds) {
             lista = arr;
         } else {
             const keys = Object.keys(arr);
-            if (!keys.every(key => /^(0|[1-9]\\d*)$/.test(key))) return [];
+            if (!keys.every(key => /^(0|[1-9][0-9]*)$/.test(key))) return [];
             const indices = keys.map(Number);
             const max = indices.length ? Math.max(...indices) : -1;
             // Reject pathological/malformed payloads before allocating memory.
