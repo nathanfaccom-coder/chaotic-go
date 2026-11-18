@@ -469,6 +469,9 @@ window.expandirDeckParaOnline = function(deckIds) {
         // explicitly: Object.values() collapses gaps and can shift battle positions.
         let lista;
         if (Array.isArray(arr)) {
+            // Arrays can also arrive from untrusted Firebase data. Do not
+            // expand a pathological array into the battle view.
+            if (arr.length > 256) return [];
             lista = arr;
         } else {
             const keys = Object.keys(arr);
@@ -491,10 +494,12 @@ window.expandirDeckParaOnline = function(deckIds) {
     };
 
     deckExpandido.criaturas_objs = expandirArray(deckIds.criaturas);
-    deckExpandido.equipamentos_objs = expandirArray(deckIds.equipamentos);
+    // Older saved Decks use 'equips'/'mugic'; keep them playable in the
+    // preview without rewriting the player's persisted Deck.
+    deckExpandido.equipamentos_objs = expandirArray(deckIds.equipamentos ?? deckIds.equips);
     deckExpandido.ataques_objs = expandirArray(deckIds.ataques);
     deckExpandido.locais_objs = expandirArray(deckIds.locais);
-    deckExpandido.mugics_objs = expandirArray(deckIds.mugics);
+    deckExpandido.mugics_objs = expandirArray(deckIds.mugics ?? deckIds.mugic);
     
     return deckExpandido;
 };
