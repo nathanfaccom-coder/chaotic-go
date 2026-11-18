@@ -11,7 +11,10 @@
     let pending = false;
     function sync() {
       pending = false;
-      if (!image.complete || !image.naturalWidth || !image.getClientRects().length || !container.getClientRects().length) {\n        layer.style.visibility = 'hidden';\n        return;\n      }
+      if (!image.complete || !image.naturalWidth || !image.getClientRects().length || !container.getClientRects().length) {
+        layer.style.visibility = 'hidden';
+        return;
+      }
       // As coordenadas precisam estar no MESMO espaço CSS do overlay.
       // getBoundingClientRect mede pixels após zoom/transform e causava
       // deslocamento duplo em navegadores e WebViews com escala diferente.
@@ -48,13 +51,20 @@
         layer.style.width = (img.width / (scaleX || 1)) + 'px';
         layer.style.height = (img.height / (scaleY || 1)) + 'px';
       }
+      layer.style.visibility = 'visible';
     }
     function schedule() {
       if (pending) return;
       pending = true;
       requestAnimationFrame(sync);
     }
-    image.addEventListener('load', schedule);\n    image.addEventListener('error', () => { layer.style.visibility = 'hidden'; });\n    // Card selection changes src before the next image load; prevent stale stats.\n    if (typeof MutationObserver !== 'undefined') {\n      new MutationObserver(() => { layer.style.visibility = 'hidden'; schedule(); })\n        .observe(image, { attributes: true, attributeFilter: ['src', 'srcset'] });\n    }
+    image.addEventListener('load', schedule);
+    image.addEventListener('error', () => { layer.style.visibility = 'hidden'; });
+    // Card selection changes src before the next image load; prevent stale stats.
+    if (typeof MutationObserver !== 'undefined') {
+      new MutationObserver(() => { layer.style.visibility = 'hidden'; schedule(); })
+        .observe(image, { attributes: true, attributeFilter: ['src', 'srcset'] });
+    }
     window.addEventListener('resize', schedule, { passive: true });
     window.addEventListener('orientationchange', schedule, { passive: true });
     if (typeof ResizeObserver !== 'undefined') {
