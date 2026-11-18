@@ -320,13 +320,13 @@ function _dromeSameSavedDeck(left, right) {
         if (Array.isArray(a)) {
             if (a.length !== b.length) return false;
             for (let i = 0; i < a.length; i++) {
-                if (Object.hasOwn(a, i) !== Object.hasOwn(b, i) ||
-                    (Object.hasOwn(a, i) && !equal(a[i], b[i], depth + 1))) return false;
+                if (Object.prototype.hasOwnProperty.call(a, i) !== Object.prototype.hasOwnProperty.call(b, i) ||
+                    (Object.prototype.hasOwnProperty.call(a, i) && !equal(a[i], b[i], depth + 1))) return false;
             }
             return true;
         }
         for (const key of keysA) {
-            if (!Object.hasOwn(b, key) || !equal(a[key], b[key], depth + 1)) return false;
+            if (!Object.prototype.hasOwnProperty.call(b, key) || !equal(a[key], b[key], depth + 1)) return false;
         }
         return true;
     }
