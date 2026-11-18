@@ -306,6 +306,33 @@ function selecionarDeckDrome(deckData, numSlot, irreg, divEl) {
     }
 }
 
+// Firebase can serialize identical saved objects with different key insertion order.
+// Compare their contents, not their JSON property order. Arrays remain ordered
+// because creature/attack positions are meaningful for the selected Deck.
+function _dromeSameSavedDeck(left, right) {
+    function equal(a, b, depth) {
+        if (Object.is(a, b)) return true;
+        if (depth > 32 || !a || !b || typeof a !== 'object' ||
+            typeof b !== 'object' || Array.isArray(a) !== Array.isArray(b)) return false;
+        const keysA = Object.keys(a);
+        const keysB = Object.keys(b);
+        if (keysA.length !== keysB.length) return false;
+        if (Array.isArray(a)) {
+            if (a.length !== b.length) return false;
+            for (let i = 0; i < a.length; i++) {
+                if (Object.hasOwn(a, i) !== Object.hasOwn(b, i) ||
+                    (Object.hasOwn(a, i) && !equal(a[i], b[i], depth + 1))) return false;
+            }
+            return true;
+        }
+        for (const key of keysA) {
+            if (!Object.hasOwn(b, key) || !equal(a[key], b[key], depth + 1)) return false;
+        }
+        return true;
+    }
+    return equal(left, right, 0);
+}
+
 window.confirmarEntradaDrome = async function() {
     const selected = window.estadoDrome.deckSelecionado;
     if (!selected) return;
@@ -377,7 +404,7 @@ window.confirmarEntradaDrome = async function() {
             window.estadoDrome.tipoJogo === entryType &&
             window.estadoDrome.deckSelecionado === selected &&
             (!window.ChaoticAuthUser?.id || window.ChaoticAuthUser.id === entryUid);
-        if (!stillCurrent || !stored || JSON.stringify(stored) !== JSON.stringify(original) ||
+        if (!stillCurrent || !stored || !_dromeSameSavedDeck(stored, original) ||
             verificarIrregularidadeDeck(stored, entryMode)) {
             throw new Error('O Deck foi alterado, removido ou a sessão mudou. Selecione novamente.');
         }
