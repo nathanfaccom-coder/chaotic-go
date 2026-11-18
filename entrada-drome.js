@@ -445,6 +445,9 @@ window.confirmarEntradaDrome = async function() {
 };
 
 window.ajustarTabuleiroBatalha = function(modo) {
+    // Avoid hiding or rearranging slots while the battle mode is still loading.
+    // A malformed mode must not crash the mobile battle screen.
+    if (!["1x1", "3x3", "6x6"].includes(modo)) return;
     let opZona = document.querySelector('.lado-oponente .zona-central');
     let jogZona = document.querySelector('.lado-jogador .zona-central');
     // Some mobile/legacy layouts omit slots while their view is mounting.
@@ -477,7 +480,7 @@ window.ajustarTabuleiroBatalha = function(modo) {
         if(jogLinha2) jogLinha2.style.marginTop = "10px"; if(opLinha2) opLinha2.style.marginTop = "10px";
         opMugics.forEach((m, i) => m.style.display = i >= 3 ? "none" : "block");
         jogMugics.forEach((m, i) => m.style.display = i >= 3 ? "none" : "block");
-    } else if (modo.includes("1x1")) {
+    } else if (modo === "1x1") {
         if (opLinha3) opLinha3.style.display = "none"; if (opLinha2) opLinha2.style.display = "none"; if (opLinha1) opLinha1.style.display = "flex";
         if (jogLinha3) jogLinha3.style.display = "none"; if (jogLinha2) jogLinha2.style.display = "none"; if (jogLinha1) jogLinha1.style.display = "flex";
         if(jogLinha1) jogLinha1.style.marginTop = "2px"; if(opLinha1) opLinha1.style.marginTop = "2px";
