@@ -485,9 +485,18 @@ window.expandirDeckParaOnline = function(deckIds) {
             );
         }
         const inventario = Array.isArray(window.inventario) ? window.inventario : [];
-        return lista.map(id => {
-            if (id === null || id === undefined || id === "") return null;
-            const carta = inventario.find(c => c && String(c.id) === String(id));
+        return lista.map(saved => {
+            if (saved === null || saved === undefined || saved === "") return null;
+            // Legacy Decks can persist either a card ID or an object holding
+            // its ID. Never trust an embedded card object as authoritative:
+            // resolve the actual owned card from the current inventory.
+            const id = saved && typeof saved === "object" && !Array.isArray(saved)
+                ? saved.id
+                : saved;
+            if ((typeof id !== "string" && typeof id !== "number") ||
+                String(id).trim() === "") return null;
+            const carta = inventario.find(c => c && c.id !== null &&
+                c.id !== undefined && String(c.id) === String(id));
             // Missing cards stay empty; never shift subsequent creature positions.
             return carta || null;
         });
