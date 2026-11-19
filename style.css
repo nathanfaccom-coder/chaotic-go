@@ -1939,6 +1939,7 @@ html, body {
   /* Fallback for Android WebViews without CSS container query units. */
   font-size: 14px;
   font-size: 4.0cqw;
+  font-size: var(--card-attribute-font, 4.0cqw);
   line-height: 1;
   white-space: nowrap;
   text-shadow: none;
@@ -1953,4 +1954,5 @@ html, body {
   width: 19%;
   font-size: 26px;
   font-size: 7.2cqw;
+  font-size: var(--card-energy-font, 7.2cqw);
 }
