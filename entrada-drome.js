@@ -972,12 +972,26 @@ window.voltarMenuDrome = function() {
     window.estadoDrome = { tipoJogo:null, modo:null, deckSelecionado:null, amigoDesafiado:null, naFila:false };
 };
 
-window.selecionarTipoJogo = function(tipo) { 
-    window.estadoDrome.tipoJogo = tipo; 
-    renderizarPassoModo(); 
+window.selecionarTipoJogo = function(tipo) {
+    // Reject unexpected routes instead of treating every unknown value as "amigo".
+    if (tipo !== 'online' && tipo !== 'amigo') return;
+    // Switching the matchmaking route invalidates a previously selected Deck.
+    window._dromeDeckRequestId = (window._dromeDeckRequestId || 0) + 1;
+    window.estadoDrome.tipoJogo = tipo;
+    window.estadoDrome.modo = null;
+    window.estadoDrome.deckSelecionado = null;
+    window.estadoDrome.deckSelecionadoUid = null;
+    window.estadoDrome.deckSelecionadoModo = null;
+    renderizarPassoModo();
 };
 
-window.selecionarModo = function(modo) { window.estadoDrome.modo = modo; window.renderizarPassoEscolhaDeck(); };
+window.selecionarModo = function(modo) {
+    // Keep the legacy UI, but never launch a deck fetch for an unsupported mode.
+    if (!['1x1', '3x3', '6x6'].includes(modo) ||
+        !['online', 'amigo'].includes(window.estadoDrome.tipoJogo)) return;
+    window.estadoDrome.modo = modo;
+    window.renderizarPassoEscolhaDeck();
+};
 
 setTimeout(function() {
     if (window._dbOn && window.escutarDesafiosDrome) window.escutarDesafiosDrome();
