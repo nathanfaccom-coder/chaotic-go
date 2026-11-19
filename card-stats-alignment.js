@@ -55,18 +55,23 @@
       const containerStyle = getComputedStyle(container);
       const borderX = parseFloat(containerStyle.borderLeftWidth) || 0;
       const borderY = parseFloat(containerStyle.borderTopWidth) || 0;
+      // CSS object-position accepts percentages, lengths and vertical-first
+      // keywords (e.g. "top left"). Lengths are offsets, not fractions.
       const position = computed.objectPosition.trim().split(/\s+/);
-      function fraction(value) {
+      const vertical = v => v === 'top' || v === 'bottom';
+      if (vertical(position[0]) && !vertical(position[1])) position.reverse();
+      function displacement(value, remaining) {
         if (value === 'left' || value === 'top') return 0;
-        if (value === 'right' || value === 'bottom') return 1;
-        if (value === 'center') return 0.5;
-        if (/%$/.test(value)) return parseFloat(value) / 100;
-        return 0.5;
+        if (value === 'right' || value === 'bottom') return remaining;
+        if (value === 'center') return remaining / 2;
+        if (/%$/.test(value)) return remaining * parseFloat(value) / 100;
+        if (/^-?\\d+(?:\\.\\d+)?px$/.test(value)) return parseFloat(value);
+        return remaining / 2;
       }
-      const px = fraction(position[0] || '50%');
-      const py = fraction(position[1] || '50%');
-      const x = (img.left - box.left) / sx - borderX + bl + (innerW - paintedW) * px;
-      const y = (img.top - box.top) / sy - borderY + bt + (innerH - paintedH) * py;
+      const dx = displacement(position[0] || '50%', innerW - paintedW);
+      const dy = displacement(position[1] || '50%', innerH - paintedH);
+      const x = (img.left - box.left) / sx - borderX + bl + dx;
+      const y = (img.top - box.top) / sy - borderY + bt + dy;
       layer.style.left = x + 'px';
       layer.style.top = y + 'px';
       layer.style.width = paintedW + 'px';
