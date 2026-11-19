@@ -1941,10 +1941,10 @@ html, body {
   white-space: nowrap;
   text-shadow: none;
 }
-#tela-detalhe-carta #stat-coragem { top: 65.5%; left: 12.9%; }
-#tela-detalhe-carta #stat-poder { top: 71.9%; left: 12.9%; }
-#tela-detalhe-carta #stat-sabedoria { top: 78.4%; left: 12.9%; }
-#tela-detalhe-carta #stat-velocidade { top: 85%; left: 12.9%; }
+#tela-detalhe-carta #stat-coragem { top: 65.5%; left: 17.0%; }
+#tela-detalhe-carta #stat-poder { top: 71.9%; left: 17.0%; }
+#tela-detalhe-carta #stat-sabedoria { top: 78.4%; left: 17.0%; }
+#tela-detalhe-carta #stat-velocidade { top: 85%; left: 17.0%; }
 #tela-detalhe-carta #stat-energia {
   top: 93.4%;
   left: 87.3%;
