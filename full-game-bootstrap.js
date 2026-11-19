@@ -58,9 +58,9 @@
       .catch(e => console.warn("Importação automática não concluída; dados anteriores preservados:", e));
 
     await import("./batalha.js?v=release-133");
-    await import("./training-history.js?v=player-window-135");
-    await import("./official-rewards.js?v=ledger-initial-139");
-    await import("./chaotic-lobby.js?v=room-expiry-140");
+    await import("./training-history.js?v=release-133");
+    await import("./official-rewards.js?v=release-133");
+    await import("./chaotic-lobby.js?v=release-133");
     inform("Conta conectada. Decks e progresso carregados. Treino 3x3 disponível por sala privada; outros modos em desenvolvimento.");
   }catch(e){
     console.error(e);
