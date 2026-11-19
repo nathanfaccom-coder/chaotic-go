@@ -65,7 +65,7 @@
         if (value === 'right' || value === 'bottom') return remaining;
         if (value === 'center') return remaining / 2;
         if (/%$/.test(value)) return remaining * parseFloat(value) / 100;
-        if (/^-?\\d+(?:\\.\\d+)?px$/.test(value)) return parseFloat(value);
+        if (/^-?\d+(?:\.\d+)?px$/.test(value)) return parseFloat(value);
         return remaining / 2;
       }
       const dx = displacement(position[0] || '50%', innerW - paintedW);
