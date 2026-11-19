@@ -55,7 +55,7 @@
       const containerStyle = getComputedStyle(container);
       const borderX = parseFloat(containerStyle.borderLeftWidth) || 0;
       const borderY = parseFloat(containerStyle.borderTopWidth) || 0;
-      const position = computed.objectPosition.trim().split(/\\s+/);
+      const position = computed.objectPosition.trim().split(/\s+/);
       function fraction(value) {
         if (value === 'left' || value === 'top') return 0;
         if (value === 'right' || value === 'bottom') return 1;
