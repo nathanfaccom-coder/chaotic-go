@@ -70,13 +70,19 @@
         status.textContent="O servidor retornou um extrato fora de ordem ou inválido. Atualize para tentar novamente.";
         return;
       }
-      const records=rawPage.filter(entry=>
-        entry&&entry.player_id===playerId
+      // A ledger row outside the authenticated, official-only scope is a
+      // protocol failure, not a receipt to quietly omit from the history.
+      // Fail closed before rendering totals or paginating.
+      const validOfficialReceipt=entry=>entry&&entry.player_id===playerId
         &&entry.reward_scope==="official_verified_only"
         &&["official_victory","official_participation"].includes(entry.award_kind)
         &&[entry.xp_awarded,entry.coins_awarded].every(n=>
-           Number.isSafeInteger(n)&&n>=0&&n<=10000)
-        &&(entry.xp_awarded>0||entry.coins_awarded>0));
+          Number.isSafeInteger(n)&&n>=0&&n<=10000)
+        &&(entry.xp_awarded>0||entry.coins_awarded>0);
+      if(!rawPage.every(validOfficialReceipt)){
+        throw new Error("Invalid official receipt payload");
+      }
+      const records=rawPage;
       // Read the authoritative ALL-TIME balance independently of the last
       // 20 receipts. A stale RPC can never repaint a newer DROME screen.
       if(typeof api.rpc==="function"){
@@ -243,12 +249,8 @@
           // Preserve the current cursor and let the player retry safely.
           if(!Array.isArray(response.data))throw new Error("Invalid ledger page");
           const page=response.data;
-          const valid=page.filter(entry=>entry&&entry.player_id===playerId
-            &&entry.reward_scope==="official_verified_only"
-            &&["official_victory","official_participation"].includes(entry.award_kind)
-            &&[entry.xp_awarded,entry.coins_awarded].every(n=>
-              Number.isSafeInteger(n)&&n>=0&&n<=10000)
-            &&(entry.xp_awarded>0||entry.coins_awarded>0));
+          if(!page.every(validOfficialReceipt))throw new Error("Invalid official ledger page payload");
+          const valid=page;
           // Validate the entire raw page before displaying any receipts.
           // A stale adapter can ignore the cursor and return a mixed page;
           // never present those records as older verified history.
