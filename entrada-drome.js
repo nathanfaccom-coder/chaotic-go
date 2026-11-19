@@ -434,7 +434,24 @@ window.confirmarEntradaDrome = async function() {
     const entryUid = activeUid;
     try {
         if (![1, 2, 3].includes(entrySlot)) throw new Error('Seleção de Deck inválida.');
-        const snapshot = await _dbGet('jogadores/' + entryUid + '/decks');
+        // Mobile networks can leave a Firebase read pending indefinitely. Give
+        // the player a recoverable failure instead of freezing the entry button.
+        // The timeout does not cancel or mutate the saved Deck.
+        let readTimeout;
+        let snapshot;
+        try {
+            snapshot = await Promise.race([
+                _dbGet('jogadores/' + entryUid + '/decks'),
+                new Promise((_, reject) => {
+                    readTimeout = setTimeout(
+                        () => reject(new Error('A consulta demorou demais. Verifique a conexão e tente novamente.')),
+                        15000
+                    );
+                })
+            ]);
+        } finally {
+            clearTimeout(readTimeout);
+        }
         const decks = snapshot.exists() ? (snapshot.val() || {}) : {};
         const stored = decks[entryMode + '_slot_' + entrySlot] || decks[entryMode + '_' + entrySlot];
         const original = Object.assign({}, selected);
