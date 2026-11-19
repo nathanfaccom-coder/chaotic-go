@@ -991,6 +991,9 @@ window.responderDesafioDrome = async function(resposta, salaId, modo) {
 };
 
 window.voltarMenuDrome = function() {
+    // Leaving Drome invalidates any in-flight Deck lookup. A delayed Firebase
+    // response must not restore a selection after the player exits the lobby.
+    window._dromeDeckRequestId = (window._dromeDeckRequestId || 0) + 1;
     document.getElementById("tela-entrada-drome").style.display = "none";
     document.getElementById("tela-menu").style.display = "flex";
     window.modoMenu = true;
