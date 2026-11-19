@@ -143,7 +143,16 @@ function carregarDecksParaEscolha(modo) {
         localStorage.getItem("chaoticUID") === uid &&
         (!window.ChaoticAuthUser?.id || window.ChaoticAuthUser.id === uid);
 
-    _dbGet('jogadores/' + uid + '/decks').then(snapshot => {
+    // Never leave the mobile Deck selector loading forever when Firebase stalls.
+    // A timed-out response is ignored; retry creates a new request generation.
+    let deckLoadTimer;
+    const deckLoad = Promise.race([
+        Promise.resolve().then(() => _dbGet('jogadores/' + uid + '/decks')),
+        new Promise((_, reject) => {
+            deckLoadTimer = setTimeout(() => reject(new Error('Tempo limite ao carregar Decks')), 15000);
+        })
+    ]);
+    deckLoad.then(snapshot => {
         // A delayed request from an older mode must NEVER overwrite the
         // list opened afterward (common on slow Android connections).
         if (!isCurrent()) return;
@@ -240,7 +249,7 @@ function carregarDecksParaEscolha(modo) {
         window.estadoDrome.deckSelecionado = null;
         const btn = document.getElementById("btn-jogar-drome");
         if (btn) btn.style.display = "none";
-    });
+    }).finally(() => clearTimeout(deckLoadTimer));
 }
 
 function verificarIrregularidadeDeck(deck, modo) {
