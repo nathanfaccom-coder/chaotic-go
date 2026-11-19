@@ -74,6 +74,15 @@
     }
     window.addEventListener('resize', schedule, { passive: true });
     window.addEventListener('orientationchange', schedule, { passive: true });
+    // Mobile browser chrome and PWA viewport changes may not fire window.resize.
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', schedule, { passive: true });
+      window.visualViewport.addEventListener('scroll', schedule, { passive: true });
+    }
+    // Web fonts can change layout after the initial card render.
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(schedule).catch(() => {});
+    }
     if (typeof ResizeObserver !== 'undefined') {
       const resize = new ResizeObserver(schedule);
       resize.observe(image);
