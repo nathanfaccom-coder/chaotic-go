@@ -1936,6 +1936,8 @@ html, body {
   box-sizing: border-box;
   width: 7%;
   transform: translate(-50%, -50%);
+  /* Fallback for Android WebViews without CSS container query units. */
+  font-size: 14px;
   font-size: 4.0cqw;
   line-height: 1;
   white-space: nowrap;
@@ -1949,5 +1951,6 @@ html, body {
   top: 93.4%;
   left: 87.3%;
   width: 19%;
+  font-size: 26px;
   font-size: 7.2cqw;
 }
