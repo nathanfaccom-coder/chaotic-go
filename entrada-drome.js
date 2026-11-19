@@ -280,19 +280,15 @@ function verificarIrregularidadeDeck(deck, modo) {
             problems.push(label + ": posições inválidas");
             continue;
         }
-        // Legacy decks store card references as IDs or {id: ...}.
-        // A truthy object without an ID is not a card, even if it fills a slot.
-        // Reject malformed references before starting the legacy battle flow.
+        // Keep complete legacy card objects readable; reject only values
+        // that cannot represent any card reference (booleans, arrays,
+        // non-finite numbers, empty objects or blank identifiers).
         if (slots && typeof slots === "object") {
             const malformed = Object.values(slots).some(ref => {
                 if (ref === null || ref === undefined || ref === "") return false;
                 if (typeof ref === "string") return !ref.trim();
                 if (typeof ref === "number") return !Number.isSafeInteger(ref) || ref < 0;
-                if (typeof ref === "object" && !Array.isArray(ref)) {
-                    const id = ref.id ?? ref.cardId ?? ref.cartaId;
-                    return !(typeof id === "string" && id.trim()) &&
-                        !(typeof id === "number" && Number.isSafeInteger(id) && id >= 0);
-                }
+                if (typeof ref === "object") return Array.isArray(ref) || Object.keys(ref).length === 0;
                 return true;
             });
             if (malformed) problems.push(label + ": referência de carta inválida");
