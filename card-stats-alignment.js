@@ -41,19 +41,32 @@
         return;
       }
       const fitMode = computed.objectFit;
-      const ratio = fitMode === 'cover'
-        ? Math.max(innerW / image.naturalWidth, innerH / image.naturalHeight)
-        : fitMode === 'fill'
-          ? null
-          : Math.min(innerW / image.naturalWidth, innerH / image.naturalHeight);
+      // Match the browser's actual object-fit sizing, including scale-down and
+      // none. The previous fallback treated both as contain and misplaced stats.
+      const contain = Math.min(innerW / image.naturalWidth, innerH / image.naturalHeight);
+      const cover = Math.max(innerW / image.naturalWidth, innerH / image.naturalHeight);
+      const ratio = fitMode === 'cover' ? cover
+        : fitMode === 'none' ? 1
+        : fitMode === 'scale-down' ? Math.min(1, contain)
+        : fitMode === 'fill' ? null : contain;
       const paintedW = ratio === null ? innerW : image.naturalWidth * ratio;
       const paintedH = ratio === null ? innerH : image.naturalHeight * ratio;
-      // object-position defaults to 50% 50%, matching the card CSS.
+      // object-position is a percentage of the remaining free space.
       const containerStyle = getComputedStyle(container);
       const borderX = parseFloat(containerStyle.borderLeftWidth) || 0;
       const borderY = parseFloat(containerStyle.borderTopWidth) || 0;
-      const x = (img.left - box.left) / sx - borderX + bl + (innerW - paintedW) / 2;
-      const y = (img.top - box.top) / sy - borderY + bt + (innerH - paintedH) / 2;
+      const position = computed.objectPosition.trim().split(/\\s+/);
+      function fraction(value) {
+        if (value === 'left' || value === 'top') return 0;
+        if (value === 'right' || value === 'bottom') return 1;
+        if (value === 'center') return 0.5;
+        if (/%$/.test(value)) return parseFloat(value) / 100;
+        return 0.5;
+      }
+      const px = fraction(position[0] || '50%');
+      const py = fraction(position[1] || '50%');
+      const x = (img.left - box.left) / sx - borderX + bl + (innerW - paintedW) * px;
+      const y = (img.top - box.top) / sy - borderY + bt + (innerH - paintedH) * py;
       layer.style.left = x + 'px';
       layer.style.top = y + 'px';
       layer.style.width = paintedW + 'px';
