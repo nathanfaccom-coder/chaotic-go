@@ -65,7 +65,9 @@
         if (value === 'right' || value === 'bottom') return remaining;
         if (value === 'center') return remaining / 2;
         if (/%$/.test(value)) return remaining * parseFloat(value) / 100;
-        if (/^-?\d+(?:\.\d+)?px$/.test(value)) return parseFloat(value);
+        // CSS permits unitless zero and fractional lengths such as .5px.
+        // Treat them as absolute offsets rather than silently centering.
+        if (value === '0' || /^[-+]?(?:\\d+\\.?\\d*|\\.\\d+)px$/.test(value)) return parseFloat(value);
         return remaining / 2;
       }
       const dx = displacement(position[0] || '50%', innerW - paintedW);
