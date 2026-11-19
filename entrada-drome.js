@@ -354,9 +354,12 @@ function _dromeSameSavedDeck(left, right) {
         if (keysA.length !== keysB.length) return false;
         if (Array.isArray(a)) {
             if (a.length !== b.length) return false;
-            for (let i = 0; i < a.length; i++) {
-                if (Object.prototype.hasOwnProperty.call(a, i) !== Object.prototype.hasOwnProperty.call(b, i) ||
-                    (Object.prototype.hasOwnProperty.call(a, i) && !equal(a[i], b[i], depth + 1))) return false;
+            // Saved Firebase arrays can carry additional enumerable properties.
+            // Compare ALL keys as well as their values: otherwise a changed
+            // loadout could pass the pre-entry revalidation unnoticed.
+            for (const key of keysA) {
+                if (!Object.prototype.hasOwnProperty.call(b, key) ||
+                    !equal(a[key], b[key], depth + 1)) return false;
             }
             return true;
         }
