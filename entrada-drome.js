@@ -470,6 +470,12 @@ window.confirmarEntradaDrome = async function() {
         }
     } catch (error) {
         console.warn('Entrada no Drome interrompida:', error);
+        // A failed asynchronous read may belong to a previous account, mode or
+        // selection. Never clear a newer Deck or overwrite its feedback.
+        if (window.estadoDrome.deckSelecionado !== selected ||
+            localStorage.getItem('chaoticUID') !== entryUid ||
+            window.estadoDrome.modo !== entryMode ||
+            window.estadoDrome.tipoJogo !== entryType) return;
         window.estadoDrome.deckSelecionado = null;
         const aviso = document.getElementById('aviso-deck-irregular');
         const texto = document.getElementById('texto-irregularidade');
