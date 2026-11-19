@@ -58,6 +58,11 @@
       layer.style.top = y + 'px';
       layer.style.width = paintedW + 'px';
       layer.style.height = paintedH + 'px';
+      // Scale text from the actual painted card width, including old Android
+      // WebViews without container-query units (cqw). Avoid viewport-based
+      // fallbacks that shift/oversize values in the installed PWA.
+      layer.style.setProperty('--card-attribute-font', (paintedW * 0.04) + 'px');
+      layer.style.setProperty('--card-energy-font', (paintedW * 0.072) + 'px');
       layer.style.visibility = 'visible';
     }
     function schedule() {
