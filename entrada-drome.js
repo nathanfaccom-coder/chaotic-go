@@ -437,13 +437,21 @@ window.confirmarEntradaDrome = async function() {
         // Mobile networks can leave a Firebase read pending indefinitely. Give
         // the player a recoverable failure instead of freezing the entry button.
         // The timeout does not cancel or mutate the saved Deck.
-        const snapshot = await Promise.race([
-            _dbGet('jogadores/' + entryUid + '/decks'),
-            new Promise((_, reject) => setTimeout(
-                () => reject(new Error('A consulta demorou demais. Verifique a conexão e tente novamente.')),
-                15000
-            ))
-        ]);
+        let readTimeout;
+        let snapshot;
+        try {
+            snapshot = await Promise.race([
+                _dbGet('jogadores/' + entryUid + '/decks'),
+                new Promise((_, reject) => {
+                    readTimeout = setTimeout(
+                        () => reject(new Error('A consulta demorou demais. Verifique a conexão e tente novamente.')),
+                        15000
+                    );
+                })
+            ]);
+        } finally {
+            clearTimeout(readTimeout);
+        }
         const decks = snapshot.exists() ? (snapshot.val() || {}) : {};
         const stored = decks[entryMode + '_slot_' + entrySlot] || decks[entryMode + '_' + entrySlot];
         const original = Object.assign({}, selected);
