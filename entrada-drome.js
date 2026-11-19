@@ -259,6 +259,27 @@ function verificarIrregularidadeDeck(deck, modo) {
             (typeof item !== "object" || Object.keys(item).length > 0)
         );
     }
+    // Firebase objects may contain sparse numeric indices, but arbitrary keys
+    // must never be counted as legal battle slots. Reject malformed loadouts
+    // instead of silently accepting them as complete.
+    function validSlots(value, limit) {
+        if (!value || typeof value !== "object" || Array.isArray(value) && value.length > limit) return false;
+        const keys = Object.keys(value);
+        return keys.every(key => /^(0|[1-9][0-9]*)$/.test(key) &&
+            Number.isSafeInteger(Number(key)) && Number(key) < limit);
+    }
+    const collections = [
+        ["Criaturas", deck.criaturas, required],
+        ["Ataques", deck.ataques, 20],
+        ["Locais", deck.locais, 10],
+        ["Equipamentos", deck.equipamentos ?? deck.equips, required],
+        ["Mugics", deck.mugics ?? deck.mugic, required]
+    ];
+    for (const [label, slots, limit] of collections) {
+        if (slots != null && !validSlots(slots, limit)) {
+            problems.push(label + ": posições inválidas");
+        }
+    }
     const attacks = occupied(deck.ataques).length;
     const locations = occupied(deck.locais).length;
     const creatures = occupied(deck.criaturas).length;
