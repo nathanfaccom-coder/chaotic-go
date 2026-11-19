@@ -262,11 +262,13 @@ function verificarIrregularidadeDeck(deck, modo) {
     // Firebase objects may contain sparse numeric indices, but arbitrary keys
     // must never be counted as legal battle slots. Reject malformed loadouts
     // instead of silently accepting them as complete.
-    function validSlots(value, limit) {
-        if (!value || typeof value !== "object" || Array.isArray(value) && value.length > limit) return false;
+    function validSlots(value, limit, physicalLimit = limit) {
+        // Legacy 3x3 creature formations can contain empty slots within the six-position board.
+        // Occupied-card count is checked separately; preserve those saved formations.
+        if (!value || typeof value !== "object" || Array.isArray(value) && value.length > physicalLimit) return false;
         const keys = Object.keys(value);
         return keys.every(key => /^(0|[1-9][0-9]*)$/.test(key) &&
-            Number.isSafeInteger(Number(key)) && Number(key) < limit);
+            Number.isSafeInteger(Number(key)) && Number(key) < physicalLimit);
     }
     const collections = [
         ["Criaturas", deck.criaturas, required],
@@ -276,7 +278,7 @@ function verificarIrregularidadeDeck(deck, modo) {
         ["Mugics", deck.mugics ?? deck.mugic, required]
     ];
     for (const [label, slots, limit] of collections) {
-        if (slots != null && !validSlots(slots, limit)) {
+        if (slots != null && !validSlots(slots, limit, label === "Criaturas" ? 6 : limit)) {
             problems.push(label + ": posições inválidas");
             continue;
         }
