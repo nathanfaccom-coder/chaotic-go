@@ -162,16 +162,25 @@
           provenance.remove();return;
         }
         if(matchesError)throw matchesError;
-        const safe=(Array.isArray(matches)?matches:[]).filter(m=>
-          m&&(m.host_id===playerId||m.guest_id===playerId)
-          &&["1x1","3x3","6x6"].includes(m.mode));
+        // Do not interpret a malformed server response as an empty official history.
+        // In particular, never display another player's results if a client
+        // adapter or server filter returns unexpected records.
+        if(!Array.isArray(matches))throw new Error("Invalid official match response");
+        if(matches.some(m=>!m || typeof m.id!=="string" ||
+          !(m.host_id===playerId||m.guest_id===playerId) ||
+          !["1x1","3x3","6x6"].includes(m.mode))) {
+          throw new Error("Official match response outside authenticated scope");
+        }
+        const safe=matches;
         provenanceStatus.textContent=safe.length
           ?"Últimos "+safe.length+" registro(s); pendentes não contam como vitórias."
           :"Nenhuma partida oficial registrada pelo motor.";
         for(const m of safe){
           const verified=m.result_state==="verified"
             &&m.verification_source==="official_engine_v1"
-            &&m.verified_at&&[m.host_id,m.guest_id].includes(m.winner_id);
+            &&typeof m.verified_at==="string"
+            &&Number.isFinite(Date.parse(m.verified_at))
+            &&[m.host_id,m.guest_id].includes(m.winner_id);
           const label=verified?(m.winner_id===playerId?"Vitória verificada":"Derrota verificada")
             :"Pendente de verificação oficial";
           const p=document.createElement("p");
