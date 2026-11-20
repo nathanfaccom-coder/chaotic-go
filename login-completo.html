@@ -10,6 +10,34 @@
         .modal-oculto { display: none; }
         .modal-ativo { display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 1000; }
         .modal-conteudo { background: #111; border: 2px solid #4CAF50; padding: 20px; border-radius: 10px; text-align: center; }
+        /* Teclado virtual e telas pequenas: manter todos os controles acessíveis. */
+        #modal-login.modal-ativo, #modal-cadastro.modal-ativo {
+            box-sizing: border-box;
+            padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            align-items: safe center;
+            width: 100%;
+            min-height: 100%;
+            height: 100dvh;
+        }
+        #modal-login .modal-conteudo, #modal-cadastro .modal-conteudo {
+            box-sizing: border-box;
+            width: min(100%, 420px);
+            max-height: 100%;
+            overflow-y: auto;
+            margin: auto;
+        }
+        #modal-login input, #modal-cadastro input {
+            box-sizing: border-box;
+            max-width: 100%;
+            min-width: 0;
+            font-size: 16px;
+        }
+        #modal-login button, #modal-cadastro button {
+            min-height: 44px;
+            max-width: 100%;
+        }
     </style>
 </head>
 <body>
