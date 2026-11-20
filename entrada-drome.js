@@ -101,6 +101,7 @@ window.renderizarPassoEscolhaDeck = function() {
         <div id="lista-decks-drome" style="display:flex;flex-direction:column;gap:12px;width:85%;">
             <p style="color:#555;font-size:10px;text-align:center;font-family:monospace;">Carregando decks...</p>
         </div>
+        <button id="btn-recarregar-decks-drome" type="button" class="btn-voltar-pequeno" style="margin-top:12px;min-height:44px;width:85%;touch-action:manipulation;" onclick="window.recarregarDecksDrome()">↻ Sincronizar Decks salvos</button>
         <div id="aviso-deck-irregular" style="display:none;background:rgba(229,57,53,0.15);border:1px solid #e53935;border-radius:8px;padding:10px;width:85%;margin-top:15px;box-sizing:border-box;">
             <p style="color:#ff5555;font-size:10px;font-weight:bold;margin:0 0 5px 0;">⚠️ DECK IRREGULAR</p>
             <p id="texto-irregularidade" style="color:#ffaaaa;font-size:9px;margin:0;line-height:1.4;"></p>
@@ -109,6 +110,16 @@ window.renderizarPassoEscolhaDeck = function() {
         <button class="btn-voltar-pequeno" style="margin-top:15px;" onclick="renderizarPassoModo()">← Voltar</button>
     `;
     carregarDecksParaEscolha(modo);
+};
+
+// Manual sync is useful after editing a Deck on another device or tab.
+// The existing loader invalidates cached selections and ignores stale replies.
+window.recarregarDecksDrome = function() {
+    const mode = window.estadoDrome.modo;
+    if (!["1x1", "3x3", "6x6"].includes(mode) ||
+        document.getElementById("tela-entrada-drome")?.style.display === "none" ||
+        !document.getElementById("lista-decks-drome")) return;
+    carregarDecksParaEscolha(mode);
 };
 
 function carregarDecksParaEscolha(modo) {
