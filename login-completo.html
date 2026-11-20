@@ -29,6 +29,7 @@
             <input type="email" id="usuario" placeholder="E-mail" autocomplete="email" style="display: block; width: 100%; margin: 10px auto; padding: 10px;">
             <input type="password" id="senha" placeholder="Senha" autocomplete="current-password" style="display: block; width: 100%; margin: 10px auto; padding: 10px;">
             
+            <button type="button" class="botao-padrao" data-toggle-password="senha" aria-controls="senha" aria-pressed="false" aria-label="Mostrar senha">Mostrar senha</button>
             <button class="botao-padrao" id="btn-entrar" style="margin-top: 10px;">Entrar</button>
             <button class="botao-padrao" id="btn-recuperar-senha" type="button">Esqueci minha senha</button>
             <button class="botao-voltar" id="btn-fechar-login" style="margin-top: 10px; background: red; color: white;">Voltar</button>
@@ -43,6 +44,7 @@
             <input type="text" id="novo-usuario" placeholder="Nome de Usuário" style="display: block; width: 100%; margin: 10px auto; padding: 10px;">
             <input type="password" id="nova-senha" placeholder="Crie uma Senha (mín. 8 caracteres)" autocomplete="new-password" style="display: block; width: 100%; margin: 10px auto; padding: 10px;">
             
+            <button type="button" class="botao-padrao" data-toggle-password="nova-senha" aria-controls="nova-senha" aria-pressed="false" aria-label="Mostrar senha">Mostrar senha</button>
             <button class="botao-padrao" id="btn-cadastrar" style="margin-top: 10px;">Cadastrar</button>
             <button class="botao-voltar" id="btn-fechar-cadastro" style="margin-top: 10px; background: red; color: white;">Voltar</button>
         </div>
@@ -53,6 +55,19 @@
 <script src="supabase-config.js?v=release-133"></script>
 <script src="auth-client.js?v=release-133"></script>
 <script src="login-auth.js?v=release-133"></script>
+<script>
+  document.querySelectorAll("[data-toggle-password]").forEach(button => {
+    const field = document.getElementById(button.dataset.togglePassword);
+    if (!field) return;
+    button.addEventListener("click", () => {
+      const visible = field.type === "password";
+      field.type = visible ? "text" : "password";
+      button.setAttribute("aria-pressed", String(visible));
+      button.setAttribute("aria-label", visible ? "Ocultar senha" : "Mostrar senha");
+      button.textContent = visible ? "Ocultar senha" : "Mostrar senha";
+    });
+  });
+</script>
 </body>
 </html>
 
