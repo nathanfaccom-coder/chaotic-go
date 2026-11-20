@@ -42,16 +42,6 @@ begin
   -- A matching retry may return the already committed declaration, but only
   -- after the deck's current card ID has been verified below.
 
-  if p_kind='attack' and not exists (
-    select 1 from public.chaotic_combat_declarations d
-    where d.lobby_id=p_lobby_id and d.actor_id=actor and d.kind='creature'
-  ) then raise exception 'Primeiro selecione uma criatura em um turno anterior'; end if;
-
-  if p_kind='creature' and exists (
-    select 1 from public.chaotic_combat_declarations d
-    where d.lobby_id=p_lobby_id and d.actor_id=actor and d.kind='creature'
-  ) then raise exception 'A criatura de teste já foi selecionada'; end if;
-
   select g.data into deck from public.chaotic_game_nodes g
     where g.user_id=actor
       and g.node_path='decks/'||l.mode||'_'||p_deck_slot::text;
@@ -75,6 +65,16 @@ begin
     raise exception 'Já foi registrada uma ação diferente neste turno'
       using errcode='23505';
   end if;
+  if p_kind='attack' and not exists (
+    select 1 from public.chaotic_combat_declarations d
+    where d.lobby_id=p_lobby_id and d.actor_id=actor and d.kind='creature'
+  ) then raise exception 'Primeiro selecione uma criatura em um turno anterior'; end if;
+
+  if p_kind='creature' and exists (
+    select 1 from public.chaotic_combat_declarations d
+    where d.lobby_id=p_lobby_id and d.actor_id=actor and d.kind='creature'
+  ) then raise exception 'A criatura de teste já foi selecionada'; end if;
+
   insert into public.chaotic_combat_declarations(
     lobby_id,turn_no,actor_id,kind,deck_slot,card_slot,card_id
   ) values(p_lobby_id,m.turn_no,actor,p_kind,p_deck_slot,p_card_slot,card_text)
