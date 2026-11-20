@@ -1,5 +1,8 @@
 name: Validar Decks e Supabase (Chaotic GO)
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - feature/chaotic-completo-supabase
