@@ -102,5 +102,24 @@
           .addEventListener?.('change', syncInstallPanel);
         syncInstallPanel();
     </script>
+
+    <div id="aviso-conexao" role="status" aria-live="polite" hidden style="position:fixed;top:max(12px,env(safe-area-inset-top));left:12px;right:12px;z-index:10001;background:#241b12;border:1px solid #f5b544;color:#fff;padding:12px;border-radius:10px;text-align:center;font:14px system-ui,sans-serif;box-shadow:0 3px 12px #0008">
+      Sem conexão. O jogo pode mostrar dados antigos até a internet voltar.
+      <button id="tentar-conexao" type="button" style="margin-left:8px;min-height:44px;padding:8px 12px;border:0;border-radius:8px;background:#f5b544;color:#111;font-weight:bold">Tentar novamente</button>
+    </div>
+    <script>
+      (() => {
+        const aviso = document.getElementById('aviso-conexao');
+        const tentar = document.getElementById('tentar-conexao');
+        function atualizarConexao() { aviso.hidden = navigator.onLine; }
+        window.addEventListener('online', atualizarConexao);
+        window.addEventListener('offline', atualizarConexao);
+        tentar.addEventListener('click', () => {
+          if (navigator.onLine) window.location.reload();
+          else atualizarConexao();
+        });
+        atualizarConexao();
+      })();
+    </script>
 </body>
 </html>
