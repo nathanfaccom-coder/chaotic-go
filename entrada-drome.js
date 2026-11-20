@@ -486,7 +486,14 @@ window.confirmarEntradaDrome = async function() {
         if (entryButton) entryButton.style.display = 'none';
     } finally {
         window._dromeEntryPending = false;
-        if (entryButton) entryButton.disabled = false;
+        // A previous asynchronous entry must not re-enable a button that now
+        // belongs to another Deck, mode, account, or screen on mobile.
+        if (entryButton && document.getElementById('btn-jogar-drome') === entryButton &&
+            window.estadoDrome.deckSelecionado === selected &&
+            window.estadoDrome.modo === entryMode &&
+            localStorage.getItem('chaoticUID') === entryUid) {
+            entryButton.disabled = false;
+        }
     }
 };
 
