@@ -434,7 +434,30 @@ window.confirmarEntradaDrome = async function() {
     const entryUid = activeUid;
     try {
         if (![1, 2, 3].includes(entrySlot)) throw new Error('Seleção de Deck inválida.');
-        const snapshot = await _dbGet('jogadores/' + entryUid + '/decks');
+        // A stalled Firebase request must not lock the Drome entry forever.
+        // The timeout rejects closed: it never treats an unverified Deck as valid.
+        const snapshot = await new Promise((resolve, reject) => {
+            let settled = false;
+            const timer = setTimeout(() => {
+                if (settled) return;
+                settled = true;
+                reject(new Error('A conferência do Deck demorou demais. Verifique a conexão e tente novamente.'));
+            }, 15000);
+            Promise.resolve().then(() => _dbGet('jogadores/' + entryUid + '/decks')).then(
+                value => {
+                    if (settled) return;
+                    settled = true;
+                    clearTimeout(timer);
+                    resolve(value);
+                },
+                error => {
+                    if (settled) return;
+                    settled = true;
+                    clearTimeout(timer);
+                    reject(error);
+                }
+            );
+        });
         const decks = snapshot.exists() ? (snapshot.val() || {}) : {};
         const stored = decks[entryMode + '_slot_' + entrySlot] || decks[entryMode + '_' + entrySlot];
         const original = Object.assign({}, selected);
